@@ -60,6 +60,28 @@ export interface StatusDistribution {
   count: number;
 }
 
+/** The six count columns the Status-by-Doer table renders, keyed by the field
+ *  they read. Used to key the hover previews below. */
+export type StatusCellBucket =
+  | "criticalCount"
+  | "done"
+  | "pendingTotal"
+  | "notApproved"
+  | "cancelled"
+  | "total";
+
+/** One line in a status-cell hover preview. Deliberately minimal — this ships
+ *  to the client for every non-zero cell, so it carries only what the popover
+ *  draws. */
+export interface StatusCellTask {
+  id: string;
+  taskNo: number | null;
+  title: string;
+  client: string | null;
+  subject: string | null;
+  dueAt: Date | null;
+}
+
 export interface EmployeeStatusRow {
   employeeId: string;
   employeeName: string;
@@ -79,6 +101,11 @@ export interface EmployeeStatusRow {
   total: number;
   /** tasks with priority = imp_urgent */
   criticalCount: number;
+  /** Hover-preview tasks per count column, most-urgent first, capped.
+   *  Built in the SAME pass as the counts (see computeEmployeeStatusTable), so
+   *  a preview can never disagree with the badge above it. Absent for any
+   *  bucket whose count is 0, which is what keeps the payload small. */
+  previews: Partial<Record<StatusCellBucket, StatusCellTask[]>>;
 }
 
 export interface TopPerformer {
@@ -168,6 +195,20 @@ export interface Punctuality {
 /** A single signed early/late aging band with its done-task count. */
 export interface DoneAgingBandCount { id: string; label: string; count: number }
 
+/** On-time delivery rolled up to a department, for the gauge's expanded view.
+ *  A doer is counted under their PRIMARY department only, so the rows never
+ *  double-count someone who belongs to several. */
+export interface PunctualityDepartment {
+  departmentId: string;
+  departmentName: string;
+  /** Dated done tasks (onTime + late). */
+  done: number;
+  onTime: number;
+  late: number;
+  /** onTime ÷ done, % (0 when none). */
+  rate: number;
+}
+
 /** Punctuality computed against ONE due-date basis (original or revised). */
 export interface PunctualityBasis {
   basis: "original" | "revised";
@@ -175,6 +216,7 @@ export interface PunctualityBasis {
   onTimeRate: number;
   byPerson: PunctualityPerson[];      // reuse existing PunctualityPerson
   histogram: DoneAgingBandCount[];     // 12 signed bands, always all present
+  byDepartment: PunctualityDepartment[]; // busiest first; [] when unmapped
 }
 
 /** On-time delivery measured against both the original and the revised due date. */

@@ -11,9 +11,12 @@ import {
 } from "@tanstack/react-table";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Search, X, Users, ChevronRight } from "lucide-react";
-import type { EmployeeStatusRow, ViewMode } from "@/lib/types";
+import type { EmployeeStatusRow, StatusCellBucket, ViewMode } from "@/lib/types";
+import { StatusCellPopover } from "./status-cell-popover";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
-import { SectionPagination, usePagedRows } from "./section-chrome";
+import { DEFAULT_DEBOUNCE_MS, useDebouncedCallback } from "@/lib/client/use-debounced";
+import { SectionPagination, usePagedRows, CollapseToggle, CollapsibleBody } from "./section-chrome";
+import { DashboardSectionHeader } from "./section-header";
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { PageShell } from "@/components/layout/page-shell";
@@ -37,8 +40,33 @@ function Pill({ value, tone }: { value: number; tone: Tone }) {
   );
 }
 
+/** Wraps a count cell in its hover preview. Every count column goes through
+ *  this, so the header, the mini-list and the "View all" link are defined once
+ *  instead of six times. */
+function withPreview(
+  row: EmployeeStatusRow,
+  bucket: StatusCellBucket,
+  count: number,
+  view: ViewMode,
+  children: React.ReactNode,
+) {
+  return (
+    <StatusCellPopover
+      employeeName={row.employeeName}
+      employeeId={row.employeeId}
+      bucket={bucket}
+      count={count}
+      tasks={row.previews?.[bucket]}
+      view={view}
+    >
+      {children}
+    </StatusCellPopover>
+  );
+}
+
 function buildColumns(
   avatarById: Record<string, string | null>,
+  view: ViewMode,
 ): ColumnDef<EmployeeStatusRow>[] {
   return [
     {
@@ -72,10 +100,16 @@ function buildColumns(
       cell: (info) => {
         const n = info.getValue<number>();
         return n > 0 ? (
-          <span className="inline-flex items-center gap-1.5">
-            <CriticalBadge />
-            <span className="text-display-3xs tabular-nums">{n}</span>
-          </span>
+          withPreview(
+            info.row.original,
+            "criticalCount",
+            n,
+            view,
+            <span className="inline-flex items-center gap-1.5">
+              <CriticalBadge />
+              <span className="text-display-3xs tabular-nums">{n}</span>
+            </span>,
+          )
         ) : (
           <span className="text-ink-subtle text-mono">0</span>
         );
@@ -84,31 +118,39 @@ function buildColumns(
     {
       accessorKey: "done",
       header: "Done",
-      cell: (info) => <Pill value={info.getValue<number>()} tone="green" />,
+      cell: (info) =>
+        withPreview(info.row.original, "done", info.getValue<number>(), view,
+          <Pill value={info.getValue<number>()} tone="green" />),
     },
     {
       accessorKey: "pendingTotal",
       header: "Pending",
-      cell: (info) => <Pill value={info.getValue<number>()} tone="amber" />,
+      cell: (info) =>
+        withPreview(info.row.original, "pendingTotal", info.getValue<number>(), view,
+          <Pill value={info.getValue<number>()} tone="amber" />),
     },
     {
       accessorKey: "notApproved",
       header: "Not Approved",
-      cell: (info) => <Pill value={info.getValue<number>()} tone="red" />,
+      cell: (info) =>
+        withPreview(info.row.original, "notApproved", info.getValue<number>(), view,
+          <Pill value={info.getValue<number>()} tone="red" />),
     },
     {
       accessorKey: "cancelled",
       header: "Cancelled",
-      cell: (info) => <Pill value={info.getValue<number>()} tone="rose" />,
+      cell: (info) =>
+        withPreview(info.row.original, "cancelled", info.getValue<number>(), view,
+          <Pill value={info.getValue<number>()} tone="rose" />),
     },
     {
       accessorKey: "total",
       header: "Total",
-      cell: (info) => (
-        <span className="text-display-3xs text-ink-strong">
-          {info.getValue<number>()}
-        </span>
-      ),
+      cell: (info) =>
+        withPreview(info.row.original, "total", info.getValue<number>(), view,
+          <span className="text-display-3xs text-ink-strong">
+            {info.getValue<number>()}
+          </span>),
     },
   ];
 }
@@ -137,6 +179,7 @@ export function StatusTable({
   avatarById?: Record<string, string | null>;
 }) {
   const router = useRouter();
+  const [open, setOpen] = React.useState(true);
   const [query, setQuery] = React.useState("");
   const [selectedDept, setSelectedDept] = React.useState<string | null>(null);
   // Paged 10 people at a time, with the shared top-right pager (was a
@@ -175,7 +218,7 @@ export function StatusTable({
     });
   }, [rows, query, selectedDept, sectionQuery]);
 
-  const columns = React.useMemo(() => buildColumns(avatarById), [avatarById]);
+  const columns = React.useMemo(() => buildColumns(avatarById, view), [avatarById, view]);
 
   const table = useReactTable({
     data: filtered,
@@ -202,47 +245,52 @@ export function StatusTable({
         animation: "fadeUp 500ms ease-out 700ms forwards",
       }}
     >
-      <header className="mb-5 flex items-end justify-between gap-4 flex-wrap">
-        {/* Top-right pager, shared with the other paginated sections. */}
-        <div className="order-2 ml-auto">
-          <SectionPagination
-            page={pagedRows.page}
-            pageCount={pagedRows.pageCount}
-            onPage={pagedRows.setPage}
-            total={pagedRows.total}
-            pageSize={PAGE}
-            label="Status by doer"
-          />
-        </div>
-        <div className="order-1 flex items-start gap-3">
+      <DashboardSectionHeader
+        eyebrow="People · Status Breakdown"
+        icon={
           <span
             aria-hidden
-            className="mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
+            className="inline-flex size-10 items-center justify-center rounded-xl"
             style={{ background: "rgba(15, 23, 42, 0.05)", color: "var(--color-ink-strong)" }}
           >
             <Users size={20} strokeWidth={2.2} />
           </span>
-          <div>
-          <h2 className="text-display-lg text-ink-strong">
-            Status by {view === "doer" ? "Doer" : "Initiator"}
-          </h2>
-          <p className="text-body-lg text-ink-subtle mt-1">
-            {hasActiveFilter ? (
-              <>
-                Showing{" "}
-                <span className="text-ink-strong font-bold tabular-nums">
-                  {filtered.length}
-                </span>{" "}
-                of {rows.length} {rows.length === 1 ? "person" : "people"}
-              </>
-            ) : (
-              <>Tasks broken down per person</>
-            )}
-          </p>
-          </div>
-        </div>
-      </header>
+        }
+        title={`Status by ${view === "doer" ? "Doer" : "Initiator"}`}
+        subtitle={
+          hasActiveFilter ? (
+            <>
+              Showing{" "}
+              <span className="font-semibold tabular-nums text-gray-900">
+                {filtered.length}
+              </span>{" "}
+              of {rows.length} {rows.length === 1 ? "person" : "people"}
+            </>
+          ) : (
+            "Tasks broken down per person"
+          )
+        }
+        actions={
+          <>
+            <SectionPagination
+              page={pagedRows.page}
+              pageCount={pagedRows.pageCount}
+              onPage={pagedRows.setPage}
+              total={pagedRows.total}
+              pageSize={PAGE}
+              label="Status by doer"
+            />
+            <CollapseToggle
+              expanded={open}
+              onToggle={() => setOpen((v) => !v)}
+              label="Status by doer"
+            />
+          </>
+        }
+      />
 
+      {/* Header stays visible; the search bar and the table below it fold. */}
+      <CollapsibleBody expanded={open}>
       <FilterBar
         query={query}
         onQuery={setQuery}
@@ -369,6 +417,7 @@ export function StatusTable({
 
         </div>
       )}
+      </CollapsibleBody>
     </PageShell>
   );
 }
@@ -512,13 +561,39 @@ function FilterBar({
   hasActiveFilter: boolean;
   onClear: () => void;
 }) {
+  // Live text is local; the parent (which re-filters the rows and rebuilds the
+  // TanStack row model) hears about it on a 300ms debounce. `query` is still
+  // the committed value, so it doubles as the external reset signal for the
+  // "Clear all" button below.
+  const [text, setText] = React.useState(query);
+  const commit = useDebouncedCallback(onQuery, DEFAULT_DEBOUNCE_MS);
+  const lastSent = React.useRef(query);
+  React.useEffect(() => {
+    if (query !== lastSent.current) {
+      lastSent.current = query;
+      commit.cancel();
+      setText(query);
+    }
+  }, [query, commit]);
+
+  function type(next: string) {
+    setText(next);
+    lastSent.current = next;
+    commit(next);
+  }
+  function clearNow() {
+    setText("");
+    lastSent.current = "";
+    commit.flush("");
+  }
+
   return (
     <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
       {/* Search */}
       <div
         className="relative flex items-center bg-surface-card border border-hairline rounded-chip pl-3 pr-2 h-10 min-w-[260px] max-md:min-w-full max-md:w-full transition-shadow focus-within:border-hairline-strong"
         style={{
-          boxShadow: query
+          boxShadow: text
             ? "0 0 0 3px color-mix(in srgb, var(--color-altus-red) 12%, transparent), 0 1px 2px rgba(15,23,42,0.04)"
             : "0 1px 2px rgba(15,23,42,0.04)",
         }}
@@ -526,16 +601,19 @@ function FilterBar({
         <Search className="size-4 text-ink-subtle shrink-0" />
         <input
           type="text"
-          value={query}
-          onChange={(e) => onQuery(e.target.value)}
+          value={text}
+          onChange={(e) => type(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && text) clearNow();
+          }}
           placeholder="Search employees…"
           className="flex-1 bg-transparent border-0 outline-none px-2.5 text-body-lg text-ink placeholder:text-ink-subtle"
           aria-label="Search employees"
         />
-        {query && (
+        {text && (
           <button
             type="button"
-            onClick={() => onQuery("")}
+            onClick={clearNow}
             className="size-6 inline-flex items-center justify-center rounded-full hover:bg-surface-soft transition-colors text-ink-subtle hover:text-ink"
             aria-label="Clear search"
           >

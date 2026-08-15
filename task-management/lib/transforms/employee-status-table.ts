@@ -1,5 +1,13 @@
 import type { Employee, Task } from "@/db/schema";
-import type { EmployeeStatusRow, ViewMode } from "@/lib/types";
+import type {
+  EmployeeStatusRow,
+  StatusCellBucket,
+  StatusCellTask,
+  ViewMode,
+} from "@/lib/types";
+
+/** How many tasks a hover preview shows. */
+const PREVIEW_MAX = 6;
 
 /**
  * Optional membership map: employeeId → the departments they belong to.
@@ -22,6 +30,22 @@ export function computeEmployeeStatusTable(
 ): EmployeeStatusRow[] {
   const employeeById = new Map(employees.map((e) => [e.id, e]));
   const rows = new Map<string, EmployeeStatusRow>();
+
+  // Preview candidates, accumulated per (employee, bucket) alongside the
+  // counts. Kept OUT of the row objects while filling so we can sort by
+  // urgency and cap at the end — a running push would have to guess which six
+  // tasks matter before it has seen them all.
+  const candidates = new Map<string, Map<StatusCellBucket, Task[]>>();
+  const addTo = (rowKey: string, bucket: StatusCellBucket, task: Task) => {
+    let perBucket = candidates.get(rowKey);
+    if (!perBucket) {
+      perBucket = new Map();
+      candidates.set(rowKey, perBucket);
+    }
+    const list = perBucket.get(bucket);
+    if (list) list.push(task);
+    else perBucket.set(bucket, [task]);
+  };
 
   // Resolve the department names a person should be grouped under. Falls
   // back to their primary department (the legacy text column) when there's
@@ -58,14 +82,17 @@ export function computeEmployeeStatusTable(
         notStarted: 0,
         total: 0,
         criticalCount: 0,
+        previews: {},
       });
     }
 
     const row = rows.get(rowKey)!;
     row.total += 1;
+    addTo(rowKey, "total", t);
 
     if (t.priority === "imp_urgent") {
       row.criticalCount += 1;
+      addTo(rowKey, "criticalCount", t);
     }
 
     // Tier-3 (2026-05-20): the approval_status column is the new way
@@ -74,8 +101,8 @@ export function computeEmployeeStatusTable(
     if (t.approvalStatus) {
       switch (t.approvalStatus) {
         case "approved":      row.approved   += 1; continue;
-        case "not_approved":  row.notApproved += 1; continue;
-        case "cancelled":     row.cancelled   += 1; continue;
+        case "not_approved":  row.notApproved += 1; addTo(rowKey, "notApproved", t); continue;
+        case "cancelled":     row.cancelled   += 1; addTo(rowKey, "cancelled", t); continue;
         case "transferred":   row.transferred += 1; continue;
       }
     }
@@ -85,20 +112,24 @@ export function computeEmployeeStatusTable(
         break;
       case "not_approved":
         row.notApproved += 1;
+        addTo(rowKey, "notApproved", t);
         break;
       case "done":
         row.done += 1;
+        addTo(rowKey, "done", t);
         break;
       case "transferred":
         row.transferred += 1;
         break;
       case "cancelled":
         row.cancelled += 1;
+        addTo(rowKey, "cancelled", t);
         break;
       case "need_info":           // Tier-3 — rolls into the "need" bucket
                                   // (need_help retired 2026-06-10)
         row.needHelp += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "pendingTotal", t);
         break;
       case "follow_up":
       case "follow_up_1":         // Tier-3
@@ -106,15 +137,49 @@ export function computeEmployeeStatusTable(
       case "follow_up_3":         // Tier-3
         row.followUp += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "pendingTotal", t);
         break;
       case "initiated":
         row.initiated += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "pendingTotal", t);
         break;
       case "not_started":
         row.notStarted += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "pendingTotal", t);
         break;
+    }
+  }
+
+  // Rank each bucket by urgency and cut it to PREVIEW_MAX. Oldest due date
+  // first, so the preview leads with the most overdue work; undated tasks sink
+  // to the bottom rather than sorting as epoch-0 and hijacking the top.
+  const DUE_LAST = Number.POSITIVE_INFINITY;
+  const dueKey = (t: Task): number => {
+    if (!t.dueAt) return DUE_LAST;
+    const d = t.dueAt instanceof Date ? t.dueAt : new Date(t.dueAt as unknown as string);
+    const ms = d.getTime();
+    return Number.isNaN(ms) ? DUE_LAST : ms;
+  };
+  const toPreview = (t: Task): StatusCellTask => ({
+    id: t.id,
+    taskNo: t.taskNo ?? null,
+    title: t.title,
+    client: t.client ?? null,
+    subject: t.subject ?? null,
+    dueAt: t.dueAt ?? null,
+  });
+
+  for (const [rowKey, perBucket] of candidates) {
+    const row = rows.get(rowKey);
+    if (!row) continue;
+    for (const [bucket, list] of perBucket) {
+      row.previews[bucket] = list
+        .slice()
+        .sort((a, b) => dueKey(a) - dueKey(b))
+        .slice(0, PREVIEW_MAX)
+        .map(toPreview);
     }
   }
 

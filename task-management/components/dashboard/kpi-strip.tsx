@@ -12,6 +12,7 @@ import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { PageShell } from "@/components/layout/page-shell";
 import { CardGrid } from "@/components/layout/card-grid";
 import { CollapseToggle, CollapsibleBody } from "./section-chrome";
+import { DashboardSectionHeader } from "./section-header";
 
 interface Entry {
   key: keyof KpiSet;
@@ -101,41 +102,51 @@ export function KpiStrip({
   return (
     <section className="mt-10" aria-label="Task summary">
      <PageShell as="div" width="full" py={false}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-[12px] font-black uppercase tracking-[0.14em] text-ink-subtle">
-          Tasks
-          <span className="ml-2 tabular-nums text-ink-soft">
-            {headline.toLocaleString()}
-          </span>
-        </p>
-        {/* Create + collapse, paired in one control cluster. The + opens the
-            SAME modal as the sidebar's New Task button: it dispatches the
-            window event that <NewTaskDialog> listens for, rather than mounting
-            a second copy of the dialog — that component owns the modal's open
-            state and a global "N" listener, so a second instance would stack
-            two modals and open both on one keypress. */}
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new Event(NEW_TASK_OPEN_EVENT))}
-            aria-label="New task"
-            title="New task (N)"
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
-            style={{
-              background: "var(--color-altus-red)",
-              border:
-                "1px solid color-mix(in srgb, var(--color-altus-red) 28%, transparent)",
-            }}
-          >
-            <Plus size={15} strokeWidth={2.8} aria-hidden />
-          </button>
-          <CollapseToggle
-            expanded={isKpiExpanded}
-            onToggle={() => setIsKpiExpanded((v) => !v)}
-            label="the Task summary"
-          />
-        </div>
-      </div>
+      {/* Section header — the same block every dashboard widget uses. It was
+          already outside the cards here; this just puts it on the shared
+          typography so it reads as a peer of the headings below. */}
+      <DashboardSectionHeader
+        eyebrow="Tasks"
+        eyebrowTone="muted"
+        title="Task Summary"
+        subtitle={
+          <>
+            <span className="font-semibold tabular-nums text-gray-900">
+              {headline.toLocaleString()}
+            </span>{" "}
+            {headline === 1 ? "task" : "tasks"} in the current filter
+          </>
+        }
+        /* Create + collapse, paired in one control cluster. The + opens the
+           SAME modal as the sidebar's New Task button: it dispatches the window
+           event that <NewTaskDialog> listens for, rather than mounting a second
+           copy of the dialog — that component owns the modal's open state and a
+           global "N" listener, so a second instance would stack two modals and
+           open both on one keypress. */
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(NEW_TASK_OPEN_EVENT))}
+              aria-label="New task"
+              title="New task (N)"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+              style={{
+                background: "var(--color-altus-red)",
+                border:
+                  "1px solid color-mix(in srgb, var(--color-altus-red) 28%, transparent)",
+              }}
+            >
+              <Plus size={15} strokeWidth={2.8} aria-hidden />
+            </button>
+            <CollapseToggle
+              expanded={isKpiExpanded}
+              onToggle={() => setIsKpiExpanded((v) => !v)}
+              label="the Task summary"
+            />
+          </>
+        }
+      />
 
       {/* Everything below the header line folds together: the KPI cards, any
           open card-detail panel, and the Task Analytics banner passed in as

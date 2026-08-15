@@ -345,7 +345,13 @@ async function loadDashboardDataUncached(
 
   // ① Done on-time + aging (Original vs Revised). periodTasks already carry
   //    originalDueAt (Step 1) + effective dueAt.
-  const doneOnTime = computeDoneOnTime(periodTasks as unknown as Parameters<typeof computeDoneOnTime>[0], nameById);
+  //    `departmentMap` is already loaded above for the status table, so the
+  //    per-department on-time rollup costs no extra query.
+  const doneOnTime = computeDoneOnTime(
+    periodTasks as unknown as Parameters<typeof computeDoneOnTime>[0],
+    nameById,
+    departmentMap,
+  );
 
   // ② Not Approved — anchor = event time → completed_at → created_at.
   const sentBackByTask = new Map(sentBackEvents.map((e) => [e.task_id, e.sent_back_at] as const));

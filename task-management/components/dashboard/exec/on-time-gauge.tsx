@@ -3,7 +3,10 @@
 import * as React from "react";
 import { CalendarCheck } from "lucide-react";
 import type { DoneOnTime } from "@/lib/types";
-import { Gauge } from "./viz/gauge";
+import { Gauge, type GaugeSegment } from "./viz/gauge";
+import { PunctualityDrawer } from "./on-time-detail";
+import { DashboardSectionHeader } from "@/components/dashboard/section-header";
+import { CollapseToggle, CollapsibleBody } from "@/components/dashboard/section-chrome";
 
 /**
  * OnTimeGauge — V2 executive card (top-left). Shows the on-time delivery
@@ -19,13 +22,52 @@ import { Gauge } from "./viz/gauge";
 type Basis = "original" | "revised";
 
 export function OnTimeGauge({ data }: { data: DoneOnTime }) {
+  const [sectionOpen, setSectionOpen] = React.useState(true);
   const [basis, setBasis] = React.useState<Basis>("revised");
+  // Which half of the gauge the drawer is showing; null = closed. The drawer
+  // fetches its task list on open, so this is the only state the card holds.
+  const [drilldown, setDrilldown] = React.useState<GaugeSegment | null>(null);
   const active = data[basis];
   const hasData = active.dated > 0 && active.onTime + active.late > 0;
 
   return (
+    <div className="flex min-w-0 flex-col">
+    {/* Header ABOVE this card — see components/dashboard/section-header.tsx. */}
+    <DashboardSectionHeader
+      className="mb-3"
+      eyebrow="Delivery · On Time"
+      icon={
+        <span
+          className="inline-flex size-9 items-center justify-center rounded-full"
+          style={{
+            background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)",
+            color: "var(--color-altus-red)",
+          }}
+        >
+          <CalendarCheck size={18} strokeWidth={2.4} />
+        </span>
+      }
+      title="Delivered on time"
+      subtitle={
+        <>
+          Done tasks · vs the {basis === "revised" ? "revised" : "original"} due
+          date
+        </>
+      }
+      actions={
+        <>
+          <BasisToggle value={basis} onChange={setBasis} />
+          <CollapseToggle
+            expanded={sectionOpen}
+            onToggle={() => setSectionOpen((v) => !v)}
+            label="the On-time rate"
+          />
+        </>
+      }
+    />
+    <CollapsibleBody expanded={sectionOpen}>
     <section
-      className="wg-rise relative overflow-hidden rounded-section p-7 max-md:p-5"
+      className="wg-rise relative flex-1 overflow-hidden rounded-section p-7 max-md:p-5"
       aria-label="On-time delivery rate"
       style={{
         background:
@@ -45,57 +87,38 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
       <span aria-hidden className="kpi-aurora-secondary" />
 
       <div className="relative">
-        {/* Header + toggle */}
-        <div className="flex items-start justify-between gap-4 max-sm:flex-col max-sm:gap-3">
-          <div className="flex items-center gap-2.5">
-            <span
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full"
-              style={{
-                background:
-                  "color-mix(in srgb, var(--color-altus-red) 12%, transparent)",
-                color: "var(--color-altus-red)",
-              }}
-            >
-              <CalendarCheck size={18} strokeWidth={2.4} />
-            </span>
-            <div>
-              <h2
-                className="leading-none text-ink-strong"
-                style={{
-                  fontFamily: "var(--font-display), system-ui, sans-serif",
-                  fontWeight: 900,
-                  fontSize: 20,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Delivered on time
-              </h2>
-              <p className="mt-1.5 text-[12.5px] font-semibold leading-none text-ink-subtle">
-                Done tasks · vs the{" "}
-                {basis === "revised" ? "revised" : "original"} due date
-              </p>
-            </div>
-          </div>
-
-          <BasisToggle value={basis} onChange={setBasis} />
-        </div>
-
-        {/* Gauge / empty state */}
-        <div className="mt-5 flex min-h-[200px] items-center justify-center">
+        {/* Gauge / empty state. The card is full-width now, so the arc is
+            scaled up to carry it — at 280px it read as a small island floating
+            in a wide well. */}
+        <div className="flex min-h-[240px] items-center justify-center">
           {hasData ? (
             <Gauge
               key={basis}
               pct={active.onTimeRate}
               onTime={active.onTime}
               late={active.late}
-              size={280}
+              size={340}
+              onSelect={setDrilldown}
             />
           ) : (
             <EmptyState />
           )}
         </div>
       </div>
+
+      {/* Task list behind the clicked half — mounted only while open so the
+          server action fires on demand, never on dashboard load. */}
+      {drilldown && (
+        <PunctualityDrawer
+          open
+          basis={basis}
+          bucket={drilldown}
+          onClose={() => setDrilldown(null)}
+        />
+      )}
     </section>
+    </CollapsibleBody>
+    </div>
   );
 }
 

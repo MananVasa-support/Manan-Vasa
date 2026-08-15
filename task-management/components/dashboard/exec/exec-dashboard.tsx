@@ -2,16 +2,17 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { Sparkles, Users } from "lucide-react";
+import { Users } from "lucide-react";
 
 import { OnTimeGauge } from "@/components/dashboard/exec/on-time-gauge";
 import { ManagerInitiatorTable } from "@/components/dashboard/exec/manager-initiator-table";
 import { NotApprovedSidebar } from "@/components/dashboard/exec/not-approved-sidebar";
 import { PerformanceByPersonTable } from "@/components/dashboard/exec/performance-by-person-table";
 import { ManagerDrilldown } from "@/components/dashboard/exec/manager-drilldown";
+import { DashboardSectionHeader } from "@/components/dashboard/section-header";
+import { CollapseToggle } from "@/components/dashboard/section-chrome";
 import { useReducedMotion } from "@/lib/motion-utils";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
-import { SectionPagination, usePagedRows } from "@/components/dashboard/section-chrome";
 import type {
   DoneOnTime,
   InitiatorBoard,
@@ -90,25 +91,11 @@ function useExec(): ExecCtxValue {
   return ctx;
 }
 
-/** Shared card shell — every exec section keeps the original container's
- *  flat-white surface, hairline and shadow, so splitting one card into three
- *  changes the ORDER on the page and nothing about how they look. */
-function ExecCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="relative isolate overflow-hidden rounded-section"
-      style={{
-        background: "#ffffff",
-        border: "1px solid var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
-      }}
-    >
-      <div className="relative z-[2] flex flex-col gap-7 p-8 max-md:gap-5 max-md:p-4">
-        {children}
-      </div>
-    </div>
-  );
-}
+/* The `ExecCard` shell that used to wrap each exec section is gone. Every one
+   of these sections renders a card of its own (the overdue table, the manager
+   scorecard table, the two summary panels), so the shell was a white box around
+   a white box — and once section headings moved OUTSIDE their cards it would
+   have put them straight back inside one. */
 
 export function ExecDashboard({
   doneOnTime,
@@ -248,23 +235,22 @@ export function ExecDashboard({
  */
 export function ExecOverdueSection() {
   const { rise, peopleRows, isAdmin, meId, resolveAvatar, nothingAtAll } = useExec();
-  return (
-    <ExecCard>
-      {nothingAtAll ? (
-        <motion.div {...rise(0)}>
-          <GlobalEmptyState />
-        </motion.div>
-      ) : (
-        <motion.div {...rise(0)}>
-          <PerformanceByPersonTable
-            people={peopleRows}
-            isAdmin={isAdmin}
-            meId={meId}
-            resolveAvatar={resolveAvatar}
-          />
-        </motion.div>
-      )}
-    </ExecCard>
+  // No <ExecCard> wrapper: PerformanceByPersonTable is itself a card, and its
+  // section header now sits ABOVE that card. Keeping the outer frame would put
+  // the header back inside a white box — the thing this layout removes.
+  return nothingAtAll ? (
+    <motion.div {...rise(0)}>
+      <GlobalEmptyState />
+    </motion.div>
+  ) : (
+    <motion.div {...rise(0)}>
+      <PerformanceByPersonTable
+        people={peopleRows}
+        isAdmin={isAdmin}
+        meId={meId}
+        resolveAvatar={resolveAvatar}
+      />
+    </motion.div>
   );
 }
 
@@ -279,52 +265,21 @@ export function ExecOverdueSection() {
 export function ExecDelegationSection() {
   const { rise, board, windowKey, setWindowKey, managers, resolveAvatar, setOpenManagerId } =
     useExec();
+  // ONE header for this section. It used to carry two: an "Executive Control
+  // Room / Delivery & Delegation" masthead in the card, and the scorecard title
+  // above the table. Both said the same thing at two different sizes, so they
+  // are merged here — eyebrow, title and the target line that was the
+  // masthead's subtitle — and the card below holds only the table.
   return (
-    <ExecCard>
-      <motion.header
-        {...rise(0)}
-        className="flex items-end justify-between gap-5 max-md:flex-col max-md:items-stretch max-md:gap-4"
-      >
-        <div className="min-w-0">
-          <p
-            className="inline-flex items-center gap-1.5 text-[10.5px] font-black uppercase tracking-[0.18em]"
-            style={{ color: "var(--color-altus-red-deep)" }}
-          >
-            <Sparkles size={13} strokeWidth={2.6} />
-            Executive Control Room
-          </p>
-          <h1
-            className="mt-1 leading-none text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: 30,
-              letterSpacing: "-0.03em",
-            }}
-          >
-            Delivery &amp; Delegation
-          </h1>
-          <p className="mt-2 text-[13px] font-semibold text-ink-subtle">
-            Target ={" "}
-            <span className="tabular-nums font-black text-ink-soft">
-              3 × {board.workingDays}
-            </span>{" "}
-            working {board.workingDays === 1 ? "day" : "days"} × direct reports
-          </p>
-        </div>
-
-        <WindowToggle value={windowKey} onChange={setWindowKey} />
-      </motion.header>
-
-      <motion.section {...rise(0.08)} aria-label="Managers initiation scorecards">
-        <ManagerRail
-          managers={managers}
-          resolveAvatar={resolveAvatar}
-          onOpenDrilldown={setOpenManagerId}
-          workingDays={board.workingDays}
-        />
-      </motion.section>
-    </ExecCard>
+    <motion.section {...rise(0)} aria-label="Managers initiation scorecards">
+      <ManagerRail
+        managers={managers}
+        resolveAvatar={resolveAvatar}
+        onOpenDrilldown={setOpenManagerId}
+        workingDays={board.workingDays}
+        windowToggle={<WindowToggle value={windowKey} onChange={setWindowKey} />}
+      />
+    </motion.section>
   );
 }
 
@@ -332,18 +287,18 @@ export function ExecDelegationSection() {
 export function ExecSummarySection() {
   const { rise, doneOnTimeView, notApprovedAgingView, isAdmin, meId, resolveAvatar } =
     useExec();
+  // Two cards side by side, each carrying its own header ABOVE its own white
+  // box. No <ExecCard> frame — it would put both headers back inside a card.
   return (
-    <ExecCard>
-      <motion.div {...rise(0)} className="exec-summary-grid grid gap-6 max-md:gap-4">
-        <OnTimeGauge data={doneOnTimeView} />
-        <NotApprovedSidebar
-          data={notApprovedAgingView}
-          isAdmin={isAdmin}
-          meId={meId}
-          resolveAvatar={resolveAvatar}
-        />
-      </motion.div>
-    </ExecCard>
+    <motion.div {...rise(0)} className="exec-summary-grid grid gap-6 max-md:gap-4">
+      <OnTimeGauge data={doneOnTimeView} />
+      <NotApprovedSidebar
+        data={notApprovedAgingView}
+        isAdmin={isAdmin}
+        meId={meId}
+        resolveAvatar={resolveAvatar}
+      />
+    </motion.div>
   );
 }
 
@@ -406,17 +361,20 @@ function ManagerRail({
   resolveAvatar,
   onOpenDrilldown,
   workingDays,
+  windowToggle,
 }: {
   managers: InitiatorBoard["managers"];
   resolveAvatar: (employeeId: string) => string | null;
   onOpenDrilldown: (managerId: string) => void;
   workingDays: number;
+  /** The 3-day ⇄ 7-day switch, rendered in the section header's action slot. */
+  windowToggle?: React.ReactNode;
 }) {
-  // Kept at 2 rows per page so the pager reads exactly as it did with the card
-  // grid ("1–2 of 6"). A table would comfortably carry more; raising this is a
-  // one-line change if the section should show the whole leaderboard at once.
-  const PER_PAGE = 2;
-  const paged = usePagedRows(managers, PER_PAGE);
+  // No pager: the whole leaderboard lives in one scroll container, so "who is
+  // behind?" is answered by scrolling one list instead of hunting across pages.
+  // Minimised collapses the body to the header row — a way to park this section
+  // without losing your place further down the dashboard.
+  const [minimized, setMinimized] = React.useState(false);
 
   if (managers.length === 0) {
     return (
@@ -451,67 +409,59 @@ function ManagerRail({
 
   return (
     <section className="relative min-w-0" aria-label="Manager initiation scorecards">
-      <div className="mb-3.5 flex items-end justify-between gap-3 px-1">
-        <div className="min-w-0">
-          <p
-            className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em]"
-            style={{ color: "var(--color-altus-red-deep)" }}
-          >
+      {/* The section's only header, above the table's white box. It absorbed
+          the "Delivery & Delegation" masthead that used to sit in the card
+          above it — same eyebrow, same target line, one heading. */}
+      <DashboardSectionHeader
+        eyebrow={
+          <span className="inline-flex items-center gap-1.5">
             <Users size={12} strokeWidth={2.8} />
             Managers · Initiation Scorecards
             <span
-              className="ml-1 rounded-pill px-1.5 py-0.5 font-bold tabular-nums"
+              className="rounded-pill px-1.5 py-0.5 font-bold tabular-nums"
               style={{
                 fontSize: 10,
                 background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)",
-                color: "var(--color-altus-red-deep)",
               }}
             >
               {managers.length}
             </span>
-          </p>
-          <h2
-            className="mt-1 leading-tight text-ink-strong"
-            style={{
-              fontFamily: "var(--font-serif), serif",
-              fontWeight: 700,
-              fontSize: 19,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            Who is delegating, and how much
-          </h2>
-        </div>
-        {/* Top-right pager — replaces the ‹ › scroll nudges. The cards are now
-            LAID OUT in a grid a page at a time instead of sliding sideways in a
-            snap rail, so every scorecard on the current page is fully visible
-            without horizontal scrolling. */}
-        <SectionPagination
-          page={paged.page}
-          pageCount={paged.pageCount}
-          onPage={paged.setPage}
-          total={paged.total}
-          pageSize={PER_PAGE}
-          label="Manager scorecards"
-        />
-      </div>
+          </span>
+        }
+        title="Who is delegating, and how much"
+        subtitle={
+          <>
+            Target ={" "}
+            <span className="font-semibold tabular-nums text-gray-900">
+              3 × {workingDays}
+            </span>{" "}
+            working {workingDays === 1 ? "day" : "days"} per direct report
+          </>
+        }
+        actions={
+          <>
+            {windowToggle}
+            {/* Was a bespoke button here; swapped for the shared control so
+                every section's fold toggle looks and behaves identically. */}
+            <CollapseToggle
+              expanded={!minimized}
+              onToggle={() => setMinimized((v) => !v)}
+              label="the manager scorecards"
+            />
+          </>
+        }
+      />
 
       {/* One row per manager instead of one tile each: delegation is a
           leaderboard question, and a table puts every manager's channel split on
           the same axis so they can be read against each other at a glance. Rows
           expand in place to the per-report breakdown. */}
       <ManagerInitiatorTable
-        managers={paged.visible}
+        managers={managers}
         resolveAvatar={resolveAvatar}
         onOpenDrilldown={onOpenDrilldown}
+        minimized={minimized}
       />
-
-      <p className="mt-1 px-1 text-[11px] font-semibold text-ink-subtle">
-        Target ={" "}
-        <span className="tabular-nums font-black">3 × {workingDays}</span> per
-        direct report
-      </p>
-
     </section>
   );
 }

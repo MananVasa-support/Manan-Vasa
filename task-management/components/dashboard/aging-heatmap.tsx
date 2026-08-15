@@ -10,21 +10,34 @@ import type { AgingRow, HeatmapCellTask } from "@/lib/types";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { Avatar } from "@/components/ui/avatar";
 import { PageShell } from "@/components/layout/page-shell";
+import { DashboardSectionHeader } from "@/components/dashboard/section-header";
+import { CollapseToggle, CollapsibleBody } from "@/components/dashboard/section-chrome";
 
-// Age-coded palette: cool/green for fresh, hot/red for old.
-// Bars use a gradient pair for depth; deep is the saturated label color.
+// RISK-BANDED palette — four bands rather than a continuous hue ramp, so a lane
+// reads as its risk level at a glance instead of "somewhere along a gradient":
+//
+//   On track   0-3 · 4-7    green-400 / emerald-400
+//   Low        8-14         yellow-400
+//   Medium     15-20 · 21-30 amber-500 / orange-500
+//   High       31-45 · 46-60 · 60+  red-500 → red-600 → red-700
+//
+// `fill` is the Tailwind swatch named above; `deep` is the saturated label
+// colour (kept 2–3 steps darker so text stays legible on `tint`), `light` is the
+// gradient partner and `tint` the wash behind counts. The three High lanes step
+// 500→600→700 so they remain distinguishable from each other while all reading
+// as crimson.
 const BUCKET_COLOR: Record<
   AgeBucketId,
   { fill: string; deep: string; tint: string; light: string }
 > = {
-  "0-3":   { fill: "#86efac", deep: "#15803d", tint: "#dcfce7", light: "#bbf7d0" },
-  "4-7":   { fill: "#4ade80", deep: "#15803d", tint: "#d1fae5", light: "#86efac" },
-  "8-14":  { fill: "#bef264", deep: "#65a30d", tint: "#ecfccb", light: "#d9f99d" },
-  "15-20": { fill: "#fcd34d", deep: "#b45309", tint: "#fef3c7", light: "#fde68a" },
-  "21-30": { fill: "#fb923c", deep: "#c2410c", tint: "#ffedd5", light: "#fdba74" },
-  "31-45": { fill: "#f87171", deep: "#b91c1c", tint: "#fee2e2", light: "#fca5a5" },
-  "46-60": { fill: "#ef4444", deep: "#991b1b", tint: "#fecaca", light: "#f87171" },
-  "60+":   { fill: "#b91c1c", deep: "#7f1d1d", tint: "#fecaca", light: "#ef4444" },
+  "0-3":   { fill: "#4ade80", deep: "#15803d", tint: "#dcfce7", light: "#86efac" }, // green-400
+  "4-7":   { fill: "#34d399", deep: "#047857", tint: "#d1fae5", light: "#6ee7b7" }, // emerald-400
+  "8-14":  { fill: "#facc15", deep: "#a16207", tint: "#fef9c3", light: "#fde047" }, // yellow-400
+  "15-20": { fill: "#f59e0b", deep: "#b45309", tint: "#fef3c7", light: "#fbbf24" }, // amber-500
+  "21-30": { fill: "#f97316", deep: "#c2410c", tint: "#ffedd5", light: "#fb923c" }, // orange-500
+  "31-45": { fill: "#ef4444", deep: "#b91c1c", tint: "#fee2e2", light: "#f87171" }, // red-500
+  "46-60": { fill: "#dc2626", deep: "#991b1b", tint: "#fecaca", light: "#ef4444" }, // red-600
+  "60+":   { fill: "#b91c1c", deep: "#7f1d1d", tint: "#fecaca", light: "#dc2626" }, // red-700
 };
 
 const BUCKET_WEIGHT: Record<AgeBucketId, number> = {
@@ -63,6 +76,7 @@ export function AgingHeatmap({
   cellTasks: Record<string, Record<string, HeatmapCellTask[]>>;
   avatarById?: Record<string, string | null>;
 }) {
+  const [open, setOpen] = React.useState(true);
   const [sortMode, setSortMode] = React.useState<SortMode>("risk");
 
   // FilterBar section search — narrows the lanes to matching people. Applied
@@ -115,58 +129,56 @@ export function AgingHeatmap({
         animation: "fadeUp 500ms ease-out 900ms forwards",
       }}
     >
+      {/* Section header, OUTSIDE the card — see components/dashboard/
+          section-header.tsx. The sort control comes with it so the whole
+          header line reads as one bar above the heat lanes. */}
+      <DashboardSectionHeader
+        eyebrow="Tasks · Aging"
+        icon={
+          <Flame className="size-8" style={{ color: "#dc2626" }} strokeWidth={2.25} />
+        }
+        title="Aging Heatmap"
+        subtitle={
+          <>
+            {enriched.length} {enriched.length === 1 ? "person" : "people"}
+            {" · "}
+            <span className="tabular-nums font-semibold text-gray-900">
+              {totalAging}
+            </span>{" "}
+            pending {totalAging === 1 ? "task" : "tasks"} aging — click any lane to
+            see them
+          </>
+        }
+        actions={
+          <>
+            <SortControl value={sortMode} onChange={setSortMode} />
+            <CollapseToggle
+              expanded={open}
+              onToggle={() => setOpen((v) => !v)}
+              label="the Aging heatmap"
+            />
+          </>
+        }
+      />
+      {/* Header stays visible; the heat lanes below fold. */}
+      <CollapsibleBody expanded={open}>
+
       <div
         className="aging-shell rounded-section p-8 max-md:p-5 relative overflow-hidden"
         style={{
-          background:
-            "linear-gradient(160deg, #fffefb 0%, #fef7ed 60%, #fef2f2 100%)",
+          background: "#ffffff",
           border: "1px solid var(--color-hairline)",
-          boxShadow:
-            "0 1px 3px rgba(15, 23, 42, 0.04), 0 20px 50px -28px rgba(225, 6, 0, 0.15)",
+          // Neutral slate drop shadow only — the second layer used to be a red
+          // glow (rgba(225,6,0,0.15)) which bled peach onto the surrounding
+          // page.
+          boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
         }}
       >
-        {/* Heat wash backdrop */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 30% 60% at 100% 100%, rgba(239, 68, 68, 0.10), transparent 60%), radial-gradient(ellipse 30% 60% at 0% 0%, rgba(34, 197, 94, 0.08), transparent 60%)",
-          }}
-        />
+        {/* The red/green "heat wash" backdrop was removed — it was the other
+            half of the peach tint. The heat colours still live where they carry
+            meaning: the cells, the legend and the severity chips below. */}
 
         <div className="relative">
-          <header className="mb-6 flex items-start justify-between gap-6 max-md:flex-col max-md:gap-3">
-            <div>
-              <h2 className="flex items-center gap-2.5 text-ink-strong">
-                <Flame
-                  className="size-8"
-                  style={{ color: "#dc2626" }}
-                  strokeWidth={2.25}
-                />
-                <span
-                  className="uppercase font-black tracking-[0.04em]"
-                  style={{
-                    fontFamily: "var(--font-display), system-ui, sans-serif",
-                    fontSize: 30,
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  Aging Heatmap
-                </span>
-              </h2>
-              <p className="mt-1.5 font-semibold" style={{ fontSize: 17, color: "var(--color-ink-muted)" }}>
-                {enriched.length} {enriched.length === 1 ? "person" : "people"}
-                {" · "}
-                <span className="tabular-nums" style={{ color: "var(--color-ink-strong)" }}>
-                  {totalAging}
-                </span>{" "}
-                pending {totalAging === 1 ? "task" : "tasks"} aging — click any lane to see them
-              </p>
-            </div>
-            <SortControl value={sortMode} onChange={setSortMode} />
-          </header>
-
           {criticalTotal > 0 && <AlertBanner count={criticalTotal} />}
 
           <Legend />
@@ -192,6 +204,7 @@ export function AgingHeatmap({
           )}
         </div>
       </div>
+      </CollapsibleBody>
     </PageShell>
   );
 }

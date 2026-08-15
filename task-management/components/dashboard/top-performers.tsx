@@ -7,6 +7,8 @@ import type { TopPerformer } from "@/lib/types";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { useCountUp } from "@/lib/use-count-up";
 import { Avatar } from "@/components/ui/avatar";
+import { DashboardSectionHeader } from "./section-header";
+import { CollapseToggle, CollapsibleBody } from "./section-chrome";
 
 const PODIUM_THEMES = [
   // GOLD
@@ -61,6 +63,7 @@ export function TopPerformersSection({
   // FilterBar section search. Ranks are NOT recomputed — `performers` arrives
   // already ordered, so a match keeps the position it actually holds on the
   // leaderboard rather than being promoted to #1 by being the only result.
+  const [open, setOpen] = React.useState(true);
   const sectionQuery = useSectionSearch();
   const visible = React.useMemo(
     () =>
@@ -74,33 +77,48 @@ export function TopPerformersSection({
   const rest = visible.slice(3, 10);
 
   return (
+    // Header OUTSIDE the card (see components/dashboard/section-header.tsx):
+    // the white box holds the leaderboard, the page holds the label.
     <section
-      className="rounded-section bg-surface-card border border-hairline p-7 flex flex-col"
+      className="flex flex-col"
       style={{
-        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
         opacity: 0,
         animation: "fadeUp 500ms ease-out 500ms forwards",
       }}
     >
-      <header className="mb-5 flex items-start gap-3">
-        <span
-          aria-hidden
-          className="mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
-          style={{
-            background: "color-mix(in srgb, var(--color-amber) 14%, transparent)",
-            color: "var(--color-amber-deep)",
-          }}
-        >
-          <Trophy size={20} strokeWidth={2.2} />
-        </span>
-        <div>
-          <h2 className="text-display-lg text-ink-strong">Top Performers</h2>
-          <p className="text-body-lg text-ink-subtle mt-0.5">
-            Ranked by completed tasks — click any card to see their work
-          </p>
-        </div>
-      </header>
+      <DashboardSectionHeader
+        className="mb-3"
+        eyebrow="People · Rankings"
+        eyebrowTone="muted"
+        icon={
+          <span
+            aria-hidden
+            className="inline-flex size-10 items-center justify-center rounded-xl"
+            style={{
+              background: "color-mix(in srgb, var(--color-amber) 14%, transparent)",
+              color: "var(--color-amber-deep)",
+            }}
+          >
+            <Trophy size={20} strokeWidth={2.2} />
+          </span>
+        }
+        title="Top Performers"
+        subtitle="Ranked by completed tasks — click any card to see their work"
+        actions={
+          <CollapseToggle
+            expanded={open}
+            onToggle={() => setOpen((v) => !v)}
+            label="Top performers"
+          />
+        }
+      />
+      {/* Header stays put; only the card below it folds. */}
+      <CollapsibleBody expanded={open}>
 
+      <div
+        className="rounded-section bg-surface-card border border-hairline p-7 flex flex-1 flex-col"
+        style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+      >
       {visible.length === 0 ? (
         <EmptyState />
       ) : (
@@ -133,6 +151,8 @@ export function TopPerformersSection({
           )}
         </>
       )}
+      </div>
+      </CollapsibleBody>
     </section>
   );
 }

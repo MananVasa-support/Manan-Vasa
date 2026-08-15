@@ -15,6 +15,7 @@ import {
   STATUS_TONES_FALLBACK,
 } from "@/lib/format";
 import { CollapseToggle, CollapsibleBody } from "./section-chrome";
+import { DashboardSectionHeader } from "./section-header";
 
 type Tone = StatusColorToken;
 
@@ -55,38 +56,41 @@ export function StatusDistributionChart({
 
   if (rows.length === 0) {
     return (
-      <section
-        className="rounded-section bg-surface-card border border-hairline p-8"
-        style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
-      >
+      <section>
         <Header isAdmin={isAdmin} />
-        <p className="mt-3 text-body-lg text-ink-subtle">
-          No data for the current filter.
-        </p>
+        <div
+          className="rounded-section bg-surface-card border border-hairline p-8"
+          style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+        >
+          <p className="text-body-lg text-ink-subtle">
+            No data for the current filter.
+          </p>
+        </div>
       </section>
     );
   }
 
   return (
     <section
-      className="rounded-section bg-surface-card border border-hairline p-7 max-md:p-5"
-      style={{
-        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
-        opacity: 0,
-        animation: "fadeUp 500ms ease-out 500ms forwards",
-      }}
+      style={{ opacity: 0, animation: "fadeUp 500ms ease-out 500ms forwards" }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <Header isAdmin={isAdmin} />
-        <CollapseToggle
-          expanded={open}
-          onToggle={() => setOpen((v) => !v)}
-          label="Status Distribution"
-        />
-      </div>
+      <Header
+        isAdmin={isAdmin}
+        actions={
+          <CollapseToggle
+            expanded={open}
+            onToggle={() => setOpen((v) => !v)}
+            label="Status Distribution"
+          />
+        }
+      />
 
-      {/* Everything below the header folds together — ribbon, legend cards and
-          summary — so the panel collapses to just its title row. */}
+      <div
+        className="rounded-section bg-surface-card border border-hairline p-7 max-md:p-5"
+        style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+      >
+      {/* Ribbon, legend cards and summary fold together, so the card collapses
+          to nothing while the header above it stays put. */}
       <CollapsibleBody expanded={open}>
 
       {/* Proportional ribbon — a VISUAL OVERVIEW only (not clickable):
@@ -194,6 +198,7 @@ export function StatusDistributionChart({
         )}
       </ul>
       </CollapsibleBody>
+      </div>
     </section>
   );
 }
@@ -279,13 +284,21 @@ function SummaryTile({
   );
 }
 
-function Header({ isAdmin }: { isAdmin: boolean }) {
+/**
+ * The section header. Rendered ABOVE the white card, never inside it — see
+ * components/dashboard/section-header.tsx. `actions` carries the Kanban link
+ * and (when given) the collapse toggle, so the whole header line lives here.
+ */
+function Header({ isAdmin, actions }: { isAdmin: boolean; actions?: React.ReactNode }) {
   return (
-    <header className="flex items-start justify-between gap-3">
-      <div className="flex items-start gap-3 min-w-0">
+    <DashboardSectionHeader
+      className="mb-3"
+      eyebrow="Tasks · Distribution"
+      eyebrowTone="muted"
+      icon={
         <span
           aria-hidden
-          className="mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
+          className="inline-flex size-10 items-center justify-center rounded-xl"
           style={{
             background: "rgba(15, 23, 42, 0.05)",
             color: "var(--color-ink-strong)",
@@ -293,28 +306,30 @@ function Header({ isAdmin }: { isAdmin: boolean }) {
         >
           <PieChart size={20} strokeWidth={2.2} />
         </span>
-        <div className="min-w-0">
-          <h2 className="text-display-lg text-ink-strong">Status Distribution</h2>
-          <p className="text-body-lg text-ink-subtle mt-0.5">
-            Tasks by current status — hover the bar for detail, click a card to filter
-          </p>
-        </div>
-      </div>
-      {/* Kanban is admin-only — doers don't see the jump-to-board link. */}
-      {isAdmin && (
-        <Link
-          href={"/tasks/kanban" as Route}
-          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold text-white transition-all hover:-translate-y-0.5"
-          style={{
-            background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-            boxShadow: "0 4px 12px rgba(225, 6, 0, 0.25)",
-          }}
-        >
-          <LayoutGrid size={15} strokeWidth={2.4} />
-          View in Kanban
-        </Link>
-      )}
-    </header>
+      }
+      title="Status Distribution"
+      subtitle="Tasks by current status — hover the bar for detail, click a card to filter"
+      actions={
+        <>
+          {/* Kanban is admin-only — doers don't see the jump-to-board link. */}
+          {isAdmin && (
+            <Link
+              href={"/tasks/kanban" as Route}
+              className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold text-white transition-transform hover:-translate-y-0.5"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                boxShadow: "0 4px 12px rgba(225, 6, 0, 0.25)",
+              }}
+            >
+              <LayoutGrid size={15} strokeWidth={2.4} />
+              View in Kanban
+            </Link>
+          )}
+          {actions}
+        </>
+      }
+    />
   );
 }
 

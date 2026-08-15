@@ -6,7 +6,11 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useReducedMotion } from "@/lib/motion-utils";
-import { SectionPagination, usePagedRows } from "@/components/dashboard/section-chrome";
+import {
+  SectionPagination,
+  usePagedRows,
+  CollapsibleSection,
+} from "@/components/dashboard/section-chrome";
 import type { PunctualityPerson } from "@/lib/types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -37,14 +41,23 @@ function rateColor(rate: number): string {
   return RED;
 }
 
+/** WORST-FIRST: 15+ leads, 2–3 trails, and the total Late count sits after
+ *  them all. The eye lands on the most damaging bracket first instead of
+ *  reading up to it.
+ *
+ *  This list is the SINGLE source of order — the header, the desktop cells,
+ *  the mobile cards and the tooltip all map it. The desktop row used to
+ *  hardcode its four cells ascending while the header mapped this array, so
+ *  reversing the array alone would have put every number under the wrong
+ *  heading. */
 const SPREAD_COLS: {
   key: keyof PunctualityPerson["lateSpread"];
   label: string;
 }[] = [
-  { key: "d2_3", label: "2–3" },
-  { key: "d4_7", label: "4–7" },
-  { key: "d8_14", label: "8–14" },
   { key: "d15", label: "15+" },
+  { key: "d8_14", label: "8–14" },
+  { key: "d4_7", label: "4–7" },
+  { key: "d2_3", label: "2–3" },
 ];
 
 export interface PerformanceByPersonTableProps {
@@ -82,7 +95,37 @@ export function PerformanceByPersonTable({
   const paged = usePagedRows(rows, PAGE);
   const visible = paged.visible;
 
+  // Header ABOVE the card — see components/dashboard/section-header.tsx. The
+  // pager rides along in the actions slot because its page state lives here,
+  // with the rows it pages; the fold control sits to its right.
   return (
+    <CollapsibleSection
+      label="Overdue tasks by person"
+      eyebrow="Delivery · Overdue"
+      icon={
+        <span
+          className="inline-flex size-9 items-center justify-center rounded-full"
+          style={{
+            background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)",
+            color: "var(--color-altus-red)",
+          }}
+        >
+          <Users size={18} strokeWidth={2.4} />
+        </span>
+      }
+      title="Overdue Tasks by Person"
+      subtitle="On-time rate & late spread · heaviest overdue burden first"
+      actions={
+        <SectionPagination
+          page={paged.page}
+          pageCount={paged.pageCount}
+          onPage={paged.setPage}
+          total={paged.total}
+          pageSize={PAGE}
+          label="Overdue tasks by person"
+        />
+      }
+    >
     <section
       className="wg-rise relative overflow-hidden rounded-section p-7 max-md:p-5"
       aria-label="Overdue tasks by person"
@@ -103,67 +146,26 @@ export function PerformanceByPersonTable({
       <span aria-hidden className="kpi-aurora-secondary" />
 
       <div className="relative">
-        {/* ── Header ── */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <span
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full"
-            style={{
-              background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)",
-              color: "var(--color-altus-red)",
-            }}
-          >
-            <Users size={18} strokeWidth={2.4} />
-          </span>
-          <div className="min-w-0">
-            <h2
-              className="leading-none text-ink-strong"
-              style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontWeight: 900,
-                fontSize: 19,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Overdue Tasks by Person
-            </h2>
-            <p className="mt-1.5 text-[13px] font-semibold leading-none text-ink-subtle">
-              On-time rate &amp; late spread · heaviest overdue burden first
-            </p>
-          </div>
-
-          {/* Top-right pager — same component every paginated section uses. */}
-          <div className="ml-auto">
-            <SectionPagination
-              page={paged.page}
-              pageCount={paged.pageCount}
-              onPage={paged.setPage}
-              total={paged.total}
-              pageSize={PAGE}
-              label="Overdue tasks by person"
-            />
-          </div>
-        </div>
-
         {rows.length === 0 ? (
-          <p className="mt-6 text-[13.5px] font-semibold text-ink-subtle">
+          <p className="text-[13.5px] font-semibold text-ink-subtle">
             No delivered tasks to break down in this range.
           </p>
         ) : (
           <>
             {/* ── Desktop table ── */}
-            <div className="mt-5 max-md:hidden">
+            <div className="max-md:hidden">
               <div
                 className="grid items-center gap-3 px-3 pb-2.5 text-[12px] font-black uppercase tracking-[0.08em] text-ink-subtle"
                 style={{ gridTemplateColumns: COLS }}
               >
                 <span>Person</span>
                 <span>On-time rate</span>
-                <span className="text-right">Late</span>
                 {SPREAD_COLS.map((c) => (
                   <span key={c.key} className="text-center">
                     {c.label}
                   </span>
                 ))}
+                <span className="text-center">Late</span>
               </div>
               <ul className="flex flex-col gap-1.5">
                 <AnimatePresence initial={false}>
@@ -181,7 +183,7 @@ export function PerformanceByPersonTable({
             </div>
 
             {/* ── Mobile cards ── */}
-            <ul className="mt-5 flex flex-col gap-2.5 md:hidden">
+            <ul className="flex flex-col gap-2.5 md:hidden">
               <AnimatePresence initial={false}>
                 {visible.map((p, i) => (
                   <PersonCard
@@ -199,10 +201,16 @@ export function PerformanceByPersonTable({
         )}
       </div>
     </section>
+    </CollapsibleSection>
   );
 }
 
-const COLS = "minmax(0,1.6fr) minmax(120px,2fr) 56px 48px 48px 52px 48px";
+// Person · rate · [15+ · 8–14 · 4–7 · 2–3] · Late.
+// The four bracket tracks are now equal (they hold the same kind of number and
+// sit under equal-weight headings); Late keeps the wider track since it's the
+// sum and runs to more digits. The old string front-loaded 56px for Late back
+// when it came third.
+const COLS = "minmax(0,1.6fr) minmax(120px,2fr) 50px 50px 50px 50px 56px";
 
 function RateBar({
   rate,
@@ -245,9 +253,22 @@ function OnTimeRateTooltip({
   person: PunctualityPerson;
   children: React.ReactNode;
 }) {
-  const onTime = Math.max(0, person.done - person.late);
+  // Use the field rather than re-deriving `done - late`. They agree today
+  // (done is defined as onTime + late), but if that ever stops being true the
+  // tooltip should report what the transform actually counted.
+  const onTime = person.onTime;
   const spread = person.lateSpread;
   const row = "flex items-baseline justify-between gap-6";
+
+  const pct = (n: number) =>
+    person.done > 0 ? `${Math.round((n / person.done) * 100)}%` : "—";
+
+  // The four brackets sum to ≤ `late`: lateSpread starts at 2 days, so tasks
+  // that slipped by a single day land in no bracket. Surfacing the residual
+  // keeps the breakdown adding up to the Late total instead of quietly
+  // losing rows.
+  const bracketed = spread.d2_3 + spread.d4_7 + spread.d8_14 + spread.d15;
+  const oneDay = Math.max(0, person.late - bracketed);
   return (
     <Tooltip.Provider delayDuration={220}>
       <Tooltip.Root>
@@ -283,12 +304,16 @@ function OnTimeRateTooltip({
               </div>
               <div className={row}>
                 <span>On time</span>
-                <span className="tabular-nums font-black" style={{ color: GREEN }}>{onTime}</span>
+                <span className="tabular-nums font-black" style={{ color: GREEN }}>
+                  {onTime}
+                  <span className="ml-1.5 text-[11.5px] font-bold opacity-70">{pct(onTime)}</span>
+                </span>
               </div>
               <div className={row}>
                 <span>Late</span>
                 <span className="tabular-nums font-black" style={{ color: person.late > 0 ? RED : "var(--color-ink-subtle)" }}>
                   {person.late}
+                  <span className="ml-1.5 text-[11.5px] font-bold opacity-70">{pct(person.late)}</span>
                 </span>
               </div>
             </div>
@@ -305,6 +330,15 @@ function OnTimeRateTooltip({
                       <span className="tabular-nums font-black text-ink-strong">{spread[c.key]}</span>
                     </div>
                   ))}
+                  {/* The residual — late, but by less than the smallest
+                      bracket. Without it these rows silently sum to less than
+                      the Late total above. */}
+                  {oneDay > 0 && (
+                    <div className={row}>
+                      <span>1 day</span>
+                      <span className="tabular-nums font-black text-ink-strong">{oneDay}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -388,26 +422,21 @@ function PersonTableRow({
         </div>
       </OnTimeRateTooltip>
 
-      {/* Late count */}
+      {/* Late spread — mapped from SPREAD_COLS (not hardcoded) so each number
+          always sits under its own heading, whatever order that array is in. */}
+      {SPREAD_COLS.map((c) => (
+        <span key={c.key} className="text-center">
+          <SpreadCell value={lateSpread[c.key]} />
+        </span>
+      ))}
+
+      {/* Total late — last, after the brackets that make it up. Centred to
+          match the columns it follows. */}
       <span
-        className="text-right text-[15.5px] font-black tabular-nums"
+        className="text-center text-[15.5px] font-black tabular-nums"
         style={{ color: person.late > 0 ? RED : "var(--color-ink-subtle)" }}
       >
         {person.late}
-      </span>
-
-      {/* Late spread */}
-      <span className="text-center">
-        <SpreadCell value={lateSpread.d2_3} />
-      </span>
-      <span className="text-center">
-        <SpreadCell value={lateSpread.d4_7} />
-      </span>
-      <span className="text-center">
-        <SpreadCell value={lateSpread.d8_14} />
-      </span>
-      <span className="text-center">
-        <SpreadCell value={lateSpread.d15} />
       </span>
     </motion.li>
   );

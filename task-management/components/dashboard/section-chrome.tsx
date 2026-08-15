@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Maximize2, Minimize2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Minimize2, Maximize2, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  DashboardSectionHeader,
+  type DashboardSectionHeaderProps,
+} from "./section-header";
 
 /**
  * Shared chrome for the analytics dashboard's panels — ONE collapse control and
@@ -18,6 +22,13 @@ import { Maximize2, Minimize2, ChevronLeft, ChevronRight } from "lucide-react";
 /**
  * Maximize ⇄ Minimize toggle. Pair with <CollapsibleBody> and drive both from
  * the same boolean.
+ *
+ * ICON-ONLY, following the window-chrome convention rather than words: when the
+ * section is open the button shows the OVERLAPPING double square ("restore
+ * down"), and when it is folded it shows a single square ("maximize"). That
+ * reads instantly at the corner of a header, where a 9-character "MINIMIZE"
+ * pill competed with the section title for attention. The meaning is still
+ * carried for assistive tech by aria-expanded + aria-label.
  */
 export function CollapseToggle({
   expanded,
@@ -31,6 +42,10 @@ export function CollapseToggle({
   label: string;
   tone?: string;
 }) {
+  // Minimize2 while open, Maximize2 while folded — the window-chrome pair,
+  // now on a neutral square so every section's control reads identically
+  // instead of each inheriting its widget's accent.
+  const Icon = expanded ? Minimize2 : Maximize2;
   return (
     <button
       type="button"
@@ -38,15 +53,9 @@ export function CollapseToggle({
       aria-expanded={expanded}
       aria-label={`${expanded ? "Minimize" : "Maximize"} ${label}`}
       title={expanded ? "Minimize" : "Maximize"}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-black uppercase tracking-[0.05em] transition-colors"
-      style={{
-        color: expanded ? "#fff" : tone,
-        background: expanded ? tone : `color-mix(in srgb, ${tone} 12%, transparent)`,
-        border: `1px solid color-mix(in srgb, ${tone} 28%, transparent)`,
-      }}
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
     >
-      {expanded ? <Minimize2 size={13} strokeWidth={2.8} /> : <Maximize2 size={13} strokeWidth={2.8} />}
-      {expanded ? "Minimize" : "Maximize"}
+      <Icon size={14} strokeWidth={2.6} aria-hidden />
     </button>
   );
 }
@@ -84,6 +93,60 @@ export function CollapsibleBody({
         {children}
       </div>
     </div>
+  );
+}
+
+/**
+ * Header + collapsible card, wired together.
+ *
+ * Every section had its own masthead and only two of the nine could fold. This
+ * pairs `DashboardSectionHeader` with `CollapsibleBody` and owns the one
+ * boolean between them, so adding the control to a widget is a wrapper rather
+ * than a fresh piece of state per file — and the toggle always lands in the
+ * same place, to the right of whatever pager that section already had.
+ *
+ * The header stays OUTSIDE the collapsible body on purpose: folding a section
+ * must leave its title on screen, or the page becomes a column of anonymous
+ * strips with no way to tell what you are re-opening.
+ */
+export function CollapsibleSection({
+  children,
+  defaultExpanded = true,
+  actions,
+  label,
+  bodyClassName,
+  ...header
+}: Omit<DashboardSectionHeaderProps, "actions"> & {
+  children: React.ReactNode;
+  /** Start folded. Defaults to open. */
+  defaultExpanded?: boolean;
+  /** Section-owned controls (pagers, window toggles) — placed LEFT of the
+   *  minimize button so the fold control is always the rightmost thing. */
+  actions?: React.ReactNode;
+  /** Accessible name for the toggle, e.g. "the Aging heatmap". */
+  label: string;
+  bodyClassName?: string;
+}) {
+  const [expanded, setExpanded] = React.useState(defaultExpanded);
+  return (
+    <>
+      <DashboardSectionHeader
+        {...header}
+        actions={
+          <>
+            {actions}
+            <CollapseToggle
+              expanded={expanded}
+              onToggle={() => setExpanded((v) => !v)}
+              label={label}
+            />
+          </>
+        }
+      />
+      <CollapsibleBody expanded={expanded} className={bodyClassName}>
+        {children}
+      </CollapsibleBody>
+    </>
   );
 }
 

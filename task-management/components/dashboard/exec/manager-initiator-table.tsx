@@ -58,14 +58,26 @@ function Num({ value, hero = false }: { value: number; hero?: boolean }) {
 const HEAD_CELL =
   "px-3 py-2.5 text-[10.5px] font-black uppercase tracking-[0.09em] whitespace-nowrap";
 
+/* Outer header cells stay pinned while the body scrolls. The background lives
+   on the cell rather than the row because a sticky <th> paints on its own — a
+   <tr> background would let rows show through as they slide under. */
+const STICKY_HEAD_CELL = `${HEAD_CELL} sticky top-0 z-10`;
+const STICKY_HEAD_BG = {
+  background: "color-mix(in srgb, var(--color-ink-strong) 3%, #ffffff)",
+  color: "var(--color-ink-soft)",
+} as const;
+
 export function ManagerInitiatorTable({
   managers,
   resolveAvatar,
   onOpenDrilldown,
+  minimized = false,
 }: {
   managers: InitiatorScorecard[];
   resolveAvatar: (employeeId: string) => string | null;
   onOpenDrilldown: (managerId: string) => void;
+  /** Collapse the body so only the column headers remain. */
+  minimized?: boolean;
 }) {
   // Which rows are expanded. A Set (not a single id) so several managers can be
   // compared with their breakdowns open at once — the whole point of the table.
@@ -80,31 +92,43 @@ export function ManagerInitiatorTable({
 
   return (
     <div
-      className="overflow-x-auto rounded-section border bg-surface-card"
+      className={`overflow-x-auto rounded-section border bg-surface-card ${
+        minimized ? "" : "max-h-[380px] overflow-y-auto"
+      }`}
       style={{ borderColor: "var(--color-hairline)" }}
     >
       <table className="min-w-full border-collapse">
         <thead>
-          <tr
-            style={{
-              background:
-                "color-mix(in srgb, var(--color-ink-strong) 3%, transparent)",
-              color: "var(--color-ink-soft)",
-            }}
-          >
-            <th className={`${HEAD_CELL} text-left`}>Manager / Initiator</th>
-            <th className={`${HEAD_CELL} text-center`}>% of Target</th>
-            <th className={`${HEAD_CELL} text-center`}>Target Ratio</th>
-            <th className={`${HEAD_CELL} text-center`}>Direct</th>
-            <th className={`${HEAD_CELL} text-center`}>Counterpart</th>
-            <th className={`${HEAD_CELL} text-center`}>Founder</th>
-            <th className={`${HEAD_CELL} text-center`}>Total</th>
-            <th className={`${HEAD_CELL} text-right`}>Breakdown</th>
+          <tr>
+            <th className={`${STICKY_HEAD_CELL} text-left`} style={STICKY_HEAD_BG}>
+              Manager / Initiator
+            </th>
+            <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
+              % of Target
+            </th>
+            <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
+              Target Ratio
+            </th>
+            <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
+              Direct
+            </th>
+            <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
+              Counterpart
+            </th>
+            <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
+              Founder
+            </th>
+            <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
+              Total
+            </th>
+            <th className={`${STICKY_HEAD_CELL} text-right`} style={STICKY_HEAD_BG}>
+              Breakdown
+            </th>
           </tr>
         </thead>
 
         <tbody>
-          {managers.map((m) => {
+          {(minimized ? [] : managers).map((m) => {
             const open = openRows.has(m.managerId);
             const hitCount = m.perReport.filter((r) => r.hit).length;
             const tone = attainColor(m.attainmentPct);

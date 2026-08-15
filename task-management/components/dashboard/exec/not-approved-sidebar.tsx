@@ -8,6 +8,8 @@ import { AlertTriangle, ChevronRight, CheckCircle2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useReducedMotion } from "@/lib/motion-utils";
 import type { NotApprovedAging, NotApprovedPerson } from "@/lib/types";
+import { DashboardSectionHeader } from "@/components/dashboard/section-header";
+import { CollapseToggle, CollapsibleBody } from "@/components/dashboard/section-chrome";
 
 /* ────────────────────────────────────────────────────────────────────────
    NotApprovedSidebar — V2 executive "Attention Required" rail.
@@ -48,11 +50,46 @@ export function NotApprovedSidebar({
   const { total, byPerson, bands } = data;
 
   // Admins see everyone; a non-admin sees only their own row (null → none).
+  const [sectionOpen, setSectionOpen] = React.useState(true);
   const people = isAdmin ? byPerson : byPerson.filter((p) => p.employeeId === meId);
 
   return (
+    <div className="flex min-w-0 flex-col">
+    {/* Header ABOVE this card — see components/dashboard/section-header.tsx. */}
+    <DashboardSectionHeader
+      className="mb-3"
+      eyebrow="Delivery · Attention"
+      icon={
+        <span
+          className="inline-flex size-9 items-center justify-center rounded-full"
+          style={{
+            background: "color-mix(in srgb, var(--color-altus-red) 13%, transparent)",
+            color: RED_BRAND,
+          }}
+        >
+          <AlertTriangle size={18} strokeWidth={2.4} />
+        </span>
+      }
+      title="Attention Required"
+      subtitle={
+        <>
+          <span className="font-semibold tabular-nums" style={{ color: RED }}>
+            {total}
+          </span>{" "}
+          declined · waiting to be redone
+        </>
+      }
+      actions={
+        <CollapseToggle
+          expanded={sectionOpen}
+          onToggle={() => setSectionOpen((v) => !v)}
+          label="Attention required"
+        />
+      }
+    />
+    <CollapsibleBody expanded={sectionOpen}>
     <section
-      className="wg-rise relative overflow-hidden rounded-section p-7 max-md:p-5"
+      className="wg-rise relative flex-1 overflow-hidden rounded-section p-7 max-md:p-5"
       aria-label="Attention required — declined tasks"
       style={{
         background:
@@ -72,42 +109,10 @@ export function NotApprovedSidebar({
       <span aria-hidden className="kpi-aurora-secondary" />
 
       <div className="relative">
-        {/* ── Header ── */}
-        <div className="flex items-center gap-2.5">
-          <span
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full"
-            style={{
-              background: "color-mix(in srgb, var(--color-altus-red) 13%, transparent)",
-              color: RED_BRAND,
-            }}
-          >
-            <AlertTriangle size={18} strokeWidth={2.4} />
-          </span>
-          <div className="min-w-0">
-            <h2
-              className="leading-none text-ink-strong"
-              style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontWeight: 900,
-                fontSize: 19,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Attention Required
-            </h2>
-            <p className="mt-1.5 text-[12.5px] font-semibold leading-none text-ink-subtle">
-              <span className="font-black tabular-nums" style={{ color: RED }}>
-                {total}
-              </span>{" "}
-              declined · waiting to be redone
-            </p>
-          </div>
-        </div>
-
         {total === 0 ? (
           <EmptyState />
         ) : (
-          <div className="mt-6 flex flex-col gap-7">
+          <div className="flex flex-col gap-7">
             <BandHistogram bands={bands} total={total} reduce={reduce} />
             <PersonRoster
               people={people}
@@ -119,6 +124,8 @@ export function NotApprovedSidebar({
         )}
       </div>
     </section>
+    </CollapsibleBody>
+    </div>
   );
 }
 
@@ -134,13 +141,21 @@ function BandHistogram({
 }) {
   const maxBand = Math.max(...bands.map((b) => b.count), 1);
 
+  // WORST-FIRST for display: 30+ days at the top, counting down to Today at the
+  // bottom, so the most-overdue sign-offs lead the list. Reversed HERE and not
+  // in `WAITING_AGING_BANDS` for the same reason the aging heatmap reverses its
+  // buckets locally — the shared band list is mapped over by the transform to
+  // build the payload, so flipping it there would silently reorder every other
+  // consumer.
+  const ordered = React.useMemo(() => [...bands].reverse(), [bands]);
+
   return (
     <div>
       <p className="mb-3 text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">
         Days waiting · {total} declined {total === 1 ? "task" : "tasks"}
       </p>
       <ul className="flex flex-col gap-2">
-        {bands.map((b, i) => {
+        {ordered.map((b, i) => {
           const w = (b.count / maxBand) * 100;
           return (
             <li key={b.id} className="flex items-center gap-3">
