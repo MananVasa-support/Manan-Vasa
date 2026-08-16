@@ -116,6 +116,22 @@ export interface TopPerformer {
   /** 1-based position in the GLOBAL ranking (ties share the better rank) —
    *  stays honest even when the dashboard is filtered to a subset of people. */
   rank: number;
+  /** Free-text department, for the row's role pill. Null when unset. */
+  department: string | null;
+  /** Completions finished on or before the due date. The numerator. */
+  completedOnTime: number;
+  /** Completions that carry BOTH a completion and a due date — the only ones
+   *  that can be judged on time. The denominator, and the reason `onTimeRate`
+   *  can be null while `doneCount` is high: undated work is unmeasurable, not
+   *  late. Surfaced so the card can show "7 / 9 on time" and the percentage is
+   *  auditable rather than a bare number the viewer has to trust. */
+  datedCompletions: number;
+  /** `completedOnTime / datedCompletions * 100`, 0-100. Null when
+   *  `datedCompletions` is 0 — distinct from 0%, which would libel someone with
+   *  no measurable work. */
+  onTimeRate: number | null;
+  /** Mean days from creation to completion. Null when nothing is measurable. */
+  avgTurnaroundDays: number | null;
 }
 
 export interface AgingRow {
@@ -136,12 +152,34 @@ export interface AgingByDate {
   count: number;
 }
 
+/**
+ * One pending task behind an aging-heatmap cell.
+ *
+ * Carries enough to render the drill-down drawer's table WITHOUT a second
+ * query: the drawer opens on the same rows the lane counted, bucketed by the
+ * same rule, so it can never disagree with the bar that opened it. The
+ * permission/lock fields (createdById, initiatorId, doerId, updatedAt) are what
+ * let the drawer host the same inline status cell the tasks table uses.
+ */
 export interface HeatmapCellTask {
   id: string;
+  taskNo: number | null;
   title: string;
+  description: string | null;
   status: TaskStatus;
   priority: EisenhowerPriority;
   ageDays: number;
+  /** Effective due date (revised ?? original) — what `ageDays` measures against. */
+  dueAt: Date | null;
+  /** The raw, pre-revision due date. Differs from `dueAt` only when moved. */
+  originalDueAt: Date | null;
+  doerId: string;
+  doerName: string | null;
+  initiatorId: string;
+  initiatorName: string | null;
+  createdById: string | null;
+  updatedAt: Date;
+  archived: boolean;
 }
 
 export interface AgingHeatmapData {
@@ -231,6 +269,8 @@ export interface NotApprovedTask { id: string; title: string; waitingDays: numbe
 /** A doer with their outstanding declined tasks, oldest-waiting first. */
 export interface NotApprovedPerson {
   employeeId: string; employeeName: string; count: number; tasks: NotApprovedTask[];
+  /** Free-text department, for the roster's role tag. Null when unset. */
+  department: string | null;
 }
 
 /** Declined ("not approved") tasks grouped per doer + a waiting-days histogram. */
@@ -239,14 +279,26 @@ export interface NotApprovedAging {
 }
 
 /** One of a manager's direct reports + how many tasks they were given vs the goal. */
-export interface InitiatorReportRow { employeeId: string; employeeName: string; given: number; goal: number; hit: boolean }
+export interface InitiatorReportRow {
+  employeeId: string; employeeName: string; given: number; goal: number; hit: boolean;
+  /** How many direct reports THIS person has — the hierarchy context. */
+  reportCount: number;
+  /** Tasks the manager pushed past this report, into their own team. */
+  downlineGiven: number;
+}
 
-/** Per-manager target-vs-actual: every initiated task classified into Direct
- *  Reports (counts toward target) / Counterparts / Founder-Management. */
+/** Per-manager target-vs-actual: every initiated task classified into exactly
+ *  one delegation channel — Direct (the only one that counts toward target),
+ *  Downline, Counterpart, Founder/Management, or Self. */
 export interface InitiatorScorecard {
   managerId: string; managerName: string; directReports: number;
-  totalInitiated: number; toDirectReports: number; toCounterparts: number; toFounderMgmt: number;
+  totalInitiated: number;
+  toDirectReports: number; toDownline: number; toCounterparts: number;
+  toFounderMgmt: number; toSelf: number;
   target: number; actual: number; attainmentPct: number;
+  /** Carried so the card can render its own "Target = 5 × N × reports" caption
+   *  from the same numbers the target was computed with. */
+  workingDays: number; perReportPerDay: number;
   perReport: InitiatorReportRow[];
 }
 
@@ -282,6 +334,15 @@ export interface TaskListFilters {
   clients: string[];
   taskId: string | null;
   archived: boolean;
+  /** Team scope from the toolbar's Team dropdown.
+   *  - null      : no team scoping
+   *  - "mine"    : the viewer + everyone below them in the org chart
+   *  - a Department name : that department group
+   *  Resolved to concrete doer ids in lib/queries/tasks.ts, because expanding
+   *  "mine" needs the org tree and the parser is intentionally DB-free. */
+  team: string | null;
+  /** The signed-in employee, carried so `team=mine` can be expanded server-side. */
+  viewerId: string | null;
   /** How the assignee filter was resolved.
    *  - "default":  no `emp` URL param + a defaultDoerId was supplied (non-admin
    *                default-to-me scope). `doerIds` will be `[defaultDoerId]`.

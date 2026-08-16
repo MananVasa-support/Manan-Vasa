@@ -5,11 +5,29 @@ import { db, employees, tasks } from "@/lib/db";
 import { TASK_STATUSES, TASK_PRIORITIES, PENDING_STATUSES } from "@/db/enums";
 import type { TaskStatus, ApprovalStatus } from "@/db/enums";
 import { employeeIdsInDepartments } from "@/lib/queries/departments";
+import { resolveTeamScope } from "@/lib/queries/team-scope";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import type { TaskListFilters, TaskListRow } from "@/lib/types";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Whole-day index for a timestamp, in UTC.
+ *
+ * Age is a CALENDAR-DAY difference, not elapsed milliseconds. The previous
+ * `Math.floor((now - createdAt) / MS_PER_DAY)` counted complete 24-hour periods,
+ * so a task created at 11pm yesterday read "0d" at 9am today — while the Due
+ * column beside it, which uses `differenceInCalendarDays`, was already counting
+ * that as a day. Two adjacent columns measuring in different units is exactly
+ * the Due/Age mismatch this fixes. Flooring to the UTC day makes both agree and
+ * removes the drift entirely.
+ */
+function dayIndex(d: Date): number {
+  return Math.floor(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / MS_PER_DAY,
+  );
+}
 
 // A task's "effective" status spans two columns: the working `status` and the
 // admin `approval_status` verdict. The dashboard counts treat a task as e.g.
@@ -48,6 +66,15 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     const ids = await employeeIdsInDepartments(filters.departments);
     if (ids.length === 0) return [];
     conditions.push(inArray(tasks.doerId, ids));
+  }
+
+  // Team scope narrows by DOER, and stacks with the department filter above
+  // rather than replacing it — the two answer different questions and a user
+  // who sets both means the intersection.
+  const teamIds = await resolveTeamScope(filters.team, filters.viewerId);
+  if (teamIds !== null) {
+    if (teamIds.length === 0) return [];
+    conditions.push(inArray(tasks.doerId, teamIds));
   }
 
   // Single query with both doer + initiator joined inline. The previous
@@ -91,6 +118,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     .limit(1000);
 
   const now = Date.now();
+  const nowDay = dayIndex(new Date(now));
   return rows.map((r) => ({
     id: r.id,
     taskNo: r.taskNo,
@@ -107,7 +135,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     initiatorName: r.initiatorName ?? null,
     createdAt: r.createdAt,
     dueAt: r.dueAt,
-    ageDays: Math.floor((now - r.createdAt.getTime()) / MS_PER_DAY),
+    ageDays: Math.max(0, nowDay - dayIndex(r.createdAt)),
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,
@@ -312,6 +340,7 @@ async function listTasksPageUncached(
   const nextCursor = hasMore && last ? encodeCursor(last) : null;
 
   const now = Date.now();
+  const nowDay = dayIndex(new Date(now));
   const rows: TaskListRow[] = pageRows.map((r) => ({
     id: r.id,
     taskNo: r.taskNo,
@@ -328,7 +357,7 @@ async function listTasksPageUncached(
     initiatorName: r.initiatorName ?? null,
     createdAt: r.createdAt,
     dueAt: r.dueAt,
-    ageDays: Math.floor((now - r.createdAt.getTime()) / MS_PER_DAY),
+    ageDays: Math.max(0, nowDay - dayIndex(r.createdAt)),
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,

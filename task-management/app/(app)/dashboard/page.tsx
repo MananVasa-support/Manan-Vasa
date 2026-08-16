@@ -186,44 +186,38 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               <KpiStrip kpis={data.kpis} summary={data.wmsSummary}>
               {(me?.isAdmin || allEmployees.some((e) => e.managerId === me?.id)) && (
                 <div className="mt-8">
+                  {/* Minimalist white surface with a red accent border — the
+                      solid red fill it replaced competed with the KPI cards
+                      directly above it for the eye, and read as an alert rather
+                      than a link. `shadow-sm → hover:shadow-md` carries the
+                      affordance the fill used to. */}
                   <Link
                     href={"/dashboard/task-report" as Route}
-                    className="wg-rise group flex items-center justify-between gap-4 rounded-section px-6 py-5 max-md:px-4 max-md:py-4 transition-transform active:scale-[0.997]"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-                      boxShadow: "0 14px 30px -16px rgba(168,4,0,0.6)",
-                    }}
+                    className="wg-rise group flex items-center justify-between gap-4 rounded-2xl border-2 border-red-500/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md active:scale-[0.997] max-md:p-4"
                   >
-                    <span className="flex items-center gap-3.5 min-w-0">
-                      <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
+                    <span className="flex min-w-0 items-center gap-3.5">
+                      <span className="inline-flex shrink-0 items-center justify-center rounded-xl bg-red-50 p-3 text-red-600">
                         <BarChart3 size={22} strokeWidth={2.4} />
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-[10.5px] font-black uppercase tracking-[0.16em] text-white/80">
+                        <span className="block text-xs font-bold uppercase tracking-wider text-red-600">
                           Task Analytics
                         </span>
-                        <span
-                          className="block leading-tight text-white"
-                          style={{
-                            fontFamily: "var(--font-display), system-ui, sans-serif",
-                            fontWeight: 900,
-                            fontSize: 21,
-                            letterSpacing: "-0.02em",
-                          }}
-                        >
+                        <span className="mt-0.5 block text-xl font-bold leading-tight text-gray-900">
                           Open the full Task Report
                         </span>
-                        <span className="mt-0.5 block text-[12.5px] font-semibold text-white/85">
+                        <span className="mt-0.5 block text-sm font-normal text-gray-500">
                           Done-on-time spread · not-approved aging · initiator target-vs-actual
                         </span>
                       </span>
                     </span>
-                    <ArrowRight
-                      size={22}
-                      strokeWidth={2.6}
-                      className="shrink-0 text-white transition-transform group-hover:translate-x-1"
-                    />
+                    <span className="inline-flex shrink-0 items-center justify-center rounded-xl bg-red-50 p-3 text-red-600">
+                      <ArrowRight
+                        size={22}
+                        strokeWidth={2.6}
+                        className="transition-transform group-hover:translate-x-1"
+                      />
+                    </span>
                   </Link>
                 </div>
               )}
@@ -261,29 +255,32 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 <StatusTable rows={data.statusTable} view={filters.view} avatarById={avatarById} />
 
                 {/* 4 — Aging Heatmap */}
-                <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} avatarById={avatarById} />
+                <AgingHeatmap
+                  rows={data.agingTable}
+                  cellTasks={data.agingHeatmapData.byCell}
+                  avatarById={avatarById}
+                  me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
+                />
 
                 {/* 5 — Delegation Scorecard */}
                 <PageShell as="div" width="full" py={false} className="mt-12">
                   <ExecDelegationSection />
                 </PageShell>
 
-                {/* 6 + 7 — Employee Rankings, then Status Distribution. Kept as
-                    the existing two-up grid so both keep their column widths;
-                    Rankings now leads, matching the requested order. */}
+                {/* 6 + 7 — Employee Rankings, then Status Distribution.
+                    STACKED, not side-by-side. The old two-up grid gave each
+                    half a column, which squeezed the leaderboard's podium into
+                    a third of the screen and forced the status cards into three
+                    cramped columns. Full width each, one above the other. */}
                 <PageShell as="div" width="full" py={false} className="mt-12">
-                  <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-6">
-                    <div className="min-w-0">
-                      <TopPerformersSection performers={data.topPerformers} avatarById={avatarById} />
-                    </div>
-                    <div className="min-w-0">
-                      <StatusDistributionChart
-                        data={data.statusDistribution}
-                        labels={statusLabels}
-                        tones={statusTones}
-                        isAdmin={Boolean(me?.isAdmin)}
-                      />
-                    </div>
+                  <div className="flex w-full max-w-none flex-col space-y-8">
+                    <TopPerformersSection performers={data.topPerformers} avatarById={avatarById} />
+                    <StatusDistributionChart
+                      data={data.statusDistribution}
+                      labels={statusLabels}
+                      tones={statusTones}
+                      isAdmin={Boolean(me?.isAdmin)}
+                    />
                   </div>
                 </PageShell>
 

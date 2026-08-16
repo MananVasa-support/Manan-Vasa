@@ -304,7 +304,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
           style={{ background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)" }}
         />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-[70] w-[min(1200px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-section border border-hairline bg-surface-card shadow-xl overflow-hidden"
+          className="fixed left-1/2 top-1/2 z-[70] w-[min(1200px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 wms-card rounded-section bg-surface-card shadow-xl overflow-hidden"
           style={{ maxHeight: "calc(100vh - 32px)" }}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
@@ -425,7 +425,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
             style={{ background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)" }}
           />
           <Dialog.Content
-            className="fixed left-1/2 top-1/2 z-[70] w-[min(1240px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 rounded-section border border-hairline bg-surface-card shadow-xl overflow-hidden"
+            className="fixed left-1/2 top-1/2 z-[70] w-[min(1240px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 wms-card rounded-section bg-surface-card shadow-xl overflow-hidden"
             style={{ maxHeight: "calc(100vh - 48px)" }}
           >
             <div

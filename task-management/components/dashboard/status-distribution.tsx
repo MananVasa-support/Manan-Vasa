@@ -19,9 +19,57 @@ import { DashboardSectionHeader } from "./section-header";
 
 type Tone = StatusColorToken;
 
-/** Tones whose mid colour is light enough that white text would wash out —
- *  these get dark text for the in-segment % label. */
-const LIGHT_TONES = new Set<string>(["yellow", "amber", "stone"]);
+/**
+ * EXACT per-status colour system. `fill` paints the card's top accent, its
+ * inner progress bar, and its segment of the proportion ribbon — one source, so
+ * a status is the same colour everywhere it appears.
+ *
+ * `ink` is the text that sits ON that fill (the in-segment % label). Four fills
+ * are too light for white text — amber-400, orange-300, sky-300 and the white
+ * "Not Read" tier — so those carry dark ink rather than relying on a shared
+ * "light tones" guess.
+ *
+ * `border` is set only for the white tier, which would otherwise be invisible
+ * against the card and the ribbon's track.
+ *
+ * Statuses beyond the eleven named in the palette are mapped to their nearest
+ * sibling rather than left uncoloured:
+ *   • `need_help` shares Need Info's pink — the app's own scheme has always
+ *     grouped the two ("Need Info/Need Help", lib/format.ts).
+ *   • `follow_up_1/2/3` share Follow Up's ice blue; they are the granular
+ *     variants that collapsed back into `follow_up`.
+ *   • `transferred` shares Cancelled's grey — both are terminal exits.
+ */
+interface StatusPaint {
+  fill: string;
+  ink: string;
+  border?: string;
+}
+
+const STATUS_PAINT: Record<TaskStatus, StatusPaint> = {
+  done:         { fill: "#10b981", ink: "#ffffff" },                          // emerald-500
+  not_approved: { fill: "#dc2626", ink: "#ffffff" },                          // red-600
+  approved:     { fill: "#9333ea", ink: "#ffffff" },                          // purple-600
+  need_info:    { fill: "#ec4899", ink: "#ffffff" },                          // pink-500
+  need_help:    { fill: "#ec4899", ink: "#ffffff" },                          // pink-500 (see note)
+  not_started:  { fill: "#fbbf24", ink: "#1f2937" },                          // amber-400
+  dont_know:    { fill: "#f9fafb", ink: "#1f2937", border: "#d1d5db" },       // "Not Read"
+  initiated:    { fill: "#fdba74", ink: "#1f2937" },                          // orange-300
+  on_hold:      { fill: "#f97316", ink: "#ffffff" },                          // orange-500
+  follow_up:    { fill: "#7dd3fc", ink: "#1f2937" },                          // sky-300
+  follow_up_1:  { fill: "#7dd3fc", ink: "#1f2937" },
+  follow_up_2:  { fill: "#7dd3fc", ink: "#1f2937" },
+  follow_up_3:  { fill: "#7dd3fc", ink: "#1f2937" },
+  cancelled:    { fill: "#9ca3af", ink: "#ffffff" },                          // gray-400
+  transferred:  { fill: "#9ca3af", ink: "#ffffff" },                          // gray-400
+};
+
+/** The summary tiles are not statuses, so they carry their own paint. */
+const SUMMARY_PAINT = {
+  pending: { fill: "#2563eb", ink: "#ffffff" },                               // blue-600
+  notApproved: { fill: "#dc2626", ink: "#ffffff" },                           // red-600
+  archived: { fill: "#9ca3af", ink: "#ffffff" },                              // gray-400
+} as const;
 
 export function StatusDistributionChart({
   data,
@@ -37,6 +85,9 @@ export function StatusDistributionChart({
   // Unfolded by default — this panel IS the overview, so it opens showing the
   // ribbon; the toggle is there to fold it away when you want the space.
   const [open, setOpen] = React.useState(true);
+  // Shared hover: set by a ribbon segment, read by the matching card (and vice
+  // versa), so pointing at either highlights both.
+  const [hovered, setHovered] = React.useState<TaskStatus | null>(null);
   const resolvedLabels = labels ?? STATUS_LABELS_FALLBACK;
   const resolvedTones = (tones ?? STATUS_TONES_FALLBACK) as Record<
     TaskStatus,
@@ -72,6 +123,7 @@ export function StatusDistributionChart({
 
   return (
     <section
+      className="w-full max-w-none"
       style={{ opacity: 0, animation: "fadeUp 500ms ease-out 500ms forwards" }}
     >
       <Header
@@ -85,72 +137,60 @@ export function StatusDistributionChart({
         }
       />
 
-      <div
-        className="rounded-section bg-surface-card border border-hairline p-7 max-md:p-5"
-        style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
-      >
+      <div className="wms-card w-full max-w-none rounded-2xl bg-white p-6 shadow-xs hover:shadow-sm max-md:p-4">
       {/* Ribbon, legend cards and summary fold together, so the card collapses
           to nothing while the header above it stays put. */}
       <CollapsibleBody expanded={open}>
 
-      {/* Proportional ribbon — a VISUAL OVERVIEW only (not clickable):
-          tiny segments can't be both proportional and tappable, so the
-          legend cards below are the click-to-filter targets. Each segment
-          shows a tooltip on hover with its exact status / count / %. Wide
-          segments print their share % centred; text flips to dark on the
-          light tones (yellow / amber / light-grey) so it stays legible. */}
+      {/* Proportional ribbon — one seamless bar, each segment sized to its
+          share of the total. Hovering a segment raises a fast tooltip AND
+          highlights the matching card below (shared `hovered` state), so the
+          ribbon and the grid read as one control rather than two views of the
+          same numbers. Segments stay non-navigating: a 6px sliver can't be a
+          reliable click target, so the cards own the click. */}
       <div
-        className="mt-6 flex w-full overflow-hidden"
-        style={{
-          height: 48,
-          borderRadius: 14,
-          background: "var(--color-surface-track)",
-          boxShadow: "inset 0 1px 2px rgba(15,23,42,0.06)",
-        }}
+        className="relative mt-6 flex h-4 w-full overflow-hidden rounded-lg bg-gray-100"
         role="img"
         aria-label={`Tasks by status: ${rows
           .map((r) => `${resolvedLabels[r.status]} ${r.count}`)
           .join(", ")}`}
       >
         {rows.map((r, i) => {
-          const tone = resolvedTones[r.status];
+          const paint = STATUS_PAINT[r.status];
           const widthPct = totalCount > 0 ? (r.count / totalCount) * 100 : 0;
           if (widthPct === 0) return null;
           const pct = denom > 0 ? (r.count / denom) * 100 : widthPct;
-          const dark = LIGHT_TONES.has(tone);
-          const showPct = widthPct >= 6;
+          const isHot = hovered === r.status;
+          // No in-segment % label any more: at h-4 the bar is 16px tall and the
+          // old 15px text did not fit. The tooltip carries the exact figure and
+          // every card below prints its own share, so nothing is lost.
           return (
             <div
               key={r.status}
-              title={`${resolvedLabels[r.status]} — ${r.count} (${pct.toFixed(1)}%)`}
-              className="dist-segment flex h-full items-center justify-center"
+              title={`${resolvedLabels[r.status]}: ${r.count} tasks (${pct.toFixed(1)}%)`}
+              onMouseEnter={() => setHovered(r.status)}
+              onMouseLeave={() => setHovered(null)}
+              className="flex h-full cursor-default items-center justify-center transition-[filter,opacity] duration-150"
               style={{
                 width: `${widthPct}%`,
                 minWidth: 6,
-                background: `linear-gradient(180deg, var(--color-${tone}), var(--color-${tone}-deep))`,
-                boxShadow:
-                  i < rows.length - 1
-                    ? "inset -2px 0 0 rgba(255,255,255,0.75)"
-                    : "none",
+                background: paint.fill,
+                // The white "Not Read" tier needs an outline or it reads as a
+                // gap in the ribbon rather than a segment.
+                boxShadow: [
+                  paint.border ? `inset 0 0 0 1px ${paint.border}` : "",
+                  i < rows.length - 1 ? "inset -1px 0 0 rgba(255,255,255,0.6)" : "",
+                ]
+                  .filter(Boolean)
+                  .join(", "),
+                // Dim the others rather than brighten the hovered one: the
+                // contrast lands the same way and the colours stay truthful.
+                opacity: hovered && !isHot ? 0.45 : 1,
+                filter: isHot ? "brightness(1.06)" : undefined,
                 animation: `barGrow 900ms cubic-bezier(.2,.8,.2,1) ${300 + i * 70}ms backwards`,
                 transformOrigin: "left",
               }}
-            >
-              {showPct && (
-                <span
-                  className="tabular-nums font-bold"
-                  style={{
-                    fontSize: 15,
-                    color: dark ? "#1f2937" : "#ffffff",
-                    textShadow: dark
-                      ? "0 1px 1px rgba(255,255,255,0.4)"
-                      : "0 1px 2px rgba(0,0,0,0.28)",
-                  }}
-                >
-                  {pct.toFixed(pct < 10 ? 1 : 0)}%
-                </span>
-              )}
-            </div>
+            />
           );
         })}
       </div>
@@ -158,7 +198,9 @@ export function StatusDistributionChart({
       {/* Legend grid — one continuous grid of status tiles followed by the
           pending / not-approved / archived summary tiles (same design), so the
           cards flow without odd mid-grid gaps. 3 cols desktop, 2 tablet, 1 mobile. */}
-      <ul className="mt-6 grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+      {/* Six across at full width — the section no longer shares a row, so the
+          eleven-odd cards fit two rows instead of four cramped ones. */}
+      <ul className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         {rows.map((r, i) => (
           <StatTile
             key={r.status}
@@ -166,13 +208,15 @@ export function StatusDistributionChart({
             index={i}
             denom={denom}
             label={resolvedLabels[r.status]}
-            tone={resolvedTones[r.status]}
+            paint={STATUS_PAINT[r.status]}
+            highlighted={hovered === r.status}
+            onHover={(on) => setHovered(on ? r.status : null)}
           />
         ))}
         <SummaryTile
           label="Pending"
           value={summary.pending}
-          tone="amber"
+          paint={SUMMARY_PAINT.pending}
           denom={denom}
           index={rows.length}
           href={`/tasks?status=${PENDING_STATUSES.join(",")}` as Route}
@@ -180,7 +224,7 @@ export function StatusDistributionChart({
         <SummaryTile
           label="Not approved"
           value={summary.notApproved}
-          tone="rose"
+          paint={SUMMARY_PAINT.notApproved}
           denom={denom}
           index={rows.length + 1}
           href={"/tasks?status=not_approved" as Route}
@@ -190,7 +234,7 @@ export function StatusDistributionChart({
           <SummaryTile
             label="Archived"
             value={summary.archived}
-            tone="slate"
+            paint={SUMMARY_PAINT.archived}
             denom={denom}
             index={rows.length + 2}
             href={"/archived" as Route}
@@ -211,14 +255,14 @@ export function StatusDistributionChart({
 function SummaryTile({
   label,
   value,
-  tone,
+  paint,
   denom,
   index,
   href,
 }: {
   label: string;
   value: number;
-  tone: Tone;
+  paint: StatusPaint;
   denom: number;
   index: number;
   href: Route;
@@ -229,17 +273,22 @@ function SummaryTile({
     <li>
       <Link
         href={href}
-        className="dist-tile group flex h-full cursor-pointer flex-col p-4 rounded-chip bg-surface-soft transition-all"
-        style={{ border: "1px solid var(--color-hairline)" }}
+        className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md"
       >
+        <span
+          aria-hidden
+          className="-mx-4 -mt-4 mb-3 block h-1"
+          style={{ background: paint.fill }}
+        />
+
         <div className="flex items-center gap-2">
           <span
             aria-hidden
             className="size-2.5 shrink-0 rounded-full"
-            style={{ background: `var(--color-${tone})` }}
+            style={{ background: paint.fill }}
           />
           <span
-            className="uppercase font-bold tracking-[0.06em] truncate text-ink-soft"
+            className="truncate font-bold uppercase tracking-[0.06em] text-gray-500"
             style={{ fontSize: 12 }}
           >
             {label}
@@ -248,7 +297,7 @@ function SummaryTile({
 
         <div className="mt-3 flex items-baseline gap-2">
           <span
-            className="tabular-nums font-black leading-none text-ink-strong"
+            className="font-black leading-none tabular-nums text-gray-900"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontSize: 34,
@@ -257,23 +306,19 @@ function SummaryTile({
             {animated}
           </span>
           <span
-            className="ml-auto tabular-nums font-semibold text-ink-subtle"
+            className="ml-auto font-semibold tabular-nums text-gray-500"
             style={{ fontSize: 14 }}
           >
             {denom > 0 ? `${pct.toFixed(1)}%` : "—"}
           </span>
         </div>
 
-        <div
-          aria-hidden
-          className="mt-3 h-1.5 w-full overflow-hidden rounded-full"
-          style={{ background: "var(--color-surface-track)" }}
-        >
+        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
           <span
-            className="block h-full rounded-full"
+            className="block h-full rounded-full transition-[filter] duration-150 group-hover:brightness-110"
             style={{
               width: `${Math.max(Math.min(pct, 100), pct > 0 ? 3 : 0)}%`,
-              background: `linear-gradient(90deg, var(--color-${tone}), var(--color-${tone}-deep))`,
+              background: paint.fill,
               animation: `barGrow 900ms cubic-bezier(.2,.8,.2,1) ${400 + index * 70}ms backwards`,
               transformOrigin: "left",
             }}
@@ -338,13 +383,18 @@ function StatTile({
   index,
   denom,
   label,
-  tone,
+  paint,
+  highlighted,
+  onHover,
 }: {
   row: StatusDistribution;
   index: number;
   denom: number;
   label: string;
-  tone: Tone;
+  paint: StatusPaint;
+  /** True while the matching ribbon segment is hovered. */
+  highlighted: boolean;
+  onHover: (on: boolean) => void;
 }) {
   const animated = useCountUp(row.count, 900 + index * 70);
   const pct = denom > 0 ? (row.count / denom) * 100 : 0;
@@ -352,18 +402,35 @@ function StatTile({
     <li>
       <Link
         href={`/tasks?status=${row.status}` as Route}
-        className="dist-tile group flex h-full cursor-pointer flex-col p-4 rounded-chip bg-surface-soft transition-all"
-        style={{ border: "1px solid var(--color-hairline)" }}
+        onMouseEnter={() => onHover(true)}
+        onMouseLeave={() => onHover(false)}
+        className={`group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-white p-4 shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md ${
+          highlighted ? "-translate-y-0.5 border-gray-300 shadow-md" : "border-gray-200"
+        }`}
+        style={
+          // The status colour lives on a top accent rail rather than the whole
+          // card, so eleven cards side by side stay readable.
+          { boxShadow: highlighted ? `inset 0 3px 0 ${paint.fill}` : undefined }
+        }
       >
-        {/* Label row — coloured dot + neutral status name */}
+        <span
+          aria-hidden
+          className="-mx-4 -mt-4 mb-3 block h-1"
+          style={{ background: paint.fill }}
+        />
+
+        {/* Label row — colour chip + status name */}
         <div className="flex items-center gap-2">
           <span
             aria-hidden
             className="size-2.5 shrink-0 rounded-full"
-            style={{ background: `var(--color-${tone})` }}
+            style={{
+              background: paint.fill,
+              boxShadow: paint.border ? `inset 0 0 0 1px ${paint.border}` : undefined,
+            }}
           />
           <span
-            className="uppercase font-bold tracking-[0.06em] truncate text-ink-soft"
+            className="truncate font-bold uppercase tracking-[0.06em] text-gray-500"
             style={{ fontSize: 12 }}
           >
             {label}
@@ -373,7 +440,7 @@ function StatTile({
         {/* Count + share — single baseline row, % pinned right */}
         <div className="mt-3 flex items-baseline gap-2">
           <span
-            className="tabular-nums font-black leading-none text-ink-strong"
+            className="font-black leading-none tabular-nums text-gray-900"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontSize: 34,
@@ -382,24 +449,22 @@ function StatTile({
             {animated}
           </span>
           <span
-            className="ml-auto tabular-nums font-semibold text-ink-subtle"
+            className="ml-auto font-semibold tabular-nums text-gray-500"
             style={{ fontSize: 14 }}
           >
             {denom > 0 ? `${pct.toFixed(1)}%` : "—"}
           </span>
         </div>
 
-        {/* Share bar — always-present track for a consistent row rhythm */}
-        <div
-          aria-hidden
-          className="mt-3 h-1.5 w-full overflow-hidden rounded-full"
-          style={{ background: "var(--color-surface-track)" }}
-        >
+        {/* Share bar — the fill grows on hover, so the card confirms the
+            pointer without moving any layout. */}
+        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
           <span
-            className="block h-full rounded-full"
+            className="block h-full rounded-full transition-[filter,transform] duration-150 group-hover:brightness-110"
             style={{
               width: `${Math.max(Math.min(pct, 100), pct > 0 ? 3 : 0)}%`,
-              background: `linear-gradient(90deg, var(--color-${tone}), var(--color-${tone}-deep))`,
+              background: paint.fill,
+              boxShadow: paint.border ? `inset 0 0 0 1px ${paint.border}` : undefined,
               animation: `barGrow 900ms cubic-bezier(.2,.8,.2,1) ${400 + index * 70}ms backwards`,
               transformOrigin: "left",
             }}

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ImagePlus, Link2, Plus, X, FileImage, Check } from "lucide-react";
@@ -89,7 +89,9 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
     register,
     control,
     handleSubmit,
-    watch,
+    // `watch` is deliberately NOT destructured: calling it in this component
+    // re-subscribes the whole form to every keystroke. Use `useWatch` in a leaf
+    // (see DoerCountLabel) if another field's value is needed for display.
     setValue,
     getValues,
     formState: { errors },
@@ -124,7 +126,16 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
   // Server-side error from createTask (field validation is handled by RHF/zod).
   const [error, setError] = React.useState<string | null>(null);
 
-  const doerCount = watch("doerIds").length;
+  // `watch("doerIds")` USED TO LIVE HERE, and it was the typing lag.
+  //
+  // RHF's `watch()` subscribes the component it is called in to EVERY field
+  // change, not just the named one. Description and Notes are `register()`ed
+  // (uncontrolled, no re-render of their own), but this single call meant every
+  // keystroke re-rendered the whole 1,300-line form — twenty-odd Controllers,
+  // the employee multi-select, the schedule block and the media grid included.
+  //
+  // The count is now read by <DoerCountLabel>, a leaf that subscribes via
+  // `useWatch`; only that label re-renders when the doer list changes.
   const tagsCount = tags.length;
 
   // Release object-URLs the moment the dialog tears down so we don't
@@ -351,7 +362,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         </Field>
         <Field
           id="nt-doer"
-          label={`Doer${doerCount > 1 ? ` · ${doerCount} selected` : ""}`}
+          label={<DoerCountLabel control={control} />}
           required
         >
           <Controller
@@ -703,13 +714,17 @@ function DoerMultiSelect({
       <PopoverAnchor asChild>
         <div
           ref={ref}
-          // Grows with its chips — a capped, scrolling field reads as broken
-          // (stray scrollbars) and hides who's already selected.
-          className="nt-input flex items-center flex-wrap gap-1.5 cursor-text"
-          // 56 = the .nt-input resting height (Initiator/Priority Selects set to
-          // h-14, Due Date is a real .nt-input). At rest all four metadata
-          // fields match; the field still grows with chips (height:auto).
-          style={{ minHeight: 56, height: "auto" }}
+          // CAPPED at two rows of chips, then scrolls. It used to grow without
+          // limit, which pushed the rest of the modal down the page as doers
+          // were added — the thing this refactor is meant to stop.
+          //
+          // The cap is 88px, not the 40px (`max-h-10`) originally specified:
+          // .nt-input rests at 56px to line up with Initiator / Priority / Due
+          // Date beside it, so a 40px cap would make this field SHORTER than
+          // its siblings and clip even one row of chips. 88px ≈ two rows, which
+          // covers the common case with no scrollbar at all.
+          className="nt-input flex flex-wrap items-center gap-1.5 overflow-y-auto cursor-text"
+          style={{ minHeight: 56, maxHeight: 88 }}
           onMouseDown={(e) => {
           const t = e.target as HTMLElement;
           if (t.closest("[data-chip-remove]") || t === inputRef.current) return;
@@ -950,6 +965,17 @@ function TagsInput({
   );
 }
 
+/**
+ * The Doer field's label, isolated so its `useWatch` subscription re-renders
+ * ONLY this span. Keeping the subscription out of the form body is what makes
+ * typing in Description cost one text-node update instead of a full form pass.
+ */
+function DoerCountLabel({ control }: { control: Control<NewTaskFormValues> }) {
+  const doerIds = useWatch({ control, name: "doerIds" }) ?? [];
+  const n = doerIds.length;
+  return <>{`Doer${n > 1 ? ` · ${n} selected` : ""}`}</>;
+}
+
 function Field({
   id,
   label,
@@ -958,7 +984,7 @@ function Field({
   action,
 }: {
   id: string;
-  label: string;
+  label: React.ReactNode;
   required?: boolean;
   children: React.ReactNode;
   /** Optional control rendered on the right of the label row (e.g. a mic). */

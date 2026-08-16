@@ -11,6 +11,10 @@ import {
   loadPunctualityDrilldown,
   type PunctualityDrilldown,
 } from "@/lib/queries/punctuality-drilldown";
+import {
+  loadPerformerDrilldown,
+  type PerformerDrilldown,
+} from "@/lib/queries/performer-drilldown";
 import { parseFilters } from "@/lib/filters";
 
 const InputSchema = z.object({
@@ -87,5 +91,37 @@ export async function getPunctualityDrilldown(
     return await loadPunctualityDrilldown(parseFilters(sp), parsed.data.basis, parsed.data.bucket);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to load drill-down" };
+  }
+}
+
+const PerformerInput = z.object({
+  employeeId: z.string().uuid(),
+  search: z.string().max(2000),
+});
+
+/**
+ * ON-DEMAND completed-task list for one leaderboard row. Fired only when the
+ * Top Performers drawer opens, so the dashboard's load path is untouched.
+ *
+ * Visibility mirrors the leaderboard that launched it: the card is already on
+ * screen for this viewer, and this returns exactly the tasks counted into it —
+ * no wider scope, and the same dashboard filters.
+ */
+export async function getPerformerDrilldown(
+  employeeId: string,
+  search: string,
+): Promise<PerformerDrilldown | { error: string }> {
+  try {
+    const me = await requireUser();
+    const limited = rateLimitOrError(me.id, "read");
+    if (limited) return { error: limited.error };
+
+    const parsed = PerformerInput.safeParse({ employeeId, search });
+    if (!parsed.success) return { error: "Invalid input" };
+
+    const sp = Object.fromEntries(new URLSearchParams(parsed.data.search).entries());
+    return await loadPerformerDrilldown(parseFilters(sp), parsed.data.employeeId);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to load completed tasks" };
   }
 }

@@ -29,6 +29,27 @@ const Ctx = React.createContext<FullscreenCtx | null>(null);
 /** Body flag the CSS keys off. Exported so the stylesheet and this file agree. */
 export const FULLSCREEN_ATTR = "data-tasks-fullscreen";
 
+/** Radix (and native) overlays that own the keyboard while they are open. */
+const OVERLAY_SELECTOR =
+  '[role="dialog"],[role="menu"],[role="listbox"],[data-state="open"][aria-expanded="true"]';
+
+/**
+ * True while the keystroke belongs to something the user is typing into — a
+ * text field, a rich-text surface, a native <select>, or a combobox/search
+ * input. Without this, typing "f" in the task search box would flip the page
+ * into full screen mid-word.
+ */
+function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || typeof el.closest !== "function") return false;
+  if (el.isContentEditable) return true;
+  if (el.closest("input,textarea,select,[contenteditable=''],[contenteditable='true']")) {
+    return true;
+  }
+  // Radix comboboxes/search fields render as divs with a textbox-ish role.
+  return Boolean(el.closest('[role="textbox"],[role="searchbox"],[role="combobox"]'));
+}
+
 export function TasksFullscreen({
   className,
   children,
@@ -41,6 +62,26 @@ export function TasksFullscreen({
   const toggle = React.useCallback(() => setOn((v) => !v), []);
   const value = React.useMemo(() => ({ on, toggle }), [on, toggle]);
 
+  // F toggles full screen from anywhere on the Tasks page. Bound whether or not
+  // the mode is on — this provider only mounts on Tasks, so the shortcut is
+  // scoped to that view without any route check.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "f" && e.key !== "F") return;
+      // Leave Ctrl/⌘-F (browser find) and friends alone.
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      if (e.defaultPrevented) return;
+      if (isTypingTarget(e.target)) return;
+      // An open dropdown/dialog owns its own typeahead — don't steal the key.
+      if (document.querySelector(OVERLAY_SELECTOR)) return;
+      e.preventDefault();
+      toggle();
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggle]);
+
   React.useEffect(() => {
     if (!on) return;
     document.body.setAttribute(FULLSCREEN_ATTR, "1");
@@ -52,13 +93,7 @@ export function TasksFullscreen({
       // still in the DOM at this point — so only fall through to exiting
       // fullscreen when nothing else claimed it.
       if (e.defaultPrevented) return;
-      if (
-        document.querySelector(
-          '[role="dialog"],[role="menu"],[role="listbox"],[data-state="open"][aria-expanded="true"]',
-        )
-      ) {
-        return;
-      }
+      if (document.querySelector(OVERLAY_SELECTOR)) return;
       setOn(false);
     };
 
@@ -103,7 +138,7 @@ export function FullscreenToggleButton() {
       onClick={toggle}
       aria-pressed={on}
       aria-label={on ? "Exit full screen" : "Enter full screen"}
-      title={on ? "Exit full screen (Esc)" : "Full screen"}
+      title={on ? "Exit full screen (F or Esc)" : "Full screen (F)"}
       className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold transition-colors hover:bg-surface-soft shrink-0"
       style={{
         color: on ? "#ffffff" : "var(--color-altus-red-deep)",

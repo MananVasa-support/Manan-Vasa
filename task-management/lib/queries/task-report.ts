@@ -134,7 +134,7 @@ export async function loadTaskReportData(now: Date = new Date()): Promise<TaskRe
 
   const nameById = new Map(allEmployees.map((e) => [e.id, e.name] as const));
 
-  // ── ① + ② Two DONE distributions (original vs revised) across the 12 buckets ──
+  // ── ① + ② Two DONE distributions (original vs revised) across the 9 buckets ──
   const buildDone = (
     basis: "original" | "revised",
     pick: (r: DoneRow) => Date | null,

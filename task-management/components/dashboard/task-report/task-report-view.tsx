@@ -160,16 +160,17 @@ function SectionHeader({
 
 /* ───────────────────────── Card chrome (cream glass) ───────────────────── */
 
+/**
+ * The report's card surface. Clean white with a hairline grey border — the
+ * cream/beige gradient it replaced (#FBF7F0 → #F4EEE3) tinted every colour
+ * sitting on it, which the nine-tier delivery ramp cannot tolerate: the neutral
+ * "On Due Date" tier is defined as white, and on a beige ground it read as
+ * another filled band rather than the neutral pivot.
+ */
 function GlassCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-section p-7 max-md:p-5 ${className ?? ""}`}
-      style={{
-        background: "linear-gradient(155deg, #FBF7F0 0%, #F4EEE3 100%)",
-        border: "1px solid var(--color-hairline)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.6) inset, 0 18px 40px -28px rgba(168,4,0,0.22), 0 4px 12px -8px rgba(15,23,42,0.12)",
-      }}
+      className={`relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm max-md:p-5 ${className ?? ""}`}
     >
       {children}
     </div>

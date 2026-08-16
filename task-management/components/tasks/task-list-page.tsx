@@ -70,6 +70,7 @@ export function computeStatCounts(rows: TaskListRow[]): Record<KpiKey, number> {
 export function TaskListPage({
   title,
   rows,
+  metricsRows,
   filters,
   employees,
   me,
@@ -84,6 +85,11 @@ export function TaskListPage({
 }: {
   title: string;
   rows: TaskListRow[];
+  /** The rows the SUMMARY PILLS are counted over — the user's whole scope with
+   *  the status/priority dimensions removed. Defaults to `rows` for callers
+   *  that don't separate the two (e.g. Archived), which restores the old
+   *  behaviour rather than silently zeroing their pills. */
+  metricsRows?: TaskListRow[];
   filters: TaskListFilters;
   employees: { id: string; name: string }[];
   me: { id: string; isAdmin: boolean };
@@ -106,8 +112,12 @@ export function TaskListPage({
 }) {
   // Weekly goals are surfaced as a pinned group above the table but are
   // deliberately EXCLUDED from the task stat-card counts (design §10) — the
-  // KPIs stay tasks-only. So `counts` is computed from `rows` alone.
-  const counts = computeStatCounts(rows);
+  // KPIs stay tasks-only.
+  //
+  // Counted over `metricsRows` (the whole scope), NOT the filtered `rows`.
+  // Counting the filtered set made every unselected pill read 0 the moment one
+  // was clicked, which turned a summary bar into a description of itself.
+  const counts = computeStatCounts(metricsRows ?? rows);
 
   // Each filterable stat card maps to a set of statuses and/or priorities.
   // Clicking a card TOGGLES its set into/out of the current filter (click on /

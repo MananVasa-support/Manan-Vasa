@@ -150,7 +150,12 @@ async function loadDashboardDataUncached(
     ]);
   // Cast back to Task[] for the transform signatures — the dropped
   // description/notes fields are simply absent and never accessed.
-  const periodTasks = periodTasksRaw as unknown as Task[];
+  //
+  // `periodTasks` is widened with `originalDueAt`: `taskCols()` projects
+  // `dueAt` as the EFFECTIVE date and selects the raw column alongside it, but
+  // the plain `Task` cast hid that second field from the type system while it
+  // was present at runtime. The heatmap's drill-down reads it.
+  const periodTasks = periodTasksRaw as unknown as (Task & { originalDueAt: Date | null })[];
   const wideTasks = wideTasksRaw as unknown as Task[];
   const rankingTasks = (rankingTasksRaw ?? periodTasksRaw) as unknown as Task[];
 
@@ -316,6 +321,9 @@ async function loadDashboardDataUncached(
 
   // Aging heatmap shows EVERY pending task (any non-terminal status),
   // sourced from the canonical enum list so Tier-3 statuses appear.
+  // Hoisted above the heatmap loop, which now stamps doer/initiator names
+  // onto each cell task so the drill-down drawer needs no second query.
+  const nameById = new Map(allEmployees.map((e) => [e.id, e.name] as const));
   const PENDING_AGES: Set<TaskStatus> = new Set(PENDING_STATUSES);
   const byCell: AgingHeatmapData["byCell"] = {};
   for (const t of periodTasks) {
@@ -331,16 +339,30 @@ async function loadDashboardDataUncached(
     if (!bucketList) continue;
     bucketList.push({
       id: t.id,
+      taskNo: t.taskNo ?? null,
       title: t.title,
+      description: t.description ?? null,
       status: t.status,
       priority: t.priority,
       ageDays,
+      // `dueAt` is the EFFECTIVE date (revised ?? original) — the one the age
+      // is measured against. `originalDueAt` is carried alongside so the
+      // drill-down can show a revision instead of hiding it: a task pushed from
+      // the 4th to the 20th looks on-track by the effective date alone.
+      dueAt: t.dueAt ?? null,
+      originalDueAt: t.originalDueAt ?? null,
+      doerId: t.doerId,
+      doerName: nameById.get(t.doerId) ?? null,
+      initiatorId: t.initiatorId,
+      initiatorName: nameById.get(t.initiatorId) ?? null,
+      createdById: t.createdById ?? null,
+      updatedAt: t.updatedAt,
+      archived: t.archived ?? false,
     });
   }
 
   // D16 — on-time vs late delivery, off the same filtered period scan
   // (`periodTasks.dueAt` is already the effective revised-or-original due).
-  const nameById = new Map(allEmployees.map((e) => [e.id, e.name] as const));
   const punctuality = computePunctuality(periodTasks, nameById);
 
   // ① Done on-time + aging (Original vs Revised). periodTasks already carry
@@ -362,6 +384,7 @@ async function loadDashboardDataUncached(
     })),
     nameById,
     now,
+    new Map(allEmployees.map((e) => [e.id, e.department ?? null] as const)),
   );
 
   // ③ Manager Initiator — split the 7-day scan into 3-day and 7-day windows.

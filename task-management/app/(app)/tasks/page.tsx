@@ -8,6 +8,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { markTaskRead } from "@/app/(app)/tasks/read-actions";
 import { listEmployeeOptions } from "@/lib/queries/employees";
 import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
+import type { TaskListFilters } from "@/lib/types";
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { listWeekGoalsAsTasks } from "@/lib/weekly-goals/as-task-row";
 import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
@@ -48,10 +49,26 @@ export default async function TasksPage({ searchParams }: PageProps) {
   // full team view lives on the Weekly Goals board).
   const goalScope: string[] = [me.id];
 
-  const [allEmployees, rows, subjects, clients, statusDisplay, weeklyGoals] =
+  // The summary pills describe the user's WHOLE scope, so they are counted over
+  // a second read with the status/priority dimensions stripped out. Counting
+  // them from `rows` (as the component used to) meant clicking "Pending" filtered
+  // the rows AND the counts, so every other pill dropped to 0 and the bar stopped
+  // being a summary at all.
+  //
+  // Everything else — date window, assignee, department, subject, client,
+  // archived — is deliberately KEPT, because those are the scope the pills are
+  // meant to describe.
+  const scopeFilters: TaskListFilters = { ...filters, statuses: [], priorities: [] };
+  const sameScope =
+    filters.statuses.length === 0 && filters.priorities.length === 0;
+
+  const [allEmployees, rows, scopeRows, subjects, clients, statusDisplay, weeklyGoals] =
     await Promise.all([
       listEmployeeOptions(),
       listTasks(filters),
+      // With no status/priority filter the two reads are identical, so skip the
+      // second query entirely and reuse the first result below.
+      sameScope ? Promise.resolve(null) : listTasks(scopeFilters),
       listDistinctSubjects(),
       listActiveClientNames(),
       getStatusDisplayMap(),
@@ -135,6 +152,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
         subjects={subjects}
         clients={clients}
         weeklyGoals={weeklyGoals}
+        metricsRows={scopeRows ?? rows}
         selectedTaskId={selectedTaskId}
         detail={
           selectedTaskId ? (

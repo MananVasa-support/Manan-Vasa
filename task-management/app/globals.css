@@ -21,6 +21,14 @@
   --color-hairline:        rgba(60, 44, 40, 0.07);
   --color-hairline-strong: rgba(60, 44, 40, 0.12);
 
+  /* CARD SHELL — the dashboard's container border (2026-08).
+     An almost-black RED at very low opacity: on a white surface it reads as a
+     neutral hairline, but it carries a trace of the Altus brand rather than the
+     cool grey-200 the white-surface refactor left behind everywhere.
+     `-hover` is the same hue lifted, used by `.wms-card` below. */
+  --color-card-hairline:       rgba(40, 0, 0, 0.08);
+  --color-card-hairline-hover: rgba(127, 29, 29, 0.20);
+
   /* ── GOOGLE-PASTEL TONAL PALETTE (2026-08) ───────────────────────────────
      Sir: "google pastel shades … no solid colours visible anywhere".
 
@@ -627,6 +635,34 @@ html[data-density="dense"] body {
 @keyframes timelineDotPulse {
   0%, 100% { transform: scale(1);    opacity: 1; }
   50%      { transform: scale(1.25); opacity: 0.8; }
+}
+
+/* ── WMS CARD SHELL ───────────────────────────────────────────────────────
+   The single border treatment for every primary dashboard container, card and
+   modal block. Applied as ONE utility rather than repeating an arbitrary
+   `border-[rgba(...)]` at each call site — the colour then lives in a token
+   and a future change is a one-line edit instead of a grep across a dozen
+   components.
+
+   Resting is deliberately near-invisible: these containers sit on a near-white
+   page, and anything stronger turns a dashboard of ten cards into a grid of
+   boxes. The hover lift is what tells you a container is interactive.
+
+   Use with a background + radius of the caller's choosing:
+     <div className="wms-card rounded-2xl bg-white p-6 shadow-xs">
+   Do NOT also pass `border border-gray-200` — the utility owns the border, and
+   a Tailwind border class alongside it wins on specificity.
+   ───────────────────────────────────────────────────────────────────────── */
+@utility wms-card {
+  border: 1px solid var(--color-card-hairline);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+@utility wms-card {
+  &:hover {
+    border-color: var(--color-card-hairline-hover);
+  }
 }
 
 /* Action-rail card hover lift.  Defined as a utility so each card can opt-in. */
@@ -1366,25 +1402,43 @@ html[data-density="dense"] body {
 /* Per-status neon palette. RGB triplets so we can use them in
    rgba()/color-mix() consumers without breaking. */
 :root {
-  /* PASTEL CONTAINERS (2026-08). These are FILLS — dots, sparkline bands, tile
-     shadows — so they move to the container stop; the -deep companions below
-     stay as the on-container INK, which is what keeps each channel legible. */
-  --kpi-neon-total:        248 200 199; /* brand container  #F8C8C7 */
-  --kpi-neon-need-help:    244 174 154; /* warm container            */
-  --kpi-neon-not-approved: 249 206 218; /* rose container   #F9CEDA  */
-  --kpi-neon-done:         195 235 205; /* green container  #C3EBCD  */
-  --kpi-neon-pending:      251 224 166; /* amber container  #FBE0A6  */
-  --kpi-neon-not-started:  233 221 255; /* purple container #E9DDFF  */
+  /* SEMANTIC KPI PALETTE (2026-08). Each status owns a Tailwind-exact pair:
+     the base is the BORDER / top-accent colour, the `-deep` companion is the
+     on-white INK used for the label and the badge pill's text. The pill's fill
+     is derived from the base via color-mix in kpi-strip.tsx, which lands on the
+     matching `-50` tint — so one token pair drives border, text and background
+     together and they cannot drift apart.
 
-  /* Deep companions — used for label text on a white tile so each
-     channel stays colour-coded but high-contrast (the bright neon
-     above is reserved for the dot, sparkline, and shadow accents). */
-  --kpi-neon-total-deep:        168 4 0;   /* #A80400 — Altus red deep */
-  --kpi-neon-need-help-deep:    151 49 8;    /* orange ink  #973108 */
-  --kpi-neon-not-approved-deep: 159 15 51;   /* rose ink    #9F0F33 */
-  --kpi-neon-done-deep:         15 91 46;    /* green ink   #0F5B2E */
-  --kpi-neon-pending-deep:      138 61 6;    /* amber ink   #8A3D06 */
-  --kpi-neon-not-started-deep:  91 33 182;   /* violet-800 */
+     Replaces the earlier pastel-container scheme, which coloured by decoration
+     rather than meaning (Pending amber, Not Started purple) and so read as six
+     unrelated hues instead of a severity ramp. The ramp now runs
+     green → black → grey → dark red → bright red → red. */
+  --kpi-neon-done:         16 185 129;  /* emerald-500  #10B981 — border */
+  --kpi-neon-total:        0 0 0;       /* black        #000000 — border */
+  --kpi-neon-not-started:  156 163 175; /* gray-400     #9CA3AF — border */
+  --kpi-neon-not-approved: 159 18 57;   /* rose-800     #9F1239 — border */
+  --kpi-neon-need-help:    239 68 68;   /* red-500      #EF4444 — border */
+  --kpi-neon-pending:      220 38 38;   /* red-600      #DC2626 — border */
+
+  /* Deep companions — the label/badge INK on a white tile. */
+  --kpi-neon-done-deep:         5 150 105;  /* emerald-600  #059669 */
+  --kpi-neon-total-deep:        0 0 0;      /* black        #000000 */
+  --kpi-neon-not-started-deep:  75 85 99;   /* gray-600     #4B5563 */
+  --kpi-neon-not-approved-deep: 136 19 55;  /* rose-900     #881337 */
+  --kpi-neon-need-help-deep:    220 38 38;  /* red-600      #DC2626 */
+  --kpi-neon-pending-deep:      185 28 28;  /* red-700      #B91C1C */
+
+  /* Soft fills — the badge pill's background. Declared EXPLICITLY rather than
+     mixed from the base: a percentage tint works for the chromatic statuses but
+     collapses on Total, where any mix of pure black is a grey far darker than
+     the gray-100 the palette calls for. Full colours (not RGB triplets) because
+     nothing composes these further. */
+  --kpi-soft-done:         #ECFDF5;             /* emerald-50 */
+  --kpi-soft-total:        #F3F4F6;             /* gray-100   */
+  --kpi-soft-not-started:  #F9FAFB;             /* gray-50    */
+  --kpi-soft-not-approved: rgb(255 228 230 / 0.5); /* rose-100/50 */
+  --kpi-soft-need-help:    #FEF2F2;             /* red-50     */
+  --kpi-soft-pending:      #FEF2F2;             /* red-50     */
 
   /* Altus Corp brand indigo — primary accent across the dashboard
      surface. RGB triplets compose with rgba()/color-mix() the same way
@@ -1812,6 +1866,16 @@ html[data-density="dense"] body {
   background:
     linear-gradient(var(--vp-cyan-tint), var(--vp-cyan-tint)),
     var(--color-surface-card);
+}
+
+/* Aging drill-down drawer — the frozen actions column must repaint the row's
+   own background as an OPAQUE colour. Tailwind's hover:bg-gray-50/80 is
+   translucent, which would let the scrolled-under columns read through it. */
+.aging-drawer-row > .aging-drawer-actions {
+  background: #ffffff;
+}
+.aging-drawer-row:hover > .aging-drawer-actions {
+  background: color-mix(in srgb, rgb(249 250 251) 80%, #ffffff);
 }
 
 /* Task detail drawer — slides in from the right edge on row click. */

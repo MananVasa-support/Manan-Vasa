@@ -19,6 +19,9 @@ export function computeNotApprovedAging(
   rows: NotApprovedInput[],
   nameById: Map<string, string>,
   now: Date,
+  /** employeeId → department, for the roster's role tag. Optional so existing
+   *  callers (and the tests) keep working without it. */
+  departmentById?: Map<string, string | null>,
 ): NotApprovedAging {
   const nowDay = dayNumber(now);
   const bands = new Map(WAITING_AGING_BANDS.map((b) => [b.id, 0]));
@@ -29,7 +32,11 @@ export function computeNotApprovedAging(
     const band = bucketWaitingDays(waitingDays);
     bands.set(band, (bands.get(band) ?? 0) + 1);
     const p = per.get(r.doerId) ?? {
-      employeeId: r.doerId, employeeName: nameById.get(r.doerId) ?? "Unknown", count: 0, tasks: [],
+      employeeId: r.doerId,
+      employeeName: nameById.get(r.doerId) ?? "Unknown",
+      department: departmentById?.get(r.doerId) ?? null,
+      count: 0,
+      tasks: [],
     };
     p.count++;
     p.tasks.push({ id: r.id, title: r.title, waitingDays });

@@ -59,6 +59,8 @@ export async function GET(req: Request) {
     taskId: null,
     archived: false,
     assigneeMode: "specific",
+      team: null,
+      viewerId: null,
   };
 
   const [tasks, statusDisplay] = await Promise.all([

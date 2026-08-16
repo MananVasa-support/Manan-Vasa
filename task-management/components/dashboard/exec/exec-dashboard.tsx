@@ -13,6 +13,10 @@ import { DashboardSectionHeader } from "@/components/dashboard/section-header";
 import { CollapseToggle } from "@/components/dashboard/section-chrome";
 import { useReducedMotion } from "@/lib/motion-utils";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
+import {
+  PER_REPORT_PER_DAY,
+  type DelegationChannel,
+} from "@/lib/transforms/initiator-scorecard";
 import type {
   DoneOnTime,
   InitiatorBoard,
@@ -77,6 +81,7 @@ type ExecCtxValue = {
   isAdmin: boolean;
   meId: string | null;
   setOpenManagerId: (id: string | null) => void;
+  openDrilldown: (managerId: string, channel?: DelegationChannel) => void;
 };
 
 const ExecCtx = React.createContext<ExecCtxValue | null>(null);
@@ -110,6 +115,17 @@ export function ExecDashboard({
 
   const [windowKey, setWindowKey] = React.useState<WindowKey>("d7");
   const [openManagerId, setOpenManagerId] = React.useState<string | null>(null);
+  // Which delegation channel the drawer opened on, when a specific cell was
+  // clicked rather than the row. Cleared with the drawer so the next open
+  // never inherits the last filter.
+  const [openChannel, setOpenChannel] = React.useState<DelegationChannel | null>(null);
+  const openDrilldown = React.useCallback(
+    (managerId: string, channel?: DelegationChannel) => {
+      setOpenManagerId(managerId);
+      setOpenChannel(channel ?? null);
+    },
+    [],
+  );
 
   const resolveAvatar = React.useCallback(
     (employeeId: string): string | null => avatarById[employeeId] ?? null,
@@ -200,6 +216,7 @@ export function ExecDashboard({
     isAdmin,
     meId,
     setOpenManagerId,
+    openDrilldown,
   };
 
   return (
@@ -222,7 +239,11 @@ export function ExecDashboard({
       <ManagerDrilldown
         managerId={openManagerId}
         windowDays={windowDays}
-        onClose={() => setOpenManagerId(null)}
+        channel={openChannel}
+        onClose={() => {
+          setOpenManagerId(null);
+          setOpenChannel(null);
+        }}
       />
     </ExecCtx.Provider>
   );
@@ -263,7 +284,7 @@ export function ExecOverdueSection() {
  * `windowDays`. The gauge and the attention list are window-independent.
  */
 export function ExecDelegationSection() {
-  const { rise, board, windowKey, setWindowKey, managers, resolveAvatar, setOpenManagerId } =
+  const { rise, board, windowKey, setWindowKey, managers, resolveAvatar, openDrilldown } =
     useExec();
   // ONE header for this section. It used to carry two: an "Executive Control
   // Room / Delivery & Delegation" masthead in the card, and the scorecard title
@@ -275,7 +296,7 @@ export function ExecDelegationSection() {
       <ManagerRail
         managers={managers}
         resolveAvatar={resolveAvatar}
-        onOpenDrilldown={setOpenManagerId}
+        onOpenDrilldown={openDrilldown}
         workingDays={board.workingDays}
         windowToggle={<WindowToggle value={windowKey} onChange={setWindowKey} />}
       />
@@ -365,7 +386,7 @@ function ManagerRail({
 }: {
   managers: InitiatorBoard["managers"];
   resolveAvatar: (employeeId: string) => string | null;
-  onOpenDrilldown: (managerId: string) => void;
+  onOpenDrilldown: (managerId: string, channel?: DelegationChannel) => void;
   workingDays: number;
   /** The 3-day ⇄ 7-day switch, rendered in the section header's action slot. */
   windowToggle?: React.ReactNode;
@@ -429,13 +450,16 @@ function ManagerRail({
           </span>
         }
         title="Who is delegating, and how much"
+        /* Reads the constant, not a literal: this caption still said "3 ×"
+           after the target moved to 5/report/day, so the header contradicted
+           the ratios in the table below it. */
         subtitle={
           <>
             Target ={" "}
             <span className="font-semibold tabular-nums text-gray-900">
-              3 × {workingDays}
+              {PER_REPORT_PER_DAY} × direct reports × {workingDays}
             </span>{" "}
-            working {workingDays === 1 ? "day" : "days"} per direct report
+            working {workingDays === 1 ? "day" : "days"} per manager
           </>
         }
         actions={

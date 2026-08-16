@@ -118,6 +118,20 @@ export function TaskRowActions({ row, me }: Props) {
 
   return (
     <div className="inline-flex items-center gap-0.5">
+      {/* ORDER: Delete first, then Archive (reversed 2026-08). */}
+      {me.isAdmin && (
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={isPending}
+          title={`Delete "${row.title}" permanently`}
+          aria-label={`Delete ${row.title}`}
+          className={`${quickBtn} text-red-500 hover:bg-red-50 hover:text-red-700`}
+        >
+          <Trash2 size={15} strokeWidth={2.2} />
+        </button>
+      )}
+
       {me.isAdmin &&
         (row.archived ? (
           <button
@@ -126,7 +140,7 @@ export function TaskRowActions({ row, me }: Props) {
             disabled={isPending}
             title={`Restore "${row.title}" from the archive`}
             aria-label={`Unarchive ${row.title}`}
-            className={`${quickBtn} hover:bg-surface-soft hover:text-ink-strong`}
+            className={`${quickBtn} text-gray-500 hover:bg-gray-100 hover:text-gray-700`}
           >
             <ArchiveRestore size={15} strokeWidth={2.2} />
           </button>
@@ -137,24 +151,11 @@ export function TaskRowActions({ row, me }: Props) {
             disabled={isPending}
             title={`Archive "${row.title}"`}
             aria-label={`Archive ${row.title}`}
-            className={`${quickBtn} hover:bg-surface-soft hover:text-ink-strong`}
+            className={`${quickBtn} text-gray-500 hover:bg-gray-100 hover:text-gray-700`}
           >
             <Archive size={15} strokeWidth={2.2} />
           </button>
         ))}
-
-      {me.isAdmin && (
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={isPending}
-          title={`Delete "${row.title}" permanently`}
-          aria-label={`Delete ${row.title}`}
-          className={`${quickBtn} hover:bg-altus-red/10 hover:text-altus-red`}
-        >
-          <Trash2 size={15} strokeWidth={2.2} />
-        </button>
-      )}
 
       {/* The ⋯ overflow menu was removed on request. Nothing was lost for
           admins: everything it held — set status, change priority, reassign

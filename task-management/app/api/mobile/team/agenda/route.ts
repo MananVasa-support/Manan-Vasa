@@ -54,6 +54,8 @@ export async function GET(req: Request) {
     taskId: null,
     archived: false,
     assigneeMode: "default",
+      team: null,
+      viewerId: null,
   };
 
   const [rows, statusDisplay] = await Promise.all([listTasks(filters), getStatusDisplayMap()]);

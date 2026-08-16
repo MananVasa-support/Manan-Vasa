@@ -12,6 +12,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { PageShell } from "@/components/layout/page-shell";
 import { DashboardSectionHeader } from "@/components/dashboard/section-header";
 import { CollapseToggle, CollapsibleBody } from "@/components/dashboard/section-chrome";
+import { AgingTaskDrawer } from "@/components/dashboard/aging-task-drawer";
 
 // RISK-BANDED palette — four bands rather than a continuous hue ramp, so a lane
 // reads as its risk level at a glance instead of "somewhere along a gradient":
@@ -24,20 +25,31 @@ import { CollapseToggle, CollapsibleBody } from "@/components/dashboard/section-
 // `fill` is the Tailwind swatch named above; `deep` is the saturated label
 // colour (kept 2–3 steps darker so text stays legible on `tint`), `light` is the
 // gradient partner and `tint` the wash behind counts. The three High lanes step
-// 500→600→700 so they remain distinguishable from each other while all reading
-// as crimson.
-const BUCKET_COLOR: Record<
-  AgeBucketId,
-  { fill: string; deep: string; tint: string; light: string }
-> = {
-  "0-3":   { fill: "#4ade80", deep: "#15803d", tint: "#dcfce7", light: "#86efac" }, // green-400
-  "4-7":   { fill: "#34d399", deep: "#047857", tint: "#d1fae5", light: "#6ee7b7" }, // emerald-400
-  "8-14":  { fill: "#facc15", deep: "#a16207", tint: "#fef9c3", light: "#fde047" }, // yellow-400
-  "15-20": { fill: "#f59e0b", deep: "#b45309", tint: "#fef3c7", light: "#fbbf24" }, // amber-500
-  "21-30": { fill: "#f97316", deep: "#c2410c", tint: "#ffedd5", light: "#fb923c" }, // orange-500
-  "31-45": { fill: "#ef4444", deep: "#b91c1c", tint: "#fee2e2", light: "#f87171" }, // red-500
-  "46-60": { fill: "#dc2626", deep: "#991b1b", tint: "#fecaca", light: "#ef4444" }, // red-600
-  "60+":   { fill: "#b91c1c", deep: "#7f1d1d", tint: "#fecaca", light: "#dc2626" }, // red-700
+/**
+ * SEVEN SOLID TIERS. `fill` is the flat ground for the bar segment, the legend
+ * pill and the popover's age chip; `ink` is the text that sits on it.
+ *
+ * Replaces a three-tier scheme (emerald / amber / rose) which collapsed eight
+ * brackets into three colours — 31-45d and 60+d rendered identically, so the
+ * bar could not show that one lane's backlog was twice as old as another's.
+ *
+ * `0-3` and `4-7` intentionally share emerald: the palette specifies a single
+ * "0-7d" tier, while the underlying AGE_BUCKETS keep the two apart for counting.
+ *
+ * `deep` survives only as the focus-ring / popover-border colour. `light` is
+ * gone with the vertical gradient it fed — solid fills read more honestly
+ * against the white cards, and a gradient made two adjacent tiers blur into
+ * each other at the seam.
+ */
+const BUCKET_COLOR: Record<AgeBucketId, { fill: string; ink: string; deep: string }> = {
+  "0-3":   { fill: "#059669", ink: "#ffffff", deep: "#047857" }, // emerald-600 — fresh
+  "4-7":   { fill: "#059669", ink: "#ffffff", deep: "#047857" }, // emerald-600 — fresh
+  "8-14":  { fill: "#38bdf8", ink: "#111827", deep: "#0284c7" }, // sky-400    — low
+  "15-20": { fill: "#fbbf24", ink: "#111827", deep: "#b45309" }, // amber-400  — moderate
+  "21-30": { fill: "#f97316", ink: "#ffffff", deep: "#c2410c" }, // orange-500 — elevated
+  "31-45": { fill: "#dc2626", ink: "#ffffff", deep: "#991b1b" }, // red-600    — high
+  "46-60": { fill: "#991b1b", ink: "#ffffff", deep: "#7f1d1d" }, // red-800    — critical
+  "60+":   { fill: "#6b21a8", ink: "#ffffff", deep: "#581c87" }, // purple-700 — extreme
 };
 
 const BUCKET_WEIGHT: Record<AgeBucketId, number> = {
@@ -71,13 +83,58 @@ export function AgingHeatmap({
   rows,
   cellTasks,
   avatarById = {},
+  me,
 }: {
   rows: AgingRow[];
   cellTasks: Record<string, Record<string, HeatmapCellTask[]>>;
   avatarById?: Record<string, string | null>;
+  /** Needed by the drill-down drawer's inline status cell. */
+  me: { id: string; isAdmin: boolean };
 }) {
   const [open, setOpen] = React.useState(true);
   const [sortMode, setSortMode] = React.useState<SortMode>("risk");
+
+  // Drill-down target. `employeeId: null` = "this bracket, everyone" (an age
+  // badge); `bucketId: null` = "this person, every bracket" (a lane); both set
+  // = one cell.
+  const [drill, setDrill] = React.useState<{
+    employeeId: string | null;
+    bucketId: AgeBucketId | null;
+  } | null>(null);
+  const openDrill = React.useCallback(
+    (employeeId: string | null, bucketId: AgeBucketId | null) =>
+      setDrill({ employeeId, bucketId }),
+    [],
+  );
+
+  // Pulled straight from `cellTasks` — the very rows the lanes counted, so the
+  // drawer can never disagree with the bar that opened it. Oldest first: a
+  // drill-down is a triage list.
+  const drillTasks = React.useMemo(() => {
+    if (!drill) return [] as HeatmapCellTask[];
+    const out: HeatmapCellTask[] = [];
+    for (const [empId, buckets] of Object.entries(cellTasks)) {
+      if (drill.employeeId && empId !== drill.employeeId) continue;
+      for (const [bId, list] of Object.entries(buckets)) {
+        if (drill.bucketId && bId !== drill.bucketId) continue;
+        out.push(...list);
+      }
+    }
+    return out.sort((a, b) => b.ageDays - a.ageDays);
+  }, [drill, cellTasks]);
+
+  const drillTitle = React.useMemo(() => {
+    if (!drill) return "";
+    const label = drill.bucketId
+      ? AGE_BUCKETS.find((b) => b.id === drill.bucketId)?.label ?? drill.bucketId
+      : null;
+    const who = drill.employeeId
+      ? rows.find((r) => r.employeeId === drill.employeeId)?.employeeName ?? "Unknown"
+      : null;
+    if (who && label) return `Pending Tasks for ${who} — ${label}`;
+    if (who) return `All Pending Tasks for ${who}`;
+    return `All ${label} Overdue Tasks`;
+  }, [drill, rows]);
 
   // FilterBar section search — narrows the lanes to matching people. Applied
   // before enrichment so the risk ranking, the header counts and the critical
@@ -164,15 +221,7 @@ export function AgingHeatmap({
       <CollapsibleBody expanded={open}>
 
       <div
-        className="aging-shell rounded-section p-8 max-md:p-5 relative overflow-hidden"
-        style={{
-          background: "#ffffff",
-          border: "1px solid var(--color-hairline)",
-          // Neutral slate drop shadow only — the second layer used to be a red
-          // glow (rgba(225,6,0,0.15)) which bled peach onto the surrounding
-          // page.
-          boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
-        }}
+        className="wms-card aging-shell relative overflow-hidden rounded-xl bg-white p-6 shadow-xs hover:shadow-sm max-md:p-4"
       >
         {/* The red/green "heat wash" backdrop was removed — it was the other
             half of the peach tint. The heat colours still live where they carry
@@ -181,7 +230,7 @@ export function AgingHeatmap({
         <div className="relative">
           {criticalTotal > 0 && <AlertBanner count={criticalTotal} />}
 
-          <Legend />
+          <Legend onPick={(b) => openDrill(null, b)} />
 
           {top12.length === 0 ? (
             <p className="mt-6 font-semibold" style={{ fontSize: 17, color: "var(--color-ink-muted)" }}>
@@ -197,6 +246,7 @@ export function AgingHeatmap({
                   maxTotal={maxTotal}
                   index={i}
                   employeeTasks={cellTasks[r.employeeId] ?? {}}
+                  onDrill={openDrill}
                   avatarUrl={avatarById[r.employeeId] ?? null}
                 />
               ))}
@@ -205,6 +255,15 @@ export function AgingHeatmap({
         </div>
       </div>
       </CollapsibleBody>
+
+      <AgingTaskDrawer
+        open={drill !== null}
+        title={drillTitle}
+        tasks={drillTasks}
+        me={me}
+        avatarById={avatarById}
+        onClose={() => setDrill(null)}
+      />
     </PageShell>
   );
 }
@@ -216,18 +275,33 @@ function SortControl({
   value: SortMode;
   onChange: (m: SortMode) => void;
 }) {
-  const options: { id: SortMode; label: string }[] = [
-    { id: "risk", label: "Risk" },
-    { id: "total", label: "Total" },
-    { id: "oldest", label: "Oldest" },
+  // Each mode gets an explicit description: "Risk / Total / Oldest" alone gives
+  // no clue that they rank by three genuinely different things, and users read
+  // the same list in a different order under each without knowing why.
+  const options: { id: SortMode; label: string; hint: string }[] = [
+    {
+      id: "risk",
+      label: "Risk",
+      hint: "Sorts by weighted risk score calculated from high-aging categories.",
+    },
+    {
+      id: "total",
+      label: "Total",
+      hint: "Sorts by total volume of pending aging tasks.",
+    },
+    {
+      id: "oldest",
+      label: "Oldest",
+      hint: "Sorts by age of the single oldest active task.",
+    },
   ];
   return (
     <div
-      className="inline-flex items-center gap-1 p-1 rounded-chip bg-surface-card border border-hairline"
+      className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1"
       role="tablist"
       aria-label="Sort aging table"
     >
-      <ArrowDownUp className="size-4 text-ink-subtle ml-1.5 mr-0.5" />
+      <ArrowDownUp className="ml-1 size-3.5 text-gray-400" />
       {options.map((o) => {
         const active = value === o.id;
         return (
@@ -237,13 +311,11 @@ function SortControl({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.id)}
-            className="px-4 py-2 rounded-pill font-bold transition-all duration-200 tabular-nums"
-            style={{
-              fontSize: 14,
-              background: active ? "var(--color-ink-strong)" : "transparent",
-              color: active ? "#ffffff" : "var(--color-ink-muted)",
-              boxShadow: active ? "0 4px 10px rgba(15,23,42,0.18)" : "none",
-            }}
+            title={`${o.label} — ${o.hint}`}
+            aria-label={`Sort by ${o.label}. ${o.hint}`}
+            className={`rounded-md px-3 py-1 text-xs font-semibold tabular-nums transition-colors ${
+              active ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+            }`}
           >
             {o.label}
           </button>
@@ -279,7 +351,7 @@ function AlertBanner({ count }: { count: number }) {
   );
 }
 
-function Legend() {
+function Legend({ onPick }: { onPick: (b: AgeBucketId) => void }) {
   return (
     <div className="mt-4 flex items-center gap-1.5 flex-wrap">
       <span
@@ -295,25 +367,21 @@ function Legend() {
       {DISPLAY_BUCKETS.map((b) => {
         const c = BUCKET_COLOR[b.id];
         return (
-          <div
+          <button
             key={b.id}
-            className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1"
-            style={{
-              background: c.tint,
-              border: `1px solid ${c.light}`,
-            }}
+            type="button"
+            onClick={() => onPick(b.id)}
+            title={`Show every pending task aged ${b.label}`}
+            aria-label={`Show all pending tasks aged ${b.label}`}
+            /* Solid pill in the bucket's own tier colour, so the legend is a
+               direct colour key for the bars rather than a pastel echo of them. */
+            className="inline-flex items-center rounded-full px-3 py-1 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
+            style={{ background: c.fill, color: c.ink }}
           >
-            <span
-              className="inline-block size-2.5 rounded-full"
-              style={{ background: c.fill, boxShadow: `0 0 6px ${c.fill}` }}
-            />
-            <span
-              className="font-black tabular-nums"
-              style={{ fontSize: 13, color: c.deep }}
-            >
+            <span className="font-black tabular-nums" style={{ fontSize: 13 }}>
               {b.id}d
             </span>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -377,12 +445,14 @@ function Lane({
   index,
   employeeTasks,
   avatarUrl,
+  onDrill,
 }: {
   row: AgingRow & { risk: number };
   maxTotal: number;
   index: number;
   employeeTasks: Record<string, HeatmapCellTask[]>;
   avatarUrl?: string | null;
+  onDrill: (employeeId: string | null, bucketId: AgeBucketId | null) => void;
 }) {
   const router = useRouter();
   const lengthPct = (row.total / maxTotal) * 100;
@@ -393,11 +463,11 @@ function Lane({
       role="link"
       tabIndex={0}
       aria-label={`Open ${row.employeeName}'s aging tasks (risk ${row.risk}, ${row.total} pending)`}
-      onClick={() => router.push(target)}
+      onClick={() => onDrill(row.employeeId, null)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          router.push(target);
+          onDrill(row.employeeId, null);
         }
       }}
       // Tier-3 mobile fix — at 390px the 260+88+1fr+64+28 grid (≈624px min)
@@ -455,6 +525,7 @@ function Lane({
                 widthPct={segPct}
                 employeeName={row.employeeName}
                 tasks={employeeTasks[b.id] ?? []}
+                onOpen={() => onDrill(row.employeeId, b.id)}
               />
             );
           })}
@@ -547,6 +618,7 @@ function Segment({
   widthPct,
   employeeName,
   tasks,
+  onOpen,
 }: {
   bucketId: AgeBucketId;
   bucketLabel: string;
@@ -554,10 +626,13 @@ function Segment({
   widthPct: number;
   employeeName: string;
   tasks: HeatmapCellTask[];
+  /** Open the full drill-down for this employee + bucket. */
+  onOpen: () => void;
 }) {
   const c = BUCKET_COLOR[bucketId];
   const showLabel = widthPct > 8;
-  const isCritical = CRITICAL_BUCKETS.includes(bucketId);
+  // `isCritical` lived here to drive the heatPulse animation. The animation is
+  // gone; CRITICAL_BUCKETS is still used by the risk score and the risk sort.
 
   return (
     <Popover.Root>
@@ -566,23 +641,39 @@ function Segment({
           type="button"
           // Crucial: keep the segment click from bubbling up to the lane's
           // navigation handler so the popover opens instead of redirecting.
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            // Stop the lane's own handler: a segment click is MORE specific
+            // (this person AND this bracket), so it must not be swallowed by
+            // the row-level "all their brackets" drill-down.
+            e.stopPropagation();
+            onOpen();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") e.stopPropagation();
           }}
-          className="aging-segment h-full flex items-center justify-center text-white transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 hover:brightness-110 hover:scale-y-110 origin-bottom"
+          /* Flat fill, rounded-md, no gradient / glow / scale.
+             What was removed and why:
+               • the 180° gradient — adjacent tiers blurred into each other at
+                 the seam, so the bar read as a wash rather than seven steps;
+               • `heatPulse` on the three critical buckets — a permanently
+                 animating bar is noise once more than one lane is overdue;
+               • `hover:brightness-110 hover:scale-y-110` — brightening shifts
+                 the tier off its own token, and scaling made rows jitter;
+               • the text-shadow — unnecessary now the ink is chosen per tier,
+                 and it muddied dark text on amber and sky. */
+          className="aging-segment flex h-full items-center justify-center rounded-md transition-opacity duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{
             width: `${widthPct}%`,
-            background: `linear-gradient(180deg, ${c.light}, ${c.fill})`,
+            // Ink comes from the tier: amber-400 and sky-400 need dark text,
+            // the other five need white. A blanket `text-white` made the two
+            // light tiers' counts unreadable.
+            color: c.ink,
+            background: c.fill,
             minWidth: 0,
             outlineColor: c.deep,
-            animation: isCritical
-              ? "heatPulse 2.4s ease-in-out infinite"
-              : "none",
             fontFamily: "var(--font-display), system-ui, sans-serif",
             fontWeight: 900,
             fontSize: 17,
-            textShadow: "0 1px 2px rgba(0,0,0,0.28)",
           }}
           aria-label={`${employeeName}, ${bucketLabel}: ${count} pending`}
         >
@@ -609,13 +700,13 @@ function Segment({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header — coloured band with the bucket label */}
+          {/* Header — flat tier band with the bucket label. Solid, not a
+              gradient, so the popover's header is literally the same colour as
+              the segment that opened it. Ink follows the tier for the same
+              reason the bar's does: white is unreadable on amber and sky. */}
           <div
             className="px-5 py-4 shrink-0"
-            style={{
-              background: `linear-gradient(135deg, ${c.fill}, ${c.deep})`,
-              color: "#ffffff",
-            }}
+            style={{ background: c.fill, color: c.ink }}
           >
             <p
               className="font-black leading-tight"
@@ -676,9 +767,9 @@ function Segment({
                     style={{
                       fontFamily: "var(--font-display), system-ui, sans-serif",
                       fontSize: 15,
-                      color: c.deep,
-                      background: c.tint,
-                      border: `1px solid ${c.light}`,
+                      // Solid tier fill, matching the bar and legend pill.
+                      color: c.ink,
+                      background: c.fill,
                     }}
                   >
                     {t.ageDays}d

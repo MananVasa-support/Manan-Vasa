@@ -29,15 +29,27 @@ const URGENCY_TERMINAL = new Set<TaskStatus>([
   "cancelled",
   "transferred",
 ]);
-function dueColor(dueAt: Date | null, status: TaskStatus): { color: string; label: string; strong: boolean } {
-  if (!dueAt || URGENCY_TERMINAL.has(status)) return { color: "var(--color-ink-muted)", label: "", strong: false };
+/**
+ * Due-date presentation. Returns ONLY colour + weight — no label.
+ *
+ * The "1d overdue" / "Due today" / "in 2d" strings this used to append are gone:
+ * they duplicated the Age column beside them and, worse, disagreed with it. Age
+ * is `now − created`; these were `due − now`, so a row could read "Age 12d" next
+ * to "1d overdue" and look like a contradiction. The Due column is now a date;
+ * the Age column is an age.
+ *
+ * Red is applied ONLY when the task is still open AND the due date has passed —
+ * `URGENCY_TERMINAL` covers done/approved/not_approved/cancelled/transferred, so
+ * finished work never reads as on fire.
+ */
+function dueColor(dueAt: Date | null, status: TaskStatus): { color: string; strong: boolean } {
+  if (!dueAt || URGENCY_TERMINAL.has(status)) return { color: "var(--color-ink-muted)", strong: false };
   const d = dueAt instanceof Date ? dueAt : new Date(dueAt as unknown as string);
-  if (Number.isNaN(d.getTime())) return { color: "var(--color-ink-muted)", label: "", strong: false };
+  if (Number.isNaN(d.getTime())) return { color: "var(--color-ink-muted)", strong: false };
   const days = differenceInCalendarDays(d, new Date());
-  if (days < 0) return { color: "var(--color-red-deep)", label: `${Math.abs(days)}d overdue`, strong: true };
-  if (days === 0) return { color: "var(--color-orange-deep)", label: "Due today", strong: true };
-  if (days <= 2) return { color: "var(--color-ink-soft)", label: `in ${days}d`, strong: false };
-  return { color: "var(--color-ink-muted)", label: "", strong: false };
+  if (days < 0) return { color: "#dc2626", strong: true };   // overdue — red-600
+  if (days === 0) return { color: "var(--color-orange-deep)", strong: true };
+  return { color: "var(--color-ink-muted)", strong: false };
 }
 
 function safeDate(value: Date | null): string {
@@ -289,13 +301,11 @@ export function InlineDueCell({
 
   const u = dueColor(shown, status);
   const display = (
-    <span className="inline-flex flex-col items-center leading-tight">
-      <span className="text-body-lg tabular-nums" style={{ color: u.color, fontWeight: u.strong ? 700 : undefined }}>
-        {safeDate(shown)}
-      </span>
-      {u.label && (
-        <span className="text-[11px] font-bold tabular-nums" style={{ color: u.color }}>{u.label}</span>
-      )}
+    <span
+      className="text-body-lg tabular-nums"
+      style={{ color: u.color, fontWeight: u.strong ? 600 : undefined }}
+    >
+      {safeDate(shown)}
     </span>
   );
   if (!editable) return display;

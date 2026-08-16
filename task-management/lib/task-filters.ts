@@ -65,6 +65,10 @@ export function parseTaskFilters(
     DEPT_SET.has(d as Department),
   );
 
+  // Team scope. Kept as a raw string here — "mine" needs the org chart to
+  // expand, which is a DB read this pure parser must not do.
+  const team = (get("team") ?? "").trim() || null;
+
   const id = get("id");
 
   // Assignee resolution:
@@ -98,6 +102,8 @@ export function parseTaskFilters(
     doerIds,
     initiatorIds: split(get("initiator")),
     departments,
+    team,
+    viewerId: opts.defaultDoerId ?? null,
     priorities,
     subjects: split(get("subj")),
     clients: split(get("client")),
@@ -122,6 +128,7 @@ export function taskFiltersToSearchString(f: TaskListFilters): string {
   }
   if (f.initiatorIds.length > 0) sp.set("initiator", f.initiatorIds.join(","));
   if (f.departments.length > 0)  sp.set("dept", f.departments.join(","));
+  if (f.team)                    sp.set("team", f.team);
   if (f.priorities.length > 0)   sp.set("prio", f.priorities.join(","));
   if (f.subjects.length > 0)     sp.set("subj", f.subjects.join(","));
   if (f.clients.length > 0)      sp.set("client", f.clients.join(","));

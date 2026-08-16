@@ -891,7 +891,12 @@ export function TaskTable({
               // `is-focused` is mirrored in CSS onto the sticky Manage cell —
               // that cell paints its own opaque background, so it has to repeat
               // the row's tints or it reads as a mismatched block at the edge.
-              className={`task-row border-b border-hairline last:border-b-0 transition-colors ${
+              /* Gmail-style separation: a visible grey rule between rows plus a
+                 hover tint, instead of the near-invisible `--color-hairline`
+                 (rgba(60,44,40,0.07)) that made the list read as one block.
+                 `last:border-b-0` is dropped — a closing rule under the final
+                 row is what makes the table look finished rather than cut off. */
+              className={`task-row border-b border-gray-200 transition-colors hover:bg-slate-50/80 ${
                 row.original.id === focusedId ? "is-focused bg-altus-red/[0.06]" : ""
               }`}
               style={{
@@ -924,7 +929,7 @@ export function TaskTable({
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-2.5 whitespace-nowrap max-md:px-3 max-md:py-3 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
+                    className={`px-3 py-1.5 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
                     style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
                   >
                     {flexRender(
@@ -1293,7 +1298,22 @@ function taskCellLabel(row: TaskListRow): string {
   return desc && desc.length > 0 ? desc : row.title;
 }
 
-function TaskTitleCell({
+/**
+ * MEMOISED. This cell owns the hover-preview tooltip, and it is rendered once
+ * per row — so on a 300-row list it is 300 subtrees, each with a Radix
+ * `Tooltip.Root`.
+ *
+ * The table re-renders whenever `focusedId` (j/k keyboard nav), row selection,
+ * sorting or column visibility changes. Without `memo` every one of those
+ * rebuilt all 300 tooltip subtrees even though not a single row's data moved.
+ *
+ * Both props are referentially stable, which is what makes this effective:
+ * `row` comes from the memoised `visibleRows` array, and `onOpen` is the
+ * `useCallback`-wrapped `openTask`. Memoising against unstable props would be
+ * pure overhead, so if either of those ever stops being stable, this stops
+ * helping and should be revisited rather than left as decoration.
+ */
+const TaskTitleCell = React.memo(function TaskTitleCell({
   row,
   onOpen,
 }: {
@@ -1384,7 +1404,7 @@ function TaskTitleCell({
       </Tooltip.Root>
     </Tooltip.Provider>
   );
-}
+});
 
 // Phone-only sort dropdown — appears below sm breakpoint where the clickable
 // column headers are hidden. Iterates all sortable columns and lets the user

@@ -167,6 +167,9 @@ export function KpiStrip({
           const isOpen = expanded === item.key;
           const neon = `var(--kpi-neon-${item.neonKey})`;
           const neonDeep = `var(--kpi-neon-${item.neonKey}-deep)`;
+          // The badge pill's rest fill. An explicit token per status rather than
+          // a tint of `neon` — see the --kpi-soft-* note in globals.css.
+          const soft = `var(--kpi-soft-${item.neonKey})`;
 
           return (
             <div key={item.key}>
@@ -233,7 +236,7 @@ export function KpiStrip({
                     style={{
                       fontSize: 11,
                       color: isOpen ? "#fff" : `rgb(${neonDeep})`,
-                      background: isOpen ? `rgb(${neonDeep})` : `color-mix(in srgb, rgb(${neon}) 14%, transparent)`,
+                      background: isOpen ? `rgb(${neonDeep})` : soft,
                     }}
                   >
                     {isOpen ? "Hide" : "View"}

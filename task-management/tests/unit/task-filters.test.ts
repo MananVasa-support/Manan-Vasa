@@ -75,11 +75,14 @@ describe("parseTaskFilters", () => {
       taskId: null,
       archived: false,
       assigneeMode: "all" as const,
+      team: "mine",
+      viewerId: null,
     };
     const qs = taskFiltersToSearchString(orig);
     const round = parseTaskFilters(Object.fromEntries(new URLSearchParams(qs)), false);
     expect(round.statuses).toEqual(orig.statuses);
     expect(round.departments).toEqual(orig.departments);
+    expect(round.team).toBe(orig.team);
     expect(round.priorities).toEqual(orig.priorities);
     expect(round.assigneeMode).toBe("all");
   });

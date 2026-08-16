@@ -26,6 +26,10 @@ import { fireToast } from "@/lib/toast";
 import { getManagerDrilldown } from "@/app/(app)/dashboard/drilldown-actions";
 import type { ManagerDrilldown } from "@/lib/queries/manager-drilldown";
 import {
+  DELEGATION_CHANNEL_LABELS,
+  type DelegationChannel,
+} from "@/lib/transforms/initiator-scorecard";
+import {
   approveTask,
   setTaskStatus,
   nudgeTask,
@@ -38,6 +42,9 @@ interface Props {
   /** When non-null the centered modal is open and fetches this manager's card. */
   managerId: string | null;
   windowDays: 3 | 7;
+  /** Set when a specific delegation cell was clicked — the task list opens
+   *  narrowed to that channel. Null opens the whole list. */
+  channel?: DelegationChannel | null;
   onClose: () => void;
 }
 
@@ -105,7 +112,7 @@ function taskLabel(t: {
   return { heading, eyebrow };
 }
 
-export function ManagerDrilldown({ managerId, windowDays, onClose }: Props) {
+export function ManagerDrilldown({ managerId, windowDays, channel = null, onClose }: Props) {
   const open = managerId !== null;
   const reduce = useReducedMotion() ?? false;
 
@@ -153,68 +160,42 @@ export function ManagerDrilldown({ managerId, windowDays, onClose }: Props) {
         <Dialog.Content
           aria-describedby={undefined}
           onOpenAutoFocus={(e) => e.preventDefault()}
-          className="exec-drilldown-content fixed z-[121] left-1/2 top-1/2 outline-none
-                     overflow-hidden rounded-section
-                     max-md:left-0 max-md:top-0 max-md:translate-x-0 max-md:translate-y-0
-                     max-md:h-full max-md:w-full max-md:max-h-none max-md:rounded-none"
+          /* RIGHT-ANCHORED SLIDE-OVER, not a centred modal. Matches the aging
+             heatmap and leaderboard drawers, so every drill-down in the
+             dashboard enters from the same edge at the same width. */
+          className="exec-drilldown-content wms-card fixed right-0 top-0 z-[121] h-full outline-none
+                     overflow-hidden border-l bg-white
+                     max-md:w-full"
           style={{
-            // Warm brand-canvas: surface-card tinted with a faint Altus red so
-            // it reads as the cream sheet without raw hex (top→bottom deepens).
-            background:
-              "linear-gradient(155deg, color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card)) 0%, color-mix(in srgb, var(--color-altus-red) 8%, var(--color-surface-card)) 100%)",
-            boxShadow:
-              "0 40px 120px color-mix(in srgb, var(--color-ink-strong) 36%, transparent), 0 1px 0 color-mix(in srgb, var(--color-surface-card) 50%, transparent) inset",
-            border: "1px solid color-mix(in srgb, var(--color-altus-red) 12%, var(--color-hairline-strong))",
+            boxShadow: "0 40px 120px color-mix(in srgb, var(--color-ink-strong) 30%, transparent)",
             animation: reduce
               ? "none"
-              : "drilldownIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) both",
+              : "drilldownIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both",
             display: "flex",
             flexDirection: "column",
           }}
         >
-          {/* Aurora wash — GPU-only, decorative. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 overflow-hidden"
-            style={{ borderTopLeftRadius: 0 }}
-          >
-            <div
-              className="absolute"
-              style={{
-                top: "-20%",
-                right: "-10%",
-                width: 520,
-                height: 520,
-                background:
-                  "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 22%, transparent), transparent 60%)",
-                opacity: 0.5,
-                filter: "blur(8px)",
-              }}
-            />
-          </div>
+          {/* The decorative red aurora wash that used to sit here is gone with
+              the cream canvas: a 520px radial of 22% Altus red re-tinted the
+              whole panel warm, which is precisely what the white surface was
+              meant to remove. */}
 
-          {/* Sizing + keyframes scoped to this component. Centered modal:
-              transform handles both the centering and the entrance, so the
-              keyframe carries the -50%/-50% translate. */}
+          {/* Sizing + keyframes scoped to this component. Slide-over: the panel
+              is pinned to the right edge, so the entrance translates on X only
+              and no centring transform is involved. */}
           <style>{`
             .exec-drilldown-content {
-              width: min(880px, 94vw);
-              max-height: 88vh;
-              transform: translate(-50%, -50%);
+              width: 75vw;
+              max-width: 72rem;
             }
             @keyframes drilldownIn {
-              from { transform: translate(-50%, -50%) scale(0.96); opacity: 0; }
-              to   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
+              from { transform: translateX(3%); opacity: 0; }
+              to   { transform: translateX(0);  opacity: 1; }
             }
             @media (max-width: 767px) {
               .exec-drilldown-content {
                 width: 100%;
-                max-height: none;
-                transform: none;
-              }
-              @keyframes drilldownIn {
-                from { transform: translateY(2%); opacity: 0; }
-                to   { transform: translateY(0);  opacity: 1; }
+                max-width: none;
               }
             }
             @media (prefers-reduced-motion: reduce) {
@@ -228,6 +209,7 @@ export function ManagerDrilldown({ managerId, windowDays, onClose }: Props) {
               error={error}
               data={data}
               windowDays={windowDays}
+              channel={channel}
               reduce={reduce}
               onClose={onClose}
             />
@@ -245,6 +227,7 @@ function DrilldownBody({
   error,
   data,
   windowDays,
+  channel,
   reduce,
   onClose,
 }: {
@@ -252,6 +235,7 @@ function DrilldownBody({
   error: string | null;
   data: ManagerDrilldown | null;
   windowDays: 3 | 7;
+  channel: DelegationChannel | null;
   reduce: boolean;
   onClose: () => void;
 }) {
@@ -338,7 +322,7 @@ function DrilldownBody({
         ) : loading || !data ? (
           <SkeletonBody />
         ) : (
-          <LoadedBody data={data} reduce={reduce} />
+          <LoadedBody data={data} reduce={reduce} channel={channel} />
         )}
       </div>
     </>
@@ -350,11 +334,22 @@ function DrilldownBody({
 function LoadedBody({
   data,
   reduce,
+  channel,
 }: {
   data: ManagerDrilldown;
   reduce: boolean;
+  channel: DelegationChannel | null;
 }) {
   const { delegationEfficiency } = data;
+  // Only the task LIST narrows to the clicked channel. The stats above it —
+  // sparkline, delegation efficiency, per-report goals — deliberately keep
+  // describing the whole window: they are the context that makes the filtered
+  // list meaningful, and recomputing them for one channel would misreport the
+  // manager's actual delegation.
+  const visibleTasks = React.useMemo(
+    () => (channel ? data.tasks.filter((t) => t.channel === channel) : data.tasks),
+    [data.tasks, channel],
+  );
   const TrendIcon =
     delegationEfficiency.deltaPct > 0
       ? ArrowUpRight
@@ -420,13 +415,19 @@ function LoadedBody({
         <StatusDonut slices={data.statusBreakdown} />
       </Section>
 
-      {/* ── Tasks table ── */}
+      {/* ── Tasks table ──
+          Narrowed to one delegation channel when the drawer was opened from a
+          specific column, so the list matches the number that was clicked. */}
       <Section
-        title={`Initiated tasks (${data.tasks.length})`}
+        title={
+          channel
+            ? `${DELEGATION_CHANNEL_LABELS[channel]} tasks (${visibleTasks.length})`
+            : `Initiated tasks (${visibleTasks.length})`
+        }
         index={5}
         reduce={reduce}
       >
-        {data.tasks.length === 0 ? (
+        {visibleTasks.length === 0 ? (
           <p
             className="py-8 text-center"
             style={{ color: "var(--color-ink-muted)", fontSize: 14 }}
@@ -435,7 +436,7 @@ function LoadedBody({
           </p>
         ) : (
           <ul className="flex flex-col gap-2.5">
-            {data.tasks.map((t) => (
+            {visibleTasks.map((t) => (
               <TaskRow key={t.id} task={t} />
             ))}
           </ul>

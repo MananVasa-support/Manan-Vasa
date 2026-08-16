@@ -4,8 +4,8 @@ import * as React from "react";
 import { motion } from "motion/react";
 import { ChevronDown, ArrowUpRight } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import { AttainmentRing } from "@/components/dashboard/exec/viz/attainment-ring";
 import type { InitiatorScorecard } from "@/lib/types";
+import type { DelegationChannel } from "@/lib/transforms/initiator-scorecard";
 
 /* ────────────────────────────────────────────────────────────────────────
    ManagerInitiatorTable — the same initiation scorecards as
@@ -55,17 +55,58 @@ function Num({ value, hero = false }: { value: number; hero?: boolean }) {
   );
 }
 
+/* Roomier padding and looser tracking than before: at px-3/py-2.5 with 0.09em
+   tracking, "COUNTERPART" ran into its neighbour and clipped. */
 const HEAD_CELL =
-  "px-3 py-2.5 text-[10.5px] font-black uppercase tracking-[0.09em] whitespace-nowrap";
+  "px-3 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap";
 
-/* Outer header cells stay pinned while the body scrolls. The background lives
-   on the cell rather than the row because a sticky <th> paints on its own — a
-   <tr> background would let rows show through as they slide under. */
-const STICKY_HEAD_CELL = `${HEAD_CELL} sticky top-0 z-10`;
-const STICKY_HEAD_BG = {
-  background: "color-mix(in srgb, var(--color-ink-strong) 3%, #ffffff)",
-  color: "var(--color-ink-soft)",
-} as const;
+/* The body no longer scrolls inside its own box, so the header no longer needs
+   to be sticky against it. Kept as a named constant so every header cell is
+   styled from one place. */
+const STICKY_HEAD_CELL = HEAD_CELL;
+const STICKY_HEAD_BG = { background: "#f9fafb" } as const;
+
+/** How many rows the collapsed table shows before "View all". */
+const COLLAPSED_ROWS = 5;
+
+/**
+ * A delegation-channel count that opens the drawer filtered to that channel.
+ * A zero renders inert — offering a click that leads to an empty list is worse
+ * than not offering it.
+ */
+function ChannelCell({
+  value,
+  onOpen,
+  label,
+}: {
+  value: number;
+  onOpen: () => void;
+  label: string;
+}) {
+  if (value === 0) {
+    return (
+      <td className="px-3 py-2.5 text-center">
+        <Num value={0} />
+      </td>
+    );
+  }
+  return (
+    <td className="px-3 py-2.5 text-center">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen();
+        }}
+        aria-label={`Open tasks — ${label}`}
+        title={`Open the ${value} task${value === 1 ? "" : "s"} in this channel`}
+        className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-gray-100"
+      >
+        <Num value={value} />
+      </button>
+    </td>
+  );
+}
 
 export function ManagerInitiatorTable({
   managers,
@@ -75,7 +116,9 @@ export function ManagerInitiatorTable({
 }: {
   managers: InitiatorScorecard[];
   resolveAvatar: (employeeId: string) => string | null;
-  onOpenDrilldown: (managerId: string) => void;
+  /** `channel` is set when a specific delegation cell was clicked; omitted for
+   *  a whole-row click, which opens the unfiltered list. */
+  onOpenDrilldown: (managerId: string, channel?: DelegationChannel) => void;
   /** Collapse the body so only the column headers remain. */
   minimized?: boolean;
 }) {
@@ -90,16 +133,44 @@ export function ManagerInitiatorTable({
     });
   }, []);
 
+  // Show-all toggle. The table used to cap its own height at 380px and scroll
+  // inside that box, which buried managers behind a nested scrollbar the page
+  // gave no hint of. Now it renders the first five and grows into the page.
+  const [showAll, setShowAll] = React.useState(false);
+  const visible = React.useMemo(
+    () => (minimized ? [] : showAll ? managers : managers.slice(0, COLLAPSED_ROWS)),
+    [managers, minimized, showAll],
+  );
+  const hiddenCount = managers.length - visible.length;
+
   return (
-    <div
-      className={`overflow-x-auto rounded-section border bg-surface-card ${
-        minimized ? "" : "max-h-[380px] overflow-y-auto"
-      }`}
-      style={{ borderColor: "var(--color-hairline)" }}
-    >
-      <table className="min-w-full border-collapse">
+    /* Scrolls sideways only on small screens. From `lg` up the ten columns are
+       given explicit percentage widths (below) that always sum to 100, so the
+       table fits its container exactly and the horizontal scrollbar disappears
+       rather than being permanently parked under the rows. */
+    <div className="wms-card w-full overflow-x-auto rounded-2xl bg-white p-6 shadow-xs hover:shadow-sm max-md:p-4 lg:overflow-x-visible">
+      <table className="w-full table-fixed border-collapse">
+        {/* `table-fixed` + colgroup: without fixed layout the browser sizes
+            columns from content, which is what let a long manager name push
+            COUNTERPART off the edge no matter how the header was padded. */}
+        <colgroup>
+          <col style={{ width: "20%" }} /> {/* Manager / Initiator */}
+          <col style={{ width: "10%" }} /> {/* % of Target          */}
+          <col style={{ width: "10%" }} /> {/* Target Ratio         */}
+          <col style={{ width: "8%" }} />  {/* Direct               */}
+          <col style={{ width: "8%" }} />  {/* Downline             */}
+          <col style={{ width: "9%" }} />  {/* Counterpart          */}
+          <col style={{ width: "8%" }} />  {/* Founder              */}
+          <col style={{ width: "7%" }} />  {/* Self                 */}
+          <col style={{ width: "8%" }} />  {/* Total                */}
+          <col style={{ width: "12%" }} /> {/* Breakdown            */}
+        </colgroup>
         <thead>
           <tr>
+            {/* Width now comes from the colgroup (20%). The old
+                `min-w-[220px]` is gone: under `table-fixed` a min-width forces
+                the table wider than its container, which is exactly the
+                horizontal scrollbar this layout removes. */}
             <th className={`${STICKY_HEAD_CELL} text-left`} style={STICKY_HEAD_BG}>
               Manager / Initiator
             </th>
@@ -109,14 +180,23 @@ export function ManagerInitiatorTable({
             <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
               Target Ratio
             </th>
+            {/* The five mutually-exclusive delegation channels, then their sum.
+                Kept in the same order as the card's chips so the two surfaces
+                read identically. */}
             <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
               Direct
+            </th>
+            <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
+              Downline
             </th>
             <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
               Counterpart
             </th>
             <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
               Founder
+            </th>
+            <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
+              Self
             </th>
             <th className={`${STICKY_HEAD_CELL} text-center`} style={STICKY_HEAD_BG}>
               Total
@@ -128,7 +208,7 @@ export function ManagerInitiatorTable({
         </thead>
 
         <tbody>
-          {(minimized ? [] : managers).map((m) => {
+          {visible.map((m) => {
             const open = openRows.has(m.managerId);
             const hitCount = m.perReport.filter((r) => r.hit).length;
             const tone = attainColor(m.attainmentPct);
@@ -174,11 +254,28 @@ export function ManagerInitiatorTable({
                     </span>
                   </td>
 
-                  {/* % of target — the ring carries the same colour thresholds. */}
+                  {/* % of target — an inline number + bar. The 54px SVG ring
+                      it replaced was absolutely positioned inside its cell, so
+                      it sat off the row's baseline and forced the row taller
+                      than every other cell needed. */}
                   <td className="px-3 py-2.5">
-                    <span className="flex items-center justify-center">
-                      <AttainmentRing value={m.actual} max={m.target} size={54} />
-                    </span>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-sm font-extrabold tabular-nums text-gray-900">
+                        {m.attainmentPct}%
+                      </span>
+                      <div className="h-2 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className="h-2 rounded-full"
+                          style={{
+                            // Capped at 100 so an over-target manager can't
+                            // overflow the track; the number beside it still
+                            // reports the true figure.
+                            width: `${Math.min(m.attainmentPct, 100)}%`,
+                            background: tone,
+                          }}
+                        />
+                      </div>
+                    </div>
                   </td>
 
                   {/* actual / target */}
@@ -204,15 +301,35 @@ export function ManagerInitiatorTable({
                     </span>
                   </td>
 
-                  <td className="px-3 py-2.5 text-center">
-                    <Num value={m.toDirectReports} />
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <Num value={m.toCounterparts} />
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <Num value={m.toFounderMgmt} />
-                  </td>
+                  {/* Each channel cell opens the drawer PRE-FILTERED to that
+                      channel; the row itself (and Total) opens it unfiltered.
+                      stopPropagation so the cell's narrower intent wins over
+                      the row's. */}
+                  <ChannelCell
+                    value={m.toDirectReports}
+                    onOpen={() => onOpenDrilldown(m.managerId, "direct")}
+                    label={`${m.managerName} — direct`}
+                  />
+                  <ChannelCell
+                    value={m.toDownline}
+                    onOpen={() => onOpenDrilldown(m.managerId, "downline")}
+                    label={`${m.managerName} — downline`}
+                  />
+                  <ChannelCell
+                    value={m.toCounterparts}
+                    onOpen={() => onOpenDrilldown(m.managerId, "counterpart")}
+                    label={`${m.managerName} — counterpart`}
+                  />
+                  <ChannelCell
+                    value={m.toFounderMgmt}
+                    onOpen={() => onOpenDrilldown(m.managerId, "founder")}
+                    label={`${m.managerName} — founder`}
+                  />
+                  <ChannelCell
+                    value={m.toSelf}
+                    onOpen={() => onOpenDrilldown(m.managerId, "self")}
+                    label={`${m.managerName} — self-assigned`}
+                  />
                   <td className="px-3 py-2.5 text-center">
                     <Num value={m.totalInitiated} hero />
                   </td>
@@ -228,13 +345,7 @@ export function ManagerInitiatorTable({
                       }}
                       aria-expanded={open}
                       aria-label={`${open ? "Hide" : "Show"} per-report breakdown for ${m.managerName}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-black whitespace-nowrap transition-colors"
-                      style={{
-                        borderColor: "var(--color-hairline-strong)",
-                        background:
-                          "color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card))",
-                        color: "var(--color-ink-strong)",
-                      }}
+                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100"
                     >
                       <span className="max-lg:hidden">Show Per-Report Breakdown</span>
                       <span className="lg:hidden">Breakdown</span>
@@ -263,17 +374,19 @@ export function ManagerInitiatorTable({
                 {open && (
                   <tr style={{ borderColor: "var(--color-hairline)" }}>
                     <td
-                      colSpan={8}
+                      /* Manager · %Target · Ratio · Direct · Downline ·
+                         Counterpart · Founder · Self · Total · Breakdown */
+                      colSpan={10}
                       className="px-3 pb-3 pt-0"
-                      style={{
-                        background:
-                          "color-mix(in srgb, var(--color-ink-strong) 2.5%, transparent)",
-                      }}
                     >
+                      {/* Nested block, visually inset from the row above it so
+                          the breakdown reads as belonging to that manager
+                          rather than as more table rows. */}
                       <motion.div
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                        className="rounded-xl border border-slate-200 bg-slate-50/50 p-4"
                       >
                         {m.perReport.length === 0 ? (
                           <p
@@ -283,10 +396,15 @@ export function ManagerInitiatorTable({
                             No direct reports in this window.
                           </p>
                         ) : (
-                          <table className="min-w-full border-collapse">
+                          <table className="w-full border-collapse">
                             <thead>
                               <tr style={{ color: "var(--color-ink-subtle)" }}>
                                 <th className={`${HEAD_CELL} text-left`}>Report</th>
+                                {/* Hierarchy context: how many people this
+                                    report manages, and how much work was routed
+                                    past them into that team. */}
+                                <th className={`${HEAD_CELL} text-center`}>Reports</th>
+                                <th className={`${HEAD_CELL} text-center`}>Downline</th>
                                 <th className={`${HEAD_CELL} text-center`}>Given</th>
                                 <th className={`${HEAD_CELL} text-center`}>Goal</th>
                                 <th className={`${HEAD_CELL} text-left`}>Progress</th>
@@ -318,6 +436,12 @@ export function ManagerInitiatorTable({
                                           {r.employeeName}
                                         </span>
                                       </span>
+                                    </td>
+                                    <td className="px-3 py-1.5 text-center">
+                                      <Num value={r.reportCount} />
+                                    </td>
+                                    <td className="px-3 py-1.5 text-center">
+                                      <Num value={r.downlineGiven} />
                                     </td>
                                     <td className="px-3 py-1.5 text-center">
                                       <Num value={r.given} />
@@ -354,6 +478,22 @@ export function ManagerInitiatorTable({
           })}
         </tbody>
       </table>
+
+      {/* View-all footer — replaces the inner scrollbar. Only shown when rows
+          are actually hidden, and it reports HOW MANY, so the table never
+          silently truncates the leaderboard. */}
+      {!minimized && (hiddenCount > 0 || showAll) && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          aria-expanded={showAll}
+          className="mt-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+        >
+          {showAll
+            ? `Show top ${COLLAPSED_ROWS}`
+            : `View All (${managers.length}) Managers`}
+        </button>
+      )}
     </div>
   );
 }

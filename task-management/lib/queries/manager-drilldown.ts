@@ -4,6 +4,12 @@ import { db, employees, tasks, holidays } from "@/lib/db";
 import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import { countWorkingDays } from "@/lib/transforms/working-days";
 import {
+  PER_REPORT_PER_DAY,
+  buildDelegationClassifier,
+  type DelegationChannel,
+} from "@/lib/transforms/initiator-scorecard";
+import { isFounderEmail } from "@/lib/auth/founder";
+import {
   deliveryOf,
   statusDonut,
   avgAgingDays,
@@ -32,6 +38,8 @@ export interface ManagerDrilldown {
   }[];
   statusBreakdown: { onTime: number; late: number; aging: number; done: number };
   tasks: {
+    /** Which delegation channel this task fell into for THIS manager. */
+    channel: DelegationChannel;
     id: string;
     title: string;
     client: string | null;
@@ -200,8 +208,11 @@ export async function loadManagerDrilldown(
   const totalInitiated = rowsRaw.length;
   const reportIds = new Set(directReports.map((r) => r.id));
 
-  // ── perReport: given (count to this report) vs goal (3 × working days). ──
-  const goal = 3 * countWorkingDays(since, now, holidaySet);
+  // ── perReport: given (count to this report) vs goal. ──
+  // Imports PER_REPORT_PER_DAY rather than repeating the number: this drill-down
+  // and the scorecard card show the same manager's goal side by side, and a
+  // second literal here is how they silently disagreed at 3-vs-5.
+  const goal = PER_REPORT_PER_DAY * countWorkingDays(since, now, holidaySet);
   const givenByReport = new Map<string, number>();
   let toDirectReports = 0;
   for (const t of rowsRaw) {
@@ -249,10 +260,23 @@ export async function loadManagerDrilldown(
     if (idx >= 0 && idx < 14) initiatedSparkline[idx] = (initiatedSparkline[idx] ?? 0) + 1;
   }
 
+  // ── Delegation channel per task, so the drawer can be opened pre-filtered
+  //    to the column that was clicked. Needs the WHOLE active org (not just
+  //    this manager's direct reports) because "downline" is a transitive
+  //    relationship — a task given to someone three levels down is still this
+  //    manager's downline. One narrow id/manager/email scan.
+  const orgRows = await db
+    .select({ id: employees.id, name: employees.name, managerId: employees.managerId, email: employees.email })
+    .from(employees)
+    .where(eq(employees.isActive, true))
+    .catch(() => [] as { id: string; name: string; managerId: string | null; email: string | null }[]);
+  const classify = buildDelegationClassifier(managerId, orgRows, isFounderEmail);
+
   // ── tasks[] table rows with delivery badge. ──
   const taskRows = rowsRaw.map((t) => {
     const doer = empById.get(t.doerId);
     return {
+      channel: classify(t.doerId),
       id: t.id,
       title: t.title,
       client: t.client,

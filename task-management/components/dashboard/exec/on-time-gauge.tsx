@@ -7,6 +7,7 @@ import { Gauge, type GaugeSegment } from "./viz/gauge";
 import { PunctualityDrawer } from "./on-time-detail";
 import { DashboardSectionHeader } from "@/components/dashboard/section-header";
 import { CollapseToggle, CollapsibleBody } from "@/components/dashboard/section-chrome";
+import { LateTasksBreakdown } from "./late-tasks-breakdown";
 
 /**
  * OnTimeGauge — V2 executive card (top-left). Shows the on-time delivery
@@ -48,12 +49,7 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
         </span>
       }
       title="Delivered on time"
-      subtitle={
-        <>
-          Done tasks · vs the {basis === "revised" ? "revised" : "original"} due
-          date
-        </>
-      }
+      subtitle="Tracks completed tasks delivered on or before the due date against late deliveries."
       actions={
         <>
           <BasisToggle value={basis} onChange={setBasis} />
@@ -66,45 +62,58 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
       }
     />
     <CollapsibleBody expanded={sectionOpen}>
+    {/* Crisp white surface. The peach aurora wash + red-tinted elevation that
+        used to live here tinted the gauge's own red/green arcs, which are the
+        card's only meaningful colour. */}
     <section
-      className="wg-rise relative flex-1 overflow-hidden rounded-section p-7 max-md:p-5"
+      className="wg-rise wms-card relative flex-1 rounded-2xl bg-white p-6 shadow-xs hover:shadow-sm max-md:p-5"
       aria-label="On-time delivery rate"
-      style={{
-        background:
-          "linear-gradient(155deg, color-mix(in srgb, #ffffff 86%, transparent) 0%, color-mix(in srgb, var(--color-surface-card) 92%, transparent) 100%)",
-        border: "1px solid var(--color-hairline-strong)",
-        boxShadow:
-          "0 1px 2px rgba(15,23,42,0.05), 0 22px 54px -30px rgba(225,6,0,0.20), inset 0 1px 0 rgba(255,255,255,0.6)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        ["--kpi-tone" as string]: "color-mix(in srgb, var(--color-altus-red) 70%, transparent)",
-        ["--kpi-tone-deep" as string]:
-          "color-mix(in srgb, var(--color-altus-red-deep) 55%, transparent)",
-      }}
     >
-      {/* Aurora wash */}
-      <span aria-hidden className="kpi-aurora-primary" />
-      <span aria-hidden className="kpi-aurora-secondary" />
-
-      <div className="relative">
-        {/* Gauge / empty state. The card is full-width now, so the arc is
-            scaled up to carry it — at 280px it read as a small island floating
-            in a wide well. */}
-        <div className="flex min-h-[240px] items-center justify-center">
-          {hasData ? (
-            <Gauge
-              key={basis}
-              pct={active.onTimeRate}
-              onTime={active.onTime}
-              late={active.late}
-              size={340}
-              onSelect={setDrilldown}
-            />
-          ) : (
-            <EmptyState />
-          )}
-        </div>
+      {/* Gauge / empty state. Everything else stacks BELOW it — the metrics
+          used to sit beside the arc, which squeezed both on a half-width
+          column. */}
+      <div className="flex min-h-[240px] items-center justify-center">
+        {hasData ? (
+          <Gauge
+            key={basis}
+            pct={active.onTimeRate}
+            onTime={active.onTime}
+            late={active.late}
+            size={340}
+            onSelect={setDrilldown}
+          />
+        ) : (
+          <EmptyState />
+        )}
       </div>
+
+      {hasData && (
+        <>
+          {/* ── Row 1 — summary strip ─────────────────────────────────── */}
+          <div className="mt-4 grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
+            <SummaryStat
+              label="Total Completed"
+              value={active.dated}
+              tone="text-gray-900"
+            />
+            <SummaryStat
+              label="On Time"
+              value={active.onTime}
+              pct={pctOf(active.onTime, active.dated)}
+              tone="text-emerald-600"
+            />
+            <SummaryStat
+              label="Late Deliveries"
+              value={active.late}
+              pct={pctOf(active.late, active.dated)}
+              tone="text-red-600"
+            />
+          </div>
+
+          {/* ── Row 2 — expandable late-task table ────────────────────── */}
+          <LateTasksBreakdown basis={basis} lateCount={active.late} />
+        </>
+      )}
 
       {/* Task list behind the clicked half — mounted only while open so the
           server action fires on demand, never on dashboard load. */}
@@ -118,6 +127,45 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
       )}
     </section>
     </CollapsibleBody>
+    </div>
+  );
+}
+
+/** Whole-percent share, guarding the zero-denominator case. */
+function pctOf(part: number, whole: number): number | null {
+  return whole > 0 ? Math.round((part / whole) * 100) : null;
+}
+
+/**
+ * One cell of the summary strip. The percentage is rendered beside the count
+ * rather than instead of it — "17%" alone hides whether the sample is 89 tasks
+ * or 3, which is the difference between a signal and noise.
+ */
+function SummaryStat({
+  label,
+  value,
+  pct,
+  tone,
+}: {
+  label: string;
+  value: number;
+  pct?: number | null;
+  tone: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-xs font-semibold uppercase tracking-wider text-gray-500">
+        {label}
+      </p>
+      <p className={`mt-1 text-xl font-bold tabular-nums ${tone}`}>
+        {value.toLocaleString("en-IN")}
+        <span className="ml-1 text-sm font-semibold">
+          {value === 1 ? "task" : "tasks"}
+        </span>
+        {pct !== null && pct !== undefined && (
+          <span className="ml-1.5 text-sm font-bold">({pct}%)</span>
+        )}
+      </p>
     </div>
   );
 }
