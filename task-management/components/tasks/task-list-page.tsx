@@ -48,6 +48,43 @@ const KPI_SPECS: KpiSpec[] = [
   { key: "notRead",     label: "NOT READ",     sublabel: "Unopened pending tasks",        tone: "slate"  },
 ];
 
+/**
+ * Per-status chip palette. Explicit Tailwind values rather than the previous
+ * `color-mix(var(--color-<tone>) 8%, surface)` derivation: at 8% over white the
+ * tint was effectively invisible, so all six pills read as plain white boxes and
+ * the only thing distinguishing them was a 8px dot at full saturation.
+ *
+ * Keyed by KpiKey, not by the `tone` token — `critical` and `notApproved` both
+ * mapped onto red-ish tokens, so a token-keyed map could not give them the
+ * distinct rose/red pair specified.
+ */
+const CHIP_STYLE: Record<KpiKey, { pill: string; dot: string }> = {
+  notApproved: {
+    pill: "bg-red-50 hover:bg-red-100 text-red-950 border-red-200",
+    dot: "bg-red-600",
+  },
+  done: {
+    pill: "bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-emerald-200",
+    dot: "bg-emerald-600",
+  },
+  pending: {
+    pill: "bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-200",
+    dot: "bg-amber-500",
+  },
+  critical: {
+    pill: "bg-rose-50 hover:bg-rose-100 text-rose-950 border-rose-200",
+    dot: "bg-rose-600",
+  },
+  urgent: {
+    pill: "bg-orange-50 hover:bg-orange-100 text-orange-950 border-orange-200",
+    dot: "bg-orange-600",
+  },
+  notRead: {
+    pill: "bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-300",
+    dot: "bg-slate-500",
+  },
+};
+
 /** Pure, testable count logic for the six summary cards. Operates on the
  *  already-filtered rows so every count respects the page filters. */
 export function computeStatCounts(rows: TaskListRow[]): Record<KpiKey, number> {
@@ -332,27 +369,21 @@ function StatChip({
   value: number;
   active: boolean;
 }) {
+  const c = CHIP_STYLE[spec.key];
   return (
     <div
       title={spec.sublabel}
-      className="group inline-flex items-center gap-2 rounded-xl transition-colors"
-      style={{
-        padding: "5px 10px",
-        background: active
-          ? `color-mix(in srgb, var(--color-${spec.tone}) 8%, var(--color-surface-card))`
-          : "var(--color-surface-card)",
-        boxShadow: active
-          ? `inset 0 0 0 1.5px var(--color-${spec.tone}-deep)`
-          : "inset 0 0 0 1px var(--color-hairline)",
-      }}
+      // The pill owns the text colour; the count and label below INHERIT it
+      // rather than carrying their own ink-strong/ink-soft, or the -950 tone
+      // would never show. Active adds a ring instead of a heavier fill, so the
+      // status colour stays readable while engagement is unmistakable.
+      className={`group inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 transition-colors ${c.pill} ${
+        active ? "ring-2 ring-offset-1 ring-slate-400 font-bold" : ""
+      }`}
     >
+      <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
       <span
-        aria-hidden
-        className="inline-block size-2 rounded-full shrink-0"
-        style={{ background: `var(--color-${spec.tone})` }}
-      />
-      <span
-        className="tabular-nums leading-none text-ink-strong"
+        className="tabular-nums leading-none"
         style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
           fontWeight: 900,
@@ -362,10 +393,7 @@ function StatChip({
       >
         {value}
       </span>
-      <span
-        className="font-semibold leading-none"
-        style={{ fontSize: 11.5, color: active ? `var(--color-${spec.tone}-deep)` : "var(--color-ink-soft)" }}
-      >
+      <span className="font-semibold leading-none" style={{ fontSize: 11.5 }}>
         {spec.label.charAt(0) + spec.label.slice(1).toLowerCase()}
       </span>
     </div>
