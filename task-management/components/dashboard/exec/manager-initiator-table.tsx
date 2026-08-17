@@ -55,10 +55,13 @@ function Num({ value, hero = false }: { value: number; hero?: boolean }) {
   );
 }
 
-/* Roomier padding and looser tracking than before: at px-3/py-2.5 with 0.09em
-   tracking, "COUNTERPART" ran into its neighbour and clipped. */
+/* Header cells WRAP rather than `whitespace-nowrap`.
+   The wrapper is `overflow-hidden` and the columns are hard percentages, so a
+   header that refuses to wrap has nowhere to go — "COUNTERPART" in a 8% column
+   would simply be clipped mid-word with no scrollbar to recover it. Wrapping to
+   two short lines keeps every label fully readable at any container width. */
 const HEAD_CELL =
-  "px-3 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap";
+  "px-2 py-3 text-xs font-bold uppercase leading-tight tracking-wider text-gray-500";
 
 /* The body no longer scrolls inside its own box, so the header no longer needs
    to be sticky against it. Kept as a named constant so every header cell is
@@ -85,13 +88,13 @@ function ChannelCell({
 }) {
   if (value === 0) {
     return (
-      <td className="px-3 py-2.5 text-center">
+      <td className="px-2 py-2.5 text-center">
         <Num value={0} />
       </td>
     );
   }
   return (
-    <td className="px-3 py-2.5 text-center">
+    <td className="px-2 py-2.5 text-center">
       <button
         type="button"
         onClick={(e) => {
@@ -144,26 +147,28 @@ export function ManagerInitiatorTable({
   const hiddenCount = managers.length - visible.length;
 
   return (
-    /* Scrolls sideways only on small screens. From `lg` up the ten columns are
-       given explicit percentage widths (below) that always sum to 100, so the
-       table fits its container exactly and the horizontal scrollbar disappears
-       rather than being permanently parked under the rows. */
-    <div className="wms-card w-full overflow-x-auto rounded-2xl bg-white p-6 shadow-xs hover:shadow-sm max-md:p-4 lg:overflow-x-visible">
+    /* `overflow-hidden`, NOT `overflow-x-auto`: the ten columns below are hard
+       percentages summing to exactly 100, so the table is mathematically
+       incapable of exceeding its container and a scroll axis would only ever
+       park an inert scrollbar under the rows. Clipping is the backstop, not the
+       layout — nothing should reach it. */
+    <div className="wms-card w-full overflow-hidden rounded-2xl bg-white p-6 shadow-xs hover:shadow-sm max-md:p-4">
       <table className="w-full table-fixed border-collapse">
         {/* `table-fixed` + colgroup: without fixed layout the browser sizes
             columns from content, which is what let a long manager name push
-            COUNTERPART off the edge no matter how the header was padded. */}
+            COUNTERPART off the edge no matter how the header was padded.
+            22 + 10 + 10 + 7 + 7 + 8 + 7 + 6 + 7 + 16 = 100. */}
         <colgroup>
-          <col style={{ width: "20%" }} /> {/* Manager / Initiator */}
+          <col style={{ width: "22%" }} /> {/* Manager / Initiator */}
           <col style={{ width: "10%" }} /> {/* % of Target          */}
           <col style={{ width: "10%" }} /> {/* Target Ratio         */}
-          <col style={{ width: "8%" }} />  {/* Direct               */}
-          <col style={{ width: "8%" }} />  {/* Downline             */}
-          <col style={{ width: "9%" }} />  {/* Counterpart          */}
-          <col style={{ width: "8%" }} />  {/* Founder              */}
-          <col style={{ width: "7%" }} />  {/* Self                 */}
-          <col style={{ width: "8%" }} />  {/* Total                */}
-          <col style={{ width: "12%" }} /> {/* Breakdown            */}
+          <col style={{ width: "7%" }} />  {/* Direct               */}
+          <col style={{ width: "7%" }} />  {/* Downline             */}
+          <col style={{ width: "8%" }} />  {/* Counterpart          */}
+          <col style={{ width: "7%" }} />  {/* Founder              */}
+          <col style={{ width: "6%" }} />  {/* Self                 */}
+          <col style={{ width: "7%" }} />  {/* Total                */}
+          <col style={{ width: "16%" }} /> {/* Breakdown            */}
         </colgroup>
         <thead>
           <tr>
@@ -258,12 +263,12 @@ export function ManagerInitiatorTable({
                       it replaced was absolutely positioned inside its cell, so
                       it sat off the row's baseline and forced the row taller
                       than every other cell needed. */}
-                  <td className="px-3 py-2.5">
-                    <div className="flex items-center justify-center gap-2">
+                  <td className="px-2 py-2.5">
+                    <div className="flex items-center justify-center gap-1.5">
                       <span className="text-sm font-extrabold tabular-nums text-gray-900">
                         {m.attainmentPct}%
                       </span>
-                      <div className="h-2 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-2 w-10 shrink-0 overflow-hidden rounded-full bg-gray-100">
                         <div
                           className="h-2 rounded-full"
                           style={{
@@ -279,7 +284,7 @@ export function ManagerInitiatorTable({
                   </td>
 
                   {/* actual / target */}
-                  <td className="px-3 py-2.5 text-center">
+                  <td className="px-2 py-2.5 text-center">
                     <span
                       className="inline-flex items-baseline gap-1 tabular-nums"
                       style={{
@@ -330,13 +335,21 @@ export function ManagerInitiatorTable({
                     onOpen={() => onOpenDrilldown(m.managerId, "self")}
                     label={`${m.managerName} — self-assigned`}
                   />
-                  <td className="px-3 py-2.5 text-center">
+                  <td className="px-2 py-2.5 text-center">
                     <Num value={m.totalInitiated} hero />
                   </td>
 
-                  {/* Expander. stopPropagation so opening the breakdown never
-                      also fires the row's open-drilldown click. */}
-                  <td className="px-3 py-2.5 text-right">
+                  {/* Expander, as a TIGHT action pill. The old control spelled
+                      out "Show Per-Report Breakdown 3/6 on goal" and was the
+                      single widest thing in the table — it alone demanded a
+                      column far larger than the data it introduced, and pushed
+                      the channel columns into the clipping this layout removes.
+                      "Breakdown 3/6 ▾" says the same thing; the full sentence
+                      survives in the aria-label and the title tooltip.
+
+                      stopPropagation so opening the breakdown never also fires
+                      the row's open-drilldown click. */}
+                  <td className="px-2 py-2.5 text-right">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -345,20 +358,20 @@ export function ManagerInitiatorTable({
                       }}
                       aria-expanded={open}
                       aria-label={`${open ? "Hide" : "Show"} per-report breakdown for ${m.managerName}`}
-                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+                      title={`${hitCount} of ${m.perReport.length} direct reports on goal — ${open ? "hide" : "show"} the per-report breakdown`}
+                      className="inline-flex max-w-full items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
                     >
-                      <span className="max-lg:hidden">Show Per-Report Breakdown</span>
-                      <span className="lg:hidden">Breakdown</span>
+                      <span className="truncate">Breakdown</span>
                       <span
                         className="font-bold tabular-nums"
                         style={{ color: "var(--color-ink-subtle)" }}
                       >
-                        {hitCount}/{m.perReport.length} on goal
+                        {hitCount}/{m.perReport.length}
                       </span>
                       <ChevronDown
-                        size={15}
+                        size={14}
                         strokeWidth={2.6}
-                        className="transition-transform duration-300"
+                        className="shrink-0 transition-transform duration-300"
                         style={{
                           color: "var(--color-altus-red)",
                           transform: open ? "rotate(180deg)" : "none",

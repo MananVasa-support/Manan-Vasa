@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
 import { ChevronDown, Check, Loader2 } from "lucide-react";
 import {
-  USER_TASK_STATUSES,
-  ADMIN_TASK_STATUSES,
+  DOER_TASK_STATUSES,
   type TaskStatus,
   type StatusColorToken,
 } from "@/db/enums";
@@ -21,8 +20,9 @@ interface Props {
   updatedAt: Date;
   labels: Record<TaskStatus, string>;
   tones: Record<TaskStatus, StatusColorToken>;
-  /** Admin can move to any value, including the legacy verdict statuses.
-   *  Non-admins are limited to USER_TASK_STATUSES. */
+  /** No longer changes the option list — everyone now picks from the same six
+   *  DOER_TASK_STATUSES. Kept because every call site passes it and the server
+   *  still branches on the actor's role when validating the transition. */
   isAdmin: boolean;
   /** When false, the cell renders a STATIC status badge (no dropdown) — the
    *  current user isn't allowed to change this task's status. */
@@ -65,7 +65,6 @@ export function InlineStatusCell({
   updatedAt,
   labels,
   tones,
-  isAdmin,
   editable,
 }: Props) {
   const router = useRouter();
@@ -83,11 +82,16 @@ export function InlineStatusCell({
   const [lockAt, setLockAt] = React.useState(updatedAt.toISOString());
   React.useEffect(() => setLockAt(updatedAt.toISOString()), [updatedAt]);
 
-  // Non-admins get the curated lifecycle list; admins see everything so
-  // they can recover legacy rows or force a state.
-  const options: readonly TaskStatus[] = isAdmin
-    ? ADMIN_TASK_STATUSES
-    : USER_TASK_STATUSES;
+  // ONE list for everybody — the six doer statuses. Admins used to get
+  // ADMIN_TASK_STATUSES here, which mixed the worker's progress states in with
+  // `on_hold` and the approval verdicts and made this chip do two unrelated
+  // jobs. The manager's rulings now live in their own "Mark Status" control, so
+  // this dropdown answers exactly one question: how far along is the work?
+  //
+  // A row already sitting on a status outside the list (a legacy `approved`,
+  // say) still RENDERS it — `shown` is drawn from the row, not from `options` —
+  // it just can't be re-selected here.
+  const options: readonly TaskStatus[] = DOER_TASK_STATUSES;
 
   // Keyboard roving-focus for the hand-rolled listbox: Radix gives no roving
   // focus to arbitrary children, so we drive a single active option ourselves

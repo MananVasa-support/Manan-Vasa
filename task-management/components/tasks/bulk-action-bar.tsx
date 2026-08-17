@@ -34,8 +34,7 @@ import {
   bulkSetApprovalStatus,
 } from "@/app/(app)/tasks/actions";
 import {
-  USER_TASK_STATUSES,
-  ADMIN_TASK_STATUSES,
+  DOER_TASK_STATUSES,
   TASK_PRIORITIES,
   PRIORITY_LABELS,
   type TaskStatus,
@@ -47,18 +46,32 @@ type BulkResult =
   | { ok: true; updated: number; skipped: number }
   | { ok: false; error: string };
 
-/** The three verdicts under Mark Status. These write `approval_status`, not
- *  `status` — `cancelled` is a retired status value, so the verdict column is
- *  the only place it still means anything. `verb` feeds the result toast. */
-const MARK_VERDICTS = [
-  { value: "approved", label: "Mark Approved", verb: "Approved" },
-  { value: "not_approved", label: "Mark Not Approved", verb: "Rejected" },
-  { value: "cancelled", label: "Mark Cancelled", verb: "Cancelled" },
-] as const satisfies readonly {
-  value: ApprovalStatus;
-  label: string;
-  verb: string;
-}[];
+/**
+ * The MANAGER's five rulings, in the order they appear under "Mark Status".
+ *
+ * They write two different columns, which is precisely why they are grouped
+ * here and not in the Status dropdown above:
+ *
+ *   • `kind: "status"`   → `tasks.status`.  Hold On and Done are still points on
+ *     the work's own lifecycle; a manager is just moving it there directly.
+ *   • `kind: "approval"` → `tasks.approval_status`.  Approved / Not Approved /
+ *     Cancelled are VERDICTS on finished work, deliberately kept independent of
+ *     the doer's lifecycle. `cancelled` in particular is a RETIRED value of
+ *     `status`, so routing it through bulkSetStatus would write something no
+ *     picker renders.
+ *
+ * `verb` feeds the result toast ("Approved 4 tasks.").
+ */
+const MANAGER_MARK_ACTIONS = [
+  { kind: "status", value: "on_hold", label: "Mark Hold On", verb: "Put on hold" },
+  { kind: "approval", value: "approved", label: "Mark Approved", verb: "Approved" },
+  { kind: "approval", value: "not_approved", label: "Mark Not Approved", verb: "Rejected" },
+  { kind: "status", value: "done", label: "Mark Done", verb: "Marked done" },
+  { kind: "approval", value: "cancelled", label: "Mark Cancelled", verb: "Cancelled" },
+] as const satisfies readonly (
+  | { kind: "status"; value: TaskStatus; label: string; verb: string }
+  | { kind: "approval"; value: ApprovalStatus; label: string; verb: string }
+)[];
 
 /**
  * Floating toolbar shown when ≥1 task is selected in the list. Offers the
@@ -105,7 +118,11 @@ export function BulkActionBar({
     });
   }
 
-  const statuses = (isAdmin ? ADMIN_TASK_STATUSES : USER_TASK_STATUSES) as readonly TaskStatus[];
+  // The batch twin of the row's inline status chip, and offering the SAME six
+  // options for the same reason: this control reports the doer's progress. The
+  // manager's rulings (hold / approve / decline / cancel) are the "Mark Status"
+  // dropdown further along the bar.
+  const statuses: readonly TaskStatus[] = DOER_TASK_STATUSES;
 
   return (
     <div
@@ -122,6 +139,13 @@ export function BulkActionBar({
       role="region"
       aria-label="Bulk actions"
     >
+      {/* CONTROL ORDER IS A CONTRACT — left to right:
+            [N] selected · Status · Priority · Reassign · Subject · Client ·
+            Mark Status · Archive · Delete        (then Clear, pinned right)
+          It runs doer-facing edits first, then the manager's ruling, then the
+          two destructive actions. Subject and Client are conditional on having
+          any values to offer; when they're absent the rest keeps this order.
+          Do not reshuffle these blocks — the sequence is the spec. */}
       {/* Brand accent rail — marks the bar as a live, armed control strip. */}
       <span
         aria-hidden
@@ -280,21 +304,18 @@ export function BulkActionBar({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuLabel>Mark selected as…</DropdownMenuLabel>
-            <DropdownMenuItem
-              onSelect={() =>
-                run("Marked done", () => bulkSetStatus(selectedIds, "done"))
-              }
-            >
-              Mark Done
-            </DropdownMenuItem>
-            {MARK_VERDICTS.map((v) => (
+            {MANAGER_MARK_ACTIONS.map((a) => (
               <DropdownMenuItem
-                key={v.value}
+                key={`${a.kind}:${a.value}`}
                 onSelect={() =>
-                  run(v.verb, () => bulkSetApprovalStatus(selectedIds, v.value))
+                  run(a.verb, () =>
+                    a.kind === "status"
+                      ? bulkSetStatus(selectedIds, a.value)
+                      : bulkSetApprovalStatus(selectedIds, a.value),
+                  )
                 }
               >
-                {v.label}
+                {a.label}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

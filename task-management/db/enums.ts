@@ -41,6 +41,33 @@ export const USER_TASK_STATUSES = [
   "done",
 ] as const satisfies readonly TaskStatus[];
 
+/**
+ * The DOER's operational lifecycle — the ONLY values offered in the primary
+ * Status control (the row's inline status chip and the bulk "Status" dropdown).
+ * Labels come from `status_settings` / STATUS_LABELS_FALLBACK:
+ *
+ *   dont_know → "Not Read" · not_started · initiated · follow_up · need_info · done
+ *
+ * `on_hold` is deliberately ABSENT even though it is a live status. Putting a
+ * task on hold is a MANAGER's ruling, not a worker's progress report, so it
+ * moved to the "Mark Status" dropdown as "Mark Hold On" (see
+ * components/tasks/bulk-action-bar.tsx). The approval verdicts — approved /
+ * not_approved / cancelled — were never doer statuses at all: they live in the
+ * separate `approval_status` column.
+ *
+ * Deliberately NOT a redefinition of USER_TASK_STATUSES: that list still drives
+ * the kanban columns, filter dropdowns and importers, where `on_hold` must stay
+ * selectable. This is the status PICKER's list, nothing more.
+ */
+export const DOER_TASK_STATUSES = [
+  "dont_know",
+  "not_started",
+  "initiated",
+  "follow_up",
+  "need_info",
+  "done",
+] as const satisfies readonly TaskStatus[];
+
 export const PENDING_STATUSES = [
   "dont_know",
   "not_started",
