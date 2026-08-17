@@ -6,7 +6,7 @@ import { Upload, Loader2, FileSpreadsheet, Download } from "lucide-react";
 import { importGoals } from "@/app/(app)/goals/import/actions";
 import { GOALS_ACCENT, GOALS_ACCENT_DEEP, type RosterMember } from "./util";
 
-/** The enterprise exceljs template (branded, validated dropdowns, frozen panes). */
+/** The enterprise exceljs template (branded, validated dropdowns, no frozen panes). */
 const TEMPLATE_URL = "/goals/template.xlsx";
 
 type Result = { imported: number; skipped: number; warnings: string[] } | null;
