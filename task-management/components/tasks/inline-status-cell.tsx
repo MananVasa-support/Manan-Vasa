@@ -12,7 +12,7 @@ import {
 import { setTaskStatus } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 import { scheduleReconcile } from "@/lib/client/reconcile";
-import { STATUS_TONES_FALLBACK } from "@/lib/format";
+import { STATUS_TONES_FALLBACK, statusBadgeStyle } from "@/lib/format";
 
 interface Props {
   taskId: string;
@@ -143,6 +143,11 @@ export function InlineStatusCell({
   // `||` (not `??`) so an empty/blank token also falls back to the
   // canonical per-status colour — guarantees every status renders coloured.
   const tone = tones[shown] || STATUS_TONES_FALLBACK[shown];
+  // The four badge colours (fill / ink / hairline / dot), resolved from ONE
+  // place so the trigger, the read-only badge and the menu rows below can never
+  // drift apart. See STATUS_BADGE_STYLES in lib/format.ts for why these are
+  // literal rather than derived from --color-<tone>.
+  const badge = statusBadgeStyle(tone);
 
   async function pick(next: TaskStatus) {
     setOpen(false);
@@ -185,15 +190,15 @@ export function InlineStatusCell({
         aria-label={`Doer status: ${labels[shown] ?? shown}`}
         className={`${BADGE_SHELL} ${BADGE_WIDTH}`}
         style={{
-          background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
-          color: `var(--color-${tone}-deep)`,
-          border: `1px solid color-mix(in srgb, var(--color-${tone}) 30%, transparent)`,
+          background: badge.bg,
+          color: badge.ink,
+          border: `1px solid ${badge.border}`,
         }}
       >
         <span
           aria-hidden
           className="inline-block size-1.5 rounded-full shrink-0"
-          style={{ background: `var(--color-${tone})` }}
+          style={{ background: badge.dot }}
         />
         <span className={BADGE_LABEL}>{labels[shown] ?? shown}</span>
         {/* Occupies exactly the chevron's footprint so a read-only badge and an
@@ -220,18 +225,18 @@ export function InlineStatusCell({
           aria-label={`Doer status: ${labels[shown] ?? shown}. Click to change.`}
           className={`${BADGE_SHELL} ${BADGE_WIDTH} transition-all hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40`}
           style={{
-            background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
-            color: `var(--color-${tone}-deep)`,
+            background: badge.bg,
+            color: badge.ink,
             cursor: pending ? "wait" : "pointer",
             opacity: pending ? 0.7 : 1,
-            border: `1px solid color-mix(in srgb, var(--color-${tone}) 30%, transparent)`,
-            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.5), 0 1px 2px color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
+            border: `1px solid ${badge.border}`,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35)",
           }}
         >
           <span
             aria-hidden
             className="inline-block size-1.5 rounded-full shrink-0"
-            style={{ background: `var(--color-${tone})` }}
+            style={{ background: badge.dot }}
           />
           <span className={BADGE_LABEL}>{labels[shown] ?? shown}</span>
           {/* Both markers are 12px and `shrink-0`, so swapping the chevron for
@@ -272,7 +277,7 @@ export function InlineStatusCell({
           >
             {options.map((s, i) => {
               const sel = s === shown;
-              const t = tones[s] || STATUS_TONES_FALLBACK[s];
+              const optBadge = statusBadgeStyle(tones[s] || STATUS_TONES_FALLBACK[s]);
               return (
                 <li
                   key={s}
@@ -306,7 +311,7 @@ export function InlineStatusCell({
                     aria-hidden
                     className="inline-block size-2.5 rounded-full shrink-0"
                     style={{
-                      background: `var(--color-${t})`,
+                      background: optBadge.dot,
                       // Inset ring keeps light tones (yellow, light-grey)
                       // visible on the white menu instead of a glow that
                       // washes them out.

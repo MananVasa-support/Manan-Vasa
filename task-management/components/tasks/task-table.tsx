@@ -754,9 +754,13 @@ export function TaskTable({
         //     is THIS element (an overflow container), not the page.
         //   overflow-y-auto + max-h — caps the table to the viewport so the
         //     sticky header row stays frozen while you page through rows.
+        //     100px was reclaimed off the bottom (260px → 160px of chrome), which
+        //     is worth roughly two more rows at the current density.
+        // `max-h`, deliberately, NOT a fixed `h-`: a short list must shrink to
+        // its rows rather than leave a tall empty box below the last one.
         // `overscroll-x-contain` stops a sideways fling from also triggering the
         // browser's back-navigation gesture.
-        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-x-auto overflow-y-auto overscroll-x-contain max-h-[calc(100vh-260px)] max-md:hidden"
+        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-x-auto overflow-y-auto overscroll-x-contain max-h-[calc(100vh-160px)] max-md:hidden"
         style={{
           animationDelay: "60ms",
           boxShadow:
@@ -784,7 +788,10 @@ export function TaskTable({
                           ? "descending"
                           : undefined
                     }
-                    className={`sticky top-0 px-4 py-2.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
+                    /* py-1.5, down from py-2.5. The header has no margin to
+                       trim — it is a sticky <th>, so its vertical padding IS
+                       the gap the spec is asking to close. */
+                    className={`sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
                     style={{
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
@@ -934,7 +941,7 @@ export function TaskTable({
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-1.5 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
+                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
                     style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
                   >
                     {flexRender(
