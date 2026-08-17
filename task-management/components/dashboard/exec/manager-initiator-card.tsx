@@ -31,11 +31,16 @@ import type { InitiatorScorecard } from "@/lib/types";
    target via the AttainmentRing primitive (Task 6), with an expandable
    per-report breakdown.
 
-   Brand discipline (altus-premium-ui): Altus-red tokens + color-mix tints
-   over a cream-glass surface, --font-display numbers with tabular-nums,
-   --font-serif name, the .wg-rise / .wg-sheen / .wg-pip-pop motion utilities,
-   pointer parallax-tilt for GPU depth (reduced-motion-gated), and the Avatar
-   character (avatarUrl) for the manager AND every per-report row.
+   Surface (2026-08): a plain WHITE card on the global `wms-card` hairline.
+   The cream-glass gradient, the red aurora wash and the red-tinted drop shadow
+   it used to carry are gone — see the note at the top of the JSX. Colour now
+   appears only where it means something: the attainment ring, the per-report
+   bars, and the ink on the hero number.
+
+   Kept: --font-display numbers with tabular-nums, --font-serif name, the
+   .wg-rise / .wg-pip-pop motion utilities, pointer parallax-tilt for GPU depth
+   (reduced-motion-gated), and the Avatar character (avatarUrl) for the manager
+   AND every per-report row.
 
    Clicking the card body opens the drill-down; the expander region stops
    propagation so toggling the breakdown never triggers the drill-down.
@@ -67,20 +72,16 @@ function ChannelStat({
   hero?: boolean;
 }) {
   return (
-    /* `overflow-hidden` removed and padding tightened to p-2: with the longer
-       labels this row now carries, the old px-3 + 0.08em tracking pushed
-       "COUNTERPART" past the chip's edge and the clip ate its final T. The
-       label also gets min-w-0 + a tighter track so it shrinks before it
-       overflows. */
-    <div
-      className="relative rounded-xl border p-2"
-      style={{
-        borderColor: "var(--color-hairline-strong)",
-        background: hero
-          ? "color-mix(in srgb, var(--color-altus-red) 7%, var(--color-surface-card))"
-          : "var(--color-surface-card)",
-      }}
-    >
+    /* Neutral slate chips, hero included. The hero chip used to carry a 7%
+       Altus-red tint; it now earns its emphasis from the ink on its number
+       (altus-red-deep, below) rather than from a coloured fill, so the six
+       chips read as one row instead of one warm chip beside five cool ones.
+
+       No `overflow-hidden`, and p-2 rather than px-3: with the longer labels
+       this row carries, the old padding + 0.08em tracking pushed "COUNTERPART"
+       past the chip's edge and the clip ate its final T. The label also gets
+       min-w-0 + a tighter track so it shrinks before it overflows. */
+    <div className="relative rounded-xl border border-slate-200/60 bg-slate-50 p-2">
       <div className="flex items-center gap-1.5">
         <span
           className="inline-flex size-5 shrink-0 items-center justify-center rounded-md"
@@ -184,7 +185,19 @@ export function ManagerInitiatorCard({
           ? { transformPerspective: 1000 }
           : { rotateX: tiltX, rotateY: tiltY, transformPerspective: 1000 }
       }
-      className="wg-rise wg-sheen group relative cursor-pointer overflow-hidden rounded-2xl border"
+      /* Clean white card on the GLOBAL border token. `wms-card` IS the
+         ultra-thin black-red standard — border rgba(40,0,0,0.08), hover
+         rgba(127,29,29,0.20), 150ms transition — so it is used here rather
+         than a literal `border-red-950/10 hover:border-red-900/20
+         duration-150`, which would fork the same values into a second
+         definition. globals.css also warns that a Tailwind border class
+         alongside `wms-card` wins on specificity and breaks the hover, hence
+         no bare `border` here.
+
+         `wg-sheen` went with the cream: it sweeps a white gloss gradient
+         across the surface, which is invisible on white and was only ever
+         legible against the peach. */
+      className="wms-card wg-rise group relative cursor-pointer overflow-hidden rounded-2xl bg-white shadow-xs"
       aria-label={`${managerName} — initiation scorecard. Open drill-down.`}
       role="button"
       tabIndex={0}
@@ -195,33 +208,12 @@ export function ManagerInitiatorCard({
         }
       }}
     >
-      {/* Surface: cream-glass + aurora wash */}
-      <div
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 4%, #FBF7F0) 0%, #F4EEE3 100%)",
-          borderColor: "var(--color-hairline-strong)",
-        }}
-        aria-hidden
-      />
-      <span
-        className="kpi-aurora-primary"
-        style={{
-          ["--kpi-tone" as string]:
-            "color-mix(in srgb, var(--color-altus-red) 60%, transparent)",
-        }}
-        aria-hidden
-      />
-      <span
-        className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{
-          border: "1px solid var(--color-hairline-strong)",
-          boxShadow:
-            "0 1px 0 rgba(255,255,255,0.6) inset, 0 18px 40px -22px rgba(168,4,0,0.35), 0 4px 12px -6px rgba(15,23,42,0.18)",
-        }}
-        aria-hidden
-      />
+      {/* Three stacked surface layers used to live here and all three are gone:
+          a cream-glass gradient (#FBF7F0 → #F4EEE3 — the peach), a
+          `kpi-aurora-primary` red wash, and a second absolutely-positioned
+          ring that redrew the border with a red-tinted 40px drop shadow
+          (rgba(168,4,0,0.35)). The card is now simply white, with its border
+          and elevation coming from `wms-card` + `shadow-xs` on the root. */}
 
       <div className="relative p-6 max-md:p-4">
         {/* ── Header: avatar (character) + name + direct reports + ring ── */}
@@ -360,22 +352,14 @@ export function ManagerInitiatorCard({
                 setOpen((o) => !o);
               }}
               aria-expanded={open}
-              className="brand-btn wg-btn flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left"
-              style={{
-                borderColor: "var(--color-hairline-strong)",
-                background:
-                  "color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card))",
-              }}
+              /* `brand-btn` dropped along with the 4% red fill — it is the
+                 Altus-red button skin, and keeping it would have repainted the
+                 peach this refactor removes. */
+              className="wg-btn flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-100"
             >
-              <span
-                className="text-[12.5px] font-black"
-                style={{ color: "var(--color-ink-strong)" }}
-              >
+              <span className="text-[12.5px] font-semibold">
                 Show Breakdown
-                <span
-                  className="ml-2 font-bold tabular-nums"
-                  style={{ color: "var(--color-ink-subtle)" }}
-                >
+                <span className="ml-2 font-bold tabular-nums text-slate-500">
                   {hitCount}/{perReport.length}
                 </span>
               </span>

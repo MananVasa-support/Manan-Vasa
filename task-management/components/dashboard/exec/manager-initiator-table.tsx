@@ -359,7 +359,7 @@ export function ManagerInitiatorTable({
                       aria-expanded={open}
                       aria-label={`${open ? "Hide" : "Show"} per-report breakdown for ${m.managerName}`}
                       title={`${hitCount} of ${m.perReport.length} direct reports on goal — ${open ? "hide" : "show"} the per-report breakdown`}
-                      className="inline-flex max-w-full items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                      className="inline-flex max-w-full items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-100"
                     >
                       <span className="truncate">Breakdown</span>
                       <span
@@ -500,7 +500,7 @@ export function ManagerInitiatorTable({
           type="button"
           onClick={() => setShowAll((v) => !v)}
           aria-expanded={showAll}
-          className="mt-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+          className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-100"
         >
           {showAll
             ? `Show top ${COLLAPSED_ROWS}`
