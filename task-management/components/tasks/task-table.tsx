@@ -105,7 +105,7 @@ const GROUP_OPTIONS: { key: GroupKey; label: string; Icon: LucideIcon }[] = [
   { key: "none", label: "None", Icon: Ban },
   { key: "client", label: "Client", Icon: Building2 },
   { key: "subject", label: "Subject", Icon: Tag },
-  { key: "status", label: "Status", Icon: CircleDot },
+  { key: "status", label: "Doer Status", Icon: CircleDot },
   { key: "employee", label: "Employee", Icon: User },
   { key: "priority", label: "Priority", Icon: Flag },
 ];
@@ -181,7 +181,7 @@ const COLUMN_LABELS: Record<string, string> = {
   client: "Client",
   doerName: "Doer",
   priority: "Priority",
-  status: "Status",
+  status: "Doer Status",
   subject: "Subject",
   createdAt: "Created",
   dueAt: "Due",
@@ -312,7 +312,12 @@ function buildColumns(
     },
     {
       accessorKey: "status",
-      header: "Status",
+      // "Doer Status", not "Status" — the column holds the WORKER's progress.
+      // The manager's ruling is a separate thing, set from the bulk bar's
+      // "Manager Status" control and stored in a different column entirely
+      // (`approval_status`). Naming them both "Status" is what made the two
+      // read as one control.
+      header: "Doer Status",
       sortingFn: (a, b) =>
         (STATUS_ORDER[a.original.status] ?? 99) - (STATUS_ORDER[b.original.status] ?? 99),
       cell: (info) => {

@@ -85,7 +85,7 @@ export function InlineStatusCell({
   // ONE list for everybody — the six doer statuses. Admins used to get
   // ADMIN_TASK_STATUSES here, which mixed the worker's progress states in with
   // `on_hold` and the approval verdicts and made this chip do two unrelated
-  // jobs. The manager's rulings now live in their own "Mark Status" control, so
+  // jobs. The manager's rulings now live in their own "Manager Status" control, so
   // this dropdown answers exactly one question: how far along is the work?
   //
   // A row already sitting on a status outside the list (a legacy `approved`,
@@ -166,7 +166,7 @@ export function InlineStatusCell({
       } else {
         // Advance the lock token so a follow-up flip needs no refresh first.
         setLockAt(res.updatedAt);
-        fireToast({ message: `Status set to ${labels[next]}.` });
+        fireToast({ message: `Doer status set to ${labels[next]}.` });
         // The chip already flipped optimistically; reconcile server-derived
         // fields (late badge, stat cards) in ONE coalesced background refresh
         // instead of a full re-fetch on every click.
@@ -182,7 +182,7 @@ export function InlineStatusCell({
   if (!editable) {
     return (
       <span
-        aria-label={`Status: ${labels[shown] ?? shown}`}
+        aria-label={`Doer status: ${labels[shown] ?? shown}`}
         className={`${BADGE_SHELL} ${BADGE_WIDTH}`}
         style={{
           background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
@@ -217,7 +217,7 @@ export function InlineStatusCell({
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={open ? listId : undefined}
-          aria-label={`Status: ${labels[shown] ?? shown}. Click to change.`}
+          aria-label={`Doer status: ${labels[shown] ?? shown}. Click to change.`}
           className={`${BADGE_SHELL} ${BADGE_WIDTH} transition-all hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40`}
           style={{
             background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
@@ -264,7 +264,7 @@ export function InlineStatusCell({
             ref={listRef}
             id={listId}
             role="listbox"
-            aria-label="Set task status"
+            aria-label="Set doer status"
             tabIndex={-1}
             aria-activedescendant={`${listId}-opt-${activeIndex}`}
             onKeyDown={listKeyDown}

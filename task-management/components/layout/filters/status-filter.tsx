@@ -23,8 +23,8 @@ export function StatusFilter({
       renderTrigger={({ selectedLabels }) => (
         <FilterPill
           icon={<CircleDot size={16} strokeWidth={2} />}
-          name="Status"
-          value={summarizeSelection(selectedLabels, "All Status")}
+          name="Doer Status"
+          value={summarizeSelection(selectedLabels, "All Statuses")}
           tint="#16a34a"
           active={selected.length > 0}
         />
