@@ -247,7 +247,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     bottom margin plus the next section's top margin) and left a
                     band of empty white. `gap-6` is now the only thing between
                     any two widgets. */}
-                <div className="flex flex-col gap-6">
+                {/* `mt-6` is NOT redundant with `gap-6`: gap only spaces
+                    siblings INSIDE this column, so with no top margin the first
+                    widget butts straight against the Task Report banner above —
+                    which is what removing the old mt-10 caused. The column needs
+                    its own clearance from the element it follows. */}
+                <div className="mt-6 flex flex-col gap-6">
                 {/* 1 — Overdue Tasks by Person. Also carries the surface's
                     global empty state, so it has to lead. */}
                 <PageShell as="div" width="full" py={false}>
