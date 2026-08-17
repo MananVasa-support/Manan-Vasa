@@ -371,12 +371,12 @@ export function ManagerInitiatorCard({
                 className="text-[12.5px] font-black"
                 style={{ color: "var(--color-ink-strong)" }}
               >
-                Show Per-Report Breakdown
+                Show Breakdown
                 <span
                   className="ml-2 font-bold tabular-nums"
                   style={{ color: "var(--color-ink-subtle)" }}
                 >
-                  {hitCount}/{perReport.length} on goal
+                  {hitCount}/{perReport.length}
                 </span>
               </span>
               <ChevronDown
