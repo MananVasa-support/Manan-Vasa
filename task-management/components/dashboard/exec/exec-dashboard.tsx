@@ -303,9 +303,11 @@ export function ExecDelegationSection() {
  *
  * This and `ExecAttentionSection` below were one `ExecSummarySection` that
  * rendered both, stacked. They answer opposite questions — "how are we doing?"
- * versus "what is stuck?" — and the dashboard now files those under different
- * tabs (Overview / Attention), so they are separate placeable sections. Both
- * still read the same context, so nothing about the data changed.
+ * versus "what is stuck?" — so they are separate placeable sections, and the
+ * dashboard puts them at opposite ends of the stack (Delivered On Time 7th,
+ * Attention Required last). Both still read the same context, so nothing about
+ * the data changed. (They were briefly split across Overview/Attention tabs;
+ * those are gone.)
  */
 export function ExecOnTimeSection() {
   const { rise, doneOnTimeView } = useExec();

@@ -186,7 +186,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   nesting them would apply the page gutter twice. */}
               <KpiStrip kpis={data.kpis} summary={data.wmsSummary}>
               {(me?.isAdmin || allEmployees.some((e) => e.managerId === me?.id)) && (
-                <div className="mt-8">
+                <div className="mt-4">
                   {/* Minimalist white surface with a red accent border — the
                       solid red fill it replaced competed with the KPI cards
                       directly above it for the eye, and read as an alert rather
@@ -241,9 +241,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 isAdmin={Boolean(me?.isAdmin)}
                 meId={me?.id ?? null}
               >
+                {/* ONE flex column owns the vertical rhythm. Each section used
+                    to carry its own mt-10/mt-12, which is why the gap under the
+                    Task Report banner was double-counted (the banner's own
+                    bottom margin plus the next section's top margin) and left a
+                    band of empty white. `gap-6` is now the only thing between
+                    any two widgets. */}
+                <div className="flex flex-col gap-6">
                 {/* 1 — Overdue Tasks by Person. Also carries the surface's
                     global empty state, so it has to lead. */}
-                <PageShell as="div" width="full" py={false} className="mt-10">
+                <PageShell as="div" width="full" py={false}>
                   <ExecOverdueSection />
                 </PageShell>
 
@@ -263,12 +270,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 />
 
                 {/* 4 — Delegation Dashboard */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
+                <PageShell as="div" width="full" py={false}>
                   <ExecDelegationSection />
                 </PageShell>
 
                 {/* 5 — Rank of Employees */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
+                <PageShell as="div" width="full" py={false}>
                   <TopPerformersSection
                     performers={data.topPerformers}
                     avatarById={avatarById}
@@ -276,7 +283,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 </PageShell>
 
                 {/* 6 — Status Distribution */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
+                <PageShell as="div" width="full" py={false}>
                   <StatusDistributionChart
                     data={data.statusDistribution}
                     labels={statusLabels}
@@ -286,14 +293,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 </PageShell>
 
                 {/* 7 — Delivered On Time */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
+                <PageShell as="div" width="full" py={false}>
                   <ExecOnTimeSection />
                 </PageShell>
 
                 {/* 8 — Attention Required, last on the page. */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
+                <PageShell as="div" width="full" py={false}>
                   <ExecAttentionSection />
                 </PageShell>
+                </div>
               </ExecDashboard>
             </div>
           </>
