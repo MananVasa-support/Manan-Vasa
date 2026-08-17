@@ -13,15 +13,21 @@ import { istDateKey, isRuleDue } from "@/lib/task-reminders/rules";
 /**
  * Task Reminder dispatcher.
  *
- * Vercel Cron hits this every 15 minutes (see vercel.json). Each tick loads the
- * ENABLED rules and fires the ones that have come due today — "due" meaning the
- * IST wall clock has passed the rule's own `send_time_ist` and `last_sent_on`
- * is not already today (see lib/task-reminders/rules.ts).
+ * A GITHUB ACTIONS cron hits this every 15 minutes — see
+ * .github/workflows/task-management-task-reminders.yml, NOT vercel.json. The
+ * Vercel Hobby plan caps native crons at one run per day, and a sub-daily entry
+ * doesn't get throttled: it invalidates the whole vercel.json so Vercel refuses
+ * to create any deployment at all. The repo already drives
+ * /api/cron/retry-dispatch the same way for the same reason.
+ *
+ * Each tick loads the ENABLED rules and fires the ones that have come due today
+ * — "due" meaning the IST wall clock has passed the rule's own `send_time_ist`
+ * and `last_sent_on` is not already today (see lib/task-reminders/rules.ts).
  *
  * Why a polling dispatcher rather than one cron entry per rule: rules are
- * created and retimed from the Admin UI, and vercel.json is a build artefact.
- * A per-rule cron would mean a redeploy every time an admin changed a send
- * time. The cost is that a rule fires within 15 minutes of its configured
+ * created and retimed from the Admin UI, and the schedule is a committed file
+ * either way. A per-rule cron would mean a commit every time an admin changed a
+ * send time. The cost is that a rule fires within 15 minutes of its configured
  * time rather than to the minute — worth stating in the UI, which it is.
  *
  * For each due rule: collect matching incomplete tasks grouped by employee,
