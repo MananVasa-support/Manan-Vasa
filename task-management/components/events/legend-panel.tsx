@@ -81,7 +81,7 @@ export function LegendPanel({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search categories…"
+              placeholder="Local search — categories" title="Local search — filters only the list on this page" aria-label="Local search — categories — this page only"
               className="w-full rounded-chip border border-hairline bg-surface-soft py-1.5 pl-7 pr-2 text-[12.5px] text-ink-strong outline-none focus:border-hairline-strong"
             />
           </div>
@@ -217,7 +217,7 @@ export function LegendDrawer({ categories, events, active, onToggle, onClear }: 
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search categories…"
+                    placeholder="Local search — categories" title="Local search — filters only the list on this page" aria-label="Local search — categories — this page only"
                     className="w-full rounded-chip border border-hairline bg-surface-soft py-1.5 pl-7 pr-2 text-[12.5px] text-ink-strong outline-none focus:border-hairline-strong"
                   />
                 </div>

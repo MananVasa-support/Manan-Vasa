@@ -30,11 +30,13 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ["⌘", "K"], description: "Open the command palette" },
       { keys: ["G", "D"], description: "Go to Dashboard" },
       { keys: ["G", "T"], description: "Go to Tasks" },
-      { keys: ["G", "M"], description: "Go to My Day" },
+      { keys: ["G", "M"], description: "Go to Plan My Day" },
       { keys: ["G", "P"], description: "Go to Projects" },
       { keys: ["G", "I"], description: "Go to Inbox" },
       { keys: ["G", "W"], description: "Go to Weekly Goals" },
-      { keys: ["G", "C"], description: "Go to Daily Checklist" },
+      // The Daily Checklist merged into the planner long ago; G-C is now a
+      // second key for the same destination as G-M.
+      { keys: ["G", "C"], description: "Go to Plan My Day" },
       { keys: ["G", "K"], description: "Go to Kanban" },
       { keys: ["G", "A"], description: "Go to Attendance" },
     ],

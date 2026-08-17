@@ -1092,8 +1092,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search goals, areas, notes…"
-              aria-label="Search goals"
+              placeholder="Local search — goals, areas, notes" title="Local search — filters only the list on this page" aria-label="Local search — goals, areas, notes — this page only"
               className={`w-full rounded-full border border-hairline bg-surface-card pl-9 pr-9 py-2 text-[14px] font-medium text-ink-strong transition-colors focus:border-altus-red ${FOCUS_RING}`}
             />
             {search && (

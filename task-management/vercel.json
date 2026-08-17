@@ -30,6 +30,7 @@
     { "path": "/api/cron/work-session-cleanup",          "schedule": "45 20 * * *" },
     { "path": "/api/cron/meet-reconcile",                "schedule": "0 21 * * *" },
     { "path": "/api/cron/ecos-publish",                  "schedule": "15 4 * * *" },
-    { "path": "/api/cron/ecos-reminders",                "schedule": "45 4 * * *" }
+    { "path": "/api/cron/ecos-reminders",                "schedule": "45 4 * * *" },
+    { "path": "/api/cron/task-reminders",                "schedule": "*/15 * * * *" }
   ]
 }

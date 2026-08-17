@@ -180,10 +180,17 @@ export function AgingHeatmap({
       as="section"
       width="full"
       py={false}
-      className="mt-12 mb-16"
+      /* No page margins of its own any more: this section now sits inside the
+         dashboard's tab container, which owns the padding and the rhythm
+         between sections. `mb-16` in particular left 64px of dead space at the
+         bottom of the Attention tab. */
       style={{
         opacity: 0,
-        animation: "fadeUp 500ms ease-out 900ms forwards",
+        // 900ms suited being the FOURTH section of a long scroll — you had
+        // scrolled to it by the time it faded in. Inside a tab it mounts the
+        // instant you click Attention, so a near-second of blank read as a
+        // failure to load.
+        animation: "fadeUp 400ms ease-out 100ms forwards",
       }}
     >
       {/* Section header, OUTSIDE the card — see components/dashboard/

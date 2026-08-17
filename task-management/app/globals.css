@@ -183,6 +183,23 @@
 
 /* Heatmap step backgrounds (used as `background:` not `color:`, so they live
    outside @theme as raw CSS custom properties.) */
+/* App top bar (components/layout/app-top-bar.tsx) — height published so every
+   page-level `sticky` header can pin BENEATH it instead of underneath it.
+   0 by default: the bar is desktop-only (`max-md:hidden`) and absent on the hub,
+   so on phones and the hub the old `top: 0` behaviour is exactly right. */
+:root {
+  --app-topbar-h: 0px;
+}
+@media (min-width: 768px) {
+  body:has(.app-topbar) {
+    --app-topbar-h: 56px;
+  }
+}
+/* Opt-in class for page headers that were `sticky top-0`. */
+.sticky-below-topbar {
+  top: var(--app-topbar-h);
+}
+
 :root {
   --heat-0: #f0f3f6;
   --heat-1: linear-gradient(135deg, #dff2e3, #c3ebcd);

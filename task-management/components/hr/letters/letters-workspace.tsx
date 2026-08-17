@@ -80,7 +80,7 @@ export function LettersWorkspace({
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search person, letter or title…"
+              placeholder="Local search — person, letter or title" title="Local search — filters only the list on this page" aria-label="Local search — person, letter or title — this page only"
               className="w-full rounded-pill border border-hairline bg-surface-card py-2 pl-9 pr-3 text-[13px] text-ink-strong outline-none focus:border-[var(--color-altus-red)]"
             />
           </div>

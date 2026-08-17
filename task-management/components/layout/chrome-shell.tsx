@@ -23,6 +23,7 @@ import { workspaceForPath } from "@/lib/workspaces";
 export function ChromeShell({
   sidebar,
   footer,
+  topBar,
   children,
 }: {
   sidebar: ReactNode;
@@ -30,6 +31,10 @@ export function ChromeShell({
    *  as `sidebar`). Rendered as the LAST child of the page column in BOTH
    *  branches, so every route ends with it. */
   footer?: ReactNode;
+  /** App-wide top bar (global search + notification bell). FIRST child of the
+   *  page column in BOTH branches, so every route — rail or full-bleed — carries
+   *  it. Server-rendered and passed in, same as `sidebar`. */
+  topBar?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -70,9 +75,15 @@ export function ChromeShell({
   // has no dock but still wants breathing room under the grid.
   const bottomPad = isHub ? "pb-10" : "pb-5";
 
+  // The hub is the module switchboard and renders the full DashboardHeader —
+  // which already carries its own search — so a second bar there would stack two
+  // search fields on one screen.
+  const bar = isHub ? null : topBar;
+
   if (!showSidebar) {
     return (
       <div className={`flex min-h-dvh flex-col ${bottomPad}`}>
+        {bar}
         {children}
         {dock}
       </div>
@@ -83,6 +94,7 @@ export function ChromeShell({
     <div className="flex min-h-dvh">
       {sidebar}
       <div className={`flex min-w-0 flex-1 flex-col max-md:pt-14 ${bottomPad}`}>
+        {bar}
         {children}
         {dock}
       </div>

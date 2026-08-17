@@ -26,6 +26,7 @@ import {
   EMPLOYEE_ROLES,
   TASK_PRIORITIES,
   APPROVAL_STATUSES,
+  type TaskStatus,
   type AccountType,
   type ReligionCode,
   type EventStatus,
@@ -6574,3 +6575,55 @@ export const kpiAssignmentHistory = pgTable(
 );
 export type KpiAssignmentHistoryRow = typeof kpiAssignmentHistory.$inferSelect;
 export type NewKpiAssignmentHistoryRow = typeof kpiAssignmentHistory.$inferInsert;
+
+/* ------------------------------------------------------------------ */
+/* Task Reminder Settings (migration 0185)                             */
+/* ------------------------------------------------------------------ */
+
+/** Whose tasks a reminder rule collects. */
+export type TaskReminderScope = "all" | "selected";
+
+/**
+ * A rule's status filter holds real `task_status` values PLUS the pseudo-token
+ * `"overdue"`, which is not a status but a derived condition (due_at < now).
+ * They share one array because that is how an admin reads the setting: a single
+ * checklist of "what should be chased".
+ */
+export type TaskReminderStatusToken = TaskStatus | "overdue";
+
+/**
+ * Admin-authored daily task reminders. Each rule owns its recipients, its
+ * employee scope, its statuses and its own send time; the dispatcher
+ * (app/api/cron/task-reminders) sends ONE consolidated email per recipient,
+ * grouped by employee. See db/migrations/0185_task_reminder_rules.sql for why
+ * the list columns are jsonb and the time is an IST "HH:MM" string.
+ */
+export const taskReminderRules = pgTable(
+  "task_reminder_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    isEnabled: boolean("is_enabled").notNull().default(true),
+    recipientIds: jsonb("recipient_ids").notNull().default([]).$type<string[]>(),
+    scope: text("scope").notNull().default("all").$type<TaskReminderScope>(),
+    employeeIds: jsonb("employee_ids").notNull().default([]).$type<string[]>(),
+    statuses: jsonb("statuses")
+      .notNull()
+      .default(["dont_know", "not_started", "initiated", "overdue"])
+      .$type<TaskReminderStatusToken[]>(),
+    /** "HH:MM", IST. */
+    sendTimeIst: text("send_time_ist").notNull().default("09:30"),
+    /** "YYYY-MM-DD" IST — the idempotency guard for the 15-minute dispatcher. */
+    lastSentOn: text("last_sent_on"),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("task_reminder_rules_enabled_idx").on(t.isEnabled, t.sendTimeIst)],
+);
+export type TaskReminderRule = typeof taskReminderRules.$inferSelect;
+export type NewTaskReminderRule = typeof taskReminderRules.$inferInsert;

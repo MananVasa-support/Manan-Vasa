@@ -199,7 +199,7 @@ export function FilterBar({
 
   return (
     <div
-      className="sticky top-0 max-md:top-14 z-40 border-b border-hairline"
+      className="sticky sticky-below-topbar max-md:top-14 z-40 border-b border-hairline"
       style={{
         // Frosted glass band with a whisper of the module's brand red washed
         // in from the left — reads as part of the module chrome, not a page.
@@ -378,7 +378,7 @@ export function FilterBar({
 const SECTION_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/tasks": "Tasks",
-  "/my-day": "My Day",
+  "/my-day": "Plan My Day",
   "/tasks/kanban": "Kanban",
   "/archived": "Archived",
 };

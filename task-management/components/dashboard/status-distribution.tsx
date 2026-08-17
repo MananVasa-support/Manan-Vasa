@@ -124,7 +124,9 @@ export function StatusDistributionChart({
   return (
     <section
       className="w-full max-w-none"
-      style={{ opacity: 0, animation: "fadeUp 500ms ease-out 500ms forwards" }}
+      /* Delay cut from 500ms: it staggered against this section's position in
+         one long scroll, but it now mounts when its tab is clicked. */
+      style={{ opacity: 0, animation: "fadeUp 400ms ease-out 100ms forwards" }}
     >
       <Header
         isAdmin={isAdmin}

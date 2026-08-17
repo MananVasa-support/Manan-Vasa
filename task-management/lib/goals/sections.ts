@@ -1,7 +1,6 @@
 import {
   Target,
   ListChecks,
-  CalendarDays,
   ClipboardList,
   CalendarCheck,
   CalendarRange,
@@ -41,14 +40,10 @@ export const GOALS_SECTIONS: GoalsSection[] = [
       "This week's priorities linked up to their monthly goal — the mature weekly engine, now showing area, targets, team and month linkage.",
     Icon: ListChecks,
   },
-  {
-    href: "/goals/plan",
-    order: 3,
-    title: "Plan Your Day",
-    blurb:
-      "The drag-and-drop day planner — pull from weekly, monthly, yearly goals and tasks into today's committed plan.",
-    Icon: CalendarDays,
-  },
+  // "Plan Your Day" removed (2026-08): the planner moved out of this room to
+  // WMS › Plan My Day (`/my-day`), so it is no longer a Goals surface and does
+  // not belong on the Goals hub. `order: 3` is deliberately left as a gap —
+  // these are sort keys, not indices.
   {
     href: "/goals/commit",
     order: 4,

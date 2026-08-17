@@ -241,8 +241,7 @@ export function AttendanceDashboardTable({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by employee…"
-              aria-label="Search employees"
+              placeholder="Local search — employee" title="Local search — filters only the list on this page" aria-label="Local search — employee — this page only"
               className={`w-full h-10 pl-10 pr-4 rounded-full border border-hairline bg-white/75 text-[14px] font-medium text-ink-strong placeholder:text-ink-subtle transition-all focus:border-altus-red focus:ring-2 focus:ring-altus-red/20 ${FOCUS_RING}`}
             />
           </div>

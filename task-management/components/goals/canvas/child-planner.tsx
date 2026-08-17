@@ -895,7 +895,7 @@ function DayStage(): React.JSX.Element {
         <span className="flex items-center gap-3">
           {/* §2.8 — "Esc zooms out" hint moved into the `?` shortcut overlay. */}
           <Link
-            href="/goals/plan"
+            href="/my-day"
             className="inline-flex items-center gap-1 rounded-chip border px-2.5 py-1 text-[11.5px] font-bold transition-transform duration-150 hover:-translate-y-0.5"
             style={{ borderColor: accentMix(35), color: ACCENT_DEEP, background: accentMix(6) }}
           >

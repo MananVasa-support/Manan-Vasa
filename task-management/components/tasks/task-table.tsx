@@ -1165,8 +1165,9 @@ function SearchBox({
           type="search"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Search by task no. (#1042), title, subject, client, doer…"
-          aria-label="Search tasks"
+          placeholder="Local search — task no. (#1042), title, subject, client, doer"
+          title="Local search — filters only the list on this page"
+          aria-label="Local search — tasks on this page only"
           className="w-full h-10 pl-10 pr-9 rounded-pill border border-hairline bg-surface-card text-[15px] text-ink-strong placeholder:text-ink-subtle shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-all focus:border-altus-red focus:ring-2 focus:ring-altus-red/25"
         />
         {value && (

@@ -396,7 +396,7 @@ export function WeeklyChecklist({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search checklist, notes, responsible…"
+            placeholder="Local search — checklist, notes, responsible" title="Local search — filters only the list on this page" aria-label="Local search — checklist, notes, responsible — this page only"
             className="w-full bg-transparent py-2.5 text-[15px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle"
           />
         </div>

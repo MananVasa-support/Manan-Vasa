@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, CalendarClock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listDueItems } from "@/lib/queries/accounts-due";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
@@ -21,40 +22,16 @@ export default async function DueDatesPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-20">
-        <Link href={"/accounts" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
-          <ArrowLeft size={15} strokeWidth={2.4} />
-          Back to Accounts Index
+      <main className="w-full px-8 pt-6 pb-8 max-md:px-4 max-md:pt-5 max-md:pb-6">
+        <Link href={"/accounts" as Route} className="mb-2.5 inline-flex items-center gap-1.5 text-[12.5px] font-bold text-ink-soft hover:text-altus-red">
+          <ArrowLeft size={14} strokeWidth={2.4} />
+          Accounts Index
         </Link>
 
-        <header className="mt-3 mb-7 flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-start gap-3">
-            <span className="mt-1 inline-flex size-11 items-center justify-center rounded-xl" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red-deep)" }}>
-              <CalendarClock size={22} strokeWidth={2.2} />
-            </span>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--color-altus-red-deep)" }}>
-                Accounts
-              </span>
-              <h1
-                className="text-ink-strong"
-                style={{
-                  fontFamily: "var(--font-display), system-ui, sans-serif",
-                  fontWeight: 900,
-                  fontSize: "clamp(30px, 3.4vw, 44px)",
-                  letterSpacing: "-0.025em",
-                  lineHeight: 1.04,
-                  marginTop: 6,
-                }}
-              >
-                Due Dates Checklist
-              </h1>
-              <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
-                Recurring bills &amp; statutory items by area — frequency, statement period, due date and payment status.
-              </p>
-            </div>
-          </div>
-        </header>
+        <PageCommandBar
+          title="Due Dates Checklist"
+          hint="Recurring bills & statutory items by area — frequency, period, due date and status."
+        />
 
         <DueDatesChecklist items={items} areaOptions={areaOptions} frequencyOptions={frequencyOptions} />
       </main>

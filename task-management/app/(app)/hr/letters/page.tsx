@@ -24,7 +24,7 @@ export default async function LettersIndexPage() {
   return (
     <div className="min-h-dvh bg-[#faf9fb]">
       <style>{`.ltr-grid{display:grid;gap:16px;grid-template-columns:1fr}@media(min-width:640px){.ltr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(min-width:1024px){.ltr-grid{grid-template-columns:repeat(var(--cols),minmax(0,1fr))}}`}</style>
-      <header className="sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4">
+      <header className="sticky sticky-below-topbar z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4">
         <div className="justify-self-start">
           <Link
             href={"/hr" as Route}

@@ -113,7 +113,7 @@ export function AttTeamRoster({
               setQuery("");
             }
           }}
-          placeholder="Search people…"
+          placeholder="Local search — people" title="Local search — filters only the list on this page" aria-label="Local search — people — this page only"
           className="h-full w-full rounded-xl border-2 border-hairline-strong bg-white pl-9 pr-8 text-[14px] font-medium text-ink-strong outline-none transition-colors placeholder:text-ink-subtle focus:border-[var(--color-altus-red)]"
         />
         {query && (

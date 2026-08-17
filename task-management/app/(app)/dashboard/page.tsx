@@ -133,7 +133,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           Solid white — it must stay opaque, or the content scrolling under it
           shows through. */}
       <div
-        className={`sticky top-0 max-md:top-14 z-40 ${mobileToday ? "max-md:hidden" : ""}`}
+        className={`sticky sticky-below-topbar max-md:top-14 z-40 ${mobileToday ? "max-md:hidden" : ""}`}
         style={{
           background: "#ffffff",
           borderBottom: "1px solid var(--color-hairline)",

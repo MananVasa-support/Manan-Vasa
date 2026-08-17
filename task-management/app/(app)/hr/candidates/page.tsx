@@ -35,7 +35,7 @@ export default async function CandidatesPage() {
   return (
     <div className="min-h-dvh bg-white">
       {/* Focused top bar — logo centred, Back-to-popup on the left */}
-      <header className="sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4">
+      <header className="sticky sticky-below-topbar z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4">
         <div className="justify-self-start">
           <Link
             href={"/hr?open=post-interview" as Route}

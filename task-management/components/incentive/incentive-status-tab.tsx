@@ -98,8 +98,7 @@ export function IncentiveStatusTab({
                 type="search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search incentive or person…"
-                aria-label="Search incentives"
+                placeholder="Local search — incentive or person" title="Local search — filters only the list on this page" aria-label="Local search — incentive or person — this page only"
                 className="w-full bg-transparent text-[14px] font-semibold text-ink-strong outline-none placeholder:text-ink-subtle"
               />
             </label>

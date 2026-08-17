@@ -204,10 +204,11 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // — 2670d47 shipped this and 0ea9152 reverted it by syncing this file
       // from a stale copy.)
       { href: "/dashboard" as Route, label: "WMS Dashboard", Icon: LayoutDashboard, exact: true },
-      // My Day = Plan My Day, the SAME page as Goals › Plan my Day. It points at
-      // the WMS-owned alias `/my-day` rather than `/goals/plan` so opening it
-      // keeps you in this room (workspaceForPath owns `/goals*` for Goals).
-      { href: "/my-day" as Route, label: "My Day", Icon: CalendarDays },
+      // Plan My Day LIVES here now (2026-08) — it moved out of the Goals rail
+      // and replaced the old My Day execution board on this route. `/my-day`
+      // rather than `/goals/plan` because workspaceForPath owns `/goals*` for
+      // Goals, so pointing there would flip the sidebar to that room.
+      { href: "/my-day" as Route, label: "Plan My Day", Icon: CalendarDays },
       // Review = the SAME Review & Scores workbench as Goals › Review, on the
       // WMS-owned alias `/review` for the same reason My Day uses `/my-day`.
       { href: "/review" as Route, label: "Review", Icon: ClipboardList },
@@ -361,7 +362,8 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // Weekly = the REAL weekly board (WeeklyCascadeBoard over weekly_goals,
       // its own week nav). /goals/week is a permanent redirect alias to it.
       { href: "/goals/weekly" as Route, label: "Weekly Goals", Icon: CalendarCheck },
-      { href: "/goals/plan" as Route, label: "Plan my Day", Icon: CalendarDays },
+      // "Plan my Day" removed (2026-08) — the planner moved to the WMS rail at
+      // `/my-day`. `/goals/plan` is a redirect stub, not a page.
       // "Cascade" removed — the canvas is retired as the UI; the four level
       // pages (board design) + rituals below are the whole module. Cross-level
       // moves live in each card's "Move to…" drawer (the drag-to-sidebar
@@ -414,7 +416,8 @@ const GOALS_PERSONAL_NAV: WorkspaceNav = {
     { href: "/goals/quarterly" as Route, label: "Quarterly Goals", Icon: Target },
     { href: "/goals/monthly" as Route, label: "Monthly Goals", Icon: CalendarRange },
     { href: "/goals/weekly" as Route, label: "Weekly Goals", Icon: CalendarCheck },
-    { href: "/goals/plan" as Route, label: "Plan my Day", Icon: CalendarDays },
+    // "Plan my Day" removed with the professional rail above — the planner is a
+    // WMS page now. Its personal-space branch still renders from `/my-day`.
     { href: "/goals/recycle-bin" as Route, label: "Recycle Bin", Icon: Trash2, adminOnly: true },
   ],
   groups: [],

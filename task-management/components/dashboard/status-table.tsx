@@ -242,7 +242,9 @@ export function StatusTable({
       className="mt-12"
       style={{
         opacity: 0,
-        animation: "fadeUp 500ms ease-out 700ms forwards",
+        // Was a 700ms delay, staggered against its position in one long scroll.
+        // Inside a dashboard tab this mounts the moment the tab is clicked.
+        animation: "fadeUp 400ms ease-out 100ms forwards",
       }}
     >
       <DashboardSectionHeader
@@ -606,9 +608,8 @@ function FilterBar({
           onKeyDown={(e) => {
             if (e.key === "Escape" && text) clearNow();
           }}
-          placeholder="Search employees…"
+          placeholder="Local search — employees" title="Local search — filters only the list on this page" aria-label="Local search — employees — this page only"
           className="flex-1 bg-transparent border-0 outline-none px-2.5 text-body-lg text-ink placeholder:text-ink-subtle"
-          aria-label="Search employees"
         />
         {text && (
           <button

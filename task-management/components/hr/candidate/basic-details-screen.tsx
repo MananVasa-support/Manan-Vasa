@@ -86,7 +86,7 @@ export function BasicDetailsScreen({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search candidates…"
+            placeholder="Local search — candidates" title="Local search — filters only the list on this page" aria-label="Local search — candidates — this page only"
             className="w-full rounded-lg border border-hairline-strong bg-white py-2 pl-9 pr-3 text-[14px] text-ink-strong outline-none focus:border-altus-red"
           />
         </div>

@@ -102,8 +102,7 @@ export function OutstandingEntriesTable({
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by client, product, entity, responsible…"
-            aria-label="Search outstanding entries"
+            placeholder="Local search — client, product, entity, responsible" title="Local search — filters only the list on this page" aria-label="Local search — client, product, entity, responsible — this page only"
             className="w-full h-11 pl-10 pr-9 rounded-pill border border-hairline bg-surface-card text-[15px] text-ink-strong placeholder:text-ink-subtle outline-none transition-all focus:border-altus-red focus:ring-2 focus:ring-altus-red/25"
           />
           {query && (

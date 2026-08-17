@@ -7,6 +7,7 @@ import { MobileMenuServer } from "./mobile-menu-server";
 import { MobileModuleLabel, SidebarNewTask, SidebarSearch, SidebarGoalsSpace } from "./sidebar-route-chrome";
 import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskTrigger } from "@/components/header/new-task-trigger";
+import { NotificationBell } from "@/components/header/notification-bell";
 import { getCurrentEmployee } from "@/lib/auth/current";
 
 /**
@@ -52,6 +53,12 @@ export async function DashboardSidebar() {
         <img src="/logo.png" alt="Altus Corp" className="h-8 w-auto" />
       </a>
       <MobileModuleLabel />
+      {/* Far right on phones too. The desktop AppTopBar is `max-md:hidden` — a
+          second 56px strip would eat a third of a small screen — so the bell
+          rides in this bar instead. */}
+      <div className="ml-auto shrink-0">
+        <NotificationBell />
+      </div>
     </div>
 
     {/* Desktop (md+): the left rail — an IN-FLOW flex child (sticky, full height),

@@ -4,22 +4,24 @@ import * as React from "react";
 import { PageShell } from "@/components/layout/page-shell";
 
 /**
- * DashboardTabs — the three-view switcher that sits directly under the Task
- * Report banner and owns everything below it.
+ * DashboardTabs — ONE bordered analytics container holding everything below the
+ * Task Report banner, with its three views selected from the header's top-right.
  *
- * The dashboard used to render all eight analytics sections in one column, so
- * answering "who needs chasing?" meant scrolling past the leaderboard and the
- * status split to reach the aging lanes. The same eight sections are now dealt
- * into three purposes — Overview (team health), Performance (who is delivering)
- * and Attention (what needs action) — and only the selected one is MOUNTED, not
- * merely hidden, so each view is its own short scroll.
+ * The dashboard used to render all eight analytics sections in one column, in a
+ * fixed order, so answering "who needs chasing?" meant scrolling past the
+ * leaderboard and the status split to reach the aging lanes. The same eight
+ * sections are now dealt into three purposes — Overview (team health),
+ * Performance (who is delivering) and Attention (what needs action) — and only
+ * the selected one is MOUNTED, not merely hidden, so each view is its own short
+ * scroll. Nothing is duplicated: every section lives in exactly one tab.
  *
- * Nothing is duplicated across the three: every section lives in exactly one.
- *
- * The bar sticks under whatever chrome is already pinned above it. That offset
- * is MEASURED rather than hard-coded, because the thing above it (the filter
- * bar) changes height whenever active-filter chips wrap to a second row — a
- * fixed `top-[57px]` would leave a gap on one page and clip on another.
+ * This replaces a full-width underline tab strip that sat loose on the page.
+ * Structurally that was in the right place — directly after the banner — but
+ * with no frame around it, three plain text labels on a white band read as page
+ * chrome rather than as the header of the content beneath, and once pinned it
+ * travelled down the page away from the sections it belonged to. A single
+ * bordered card makes the ownership explicit: the tabs are visibly the header of
+ * this box, and the box visibly contains the analytics.
  */
 
 export type DashboardTabId = "overview" | "performance" | "attention";
@@ -43,19 +45,19 @@ export function DashboardTabs({
   const [stickyTop, setStickyTop] = React.useState(0);
   const anchorRef = React.useRef<HTMLDivElement>(null);
 
-  /* How far down the page is this bar allowed to pin? Walk up from the bar and
-     look at each ancestor's PRECEDING siblings for anything already pinned
-     (the sticky filter bar, the mobile rail's fixed top strip). The offset is
-     the tallest of them — `height + its own top` — so the tab bar lands flush
+  /* How far down may the container's header pin? Walk up from the anchor and
+     look at each ancestor's PRECEDING siblings for anything already pinned (the
+     sticky filter bar, the mobile rail's fixed top strip). The offset is the
+     tallest of them — `height + its own top` — so the header lands flush
      underneath instead of sliding beneath it or floating below a gap.
 
-     Re-measured on resize AND through a ResizeObserver, since the filter bar
-     grows a row the moment a filter chip is added.
+     Measured rather than hard-coded: the filter bar grows a row the moment an
+     active-filter chip wraps, so a fixed `top-[57px]` would leave a gap on one
+     page and clip on another. A ResizeObserver catches that reflow.
 
-     `useEffect`, not `useLayoutEffect`: this component still renders on the
-     server, where useLayoutEffect warns. Nothing flashes — until the offset is
-     known the bar has not been scrolled to yet, so it is sitting at its natural
-     position and `top` is unused. */
+     `useEffect`, not `useLayoutEffect`: this still renders on the server, where
+     useLayoutEffect warns. Nothing flashes — until the offset is known the
+     header has not been scrolled to, so `top` is unused. */
   React.useEffect(() => {
     const node = anchorRef.current;
     if (!node) return;
@@ -68,7 +70,7 @@ export function DashboardTabs({
         if (pos === "sticky" || pos === "fixed") pinned.push(sib);
       }
     }
-    if (pinned.length === 0) return; // nothing above → stays flush at the top
+    if (pinned.length === 0) return; // nothing above → pins flush at the top
 
     const measure = () => {
       let offset = 0;
@@ -94,9 +96,9 @@ export function DashboardTabs({
   }, []);
 
   /* Switching view while scrolled deep into the previous one would otherwise
-     drop you into the middle of the new one. Snap back to the bar — but only
-     when it has actually been scrolled past, so a switch made at the top of the
-     page doesn't jump. */
+     drop you into the middle of the new one. Snap back to the container — but
+     only when its header has actually been scrolled past, so a switch made with
+     the box already in view doesn't jump. */
   function selectTab(id: DashboardTabId) {
     setActive(id);
     const anchor = anchorRef.current;
@@ -107,62 +109,110 @@ export function DashboardTabs({
     }
   }
 
-  const panel = active === "overview" ? overview : active === "performance" ? performance : attention;
+  const activeTab = TABS.find((t) => t.id === active) ?? TABS[0]!;
+  const panel =
+    active === "overview" ? overview : active === "performance" ? performance : attention;
 
   return (
     <>
-      {/* Measuring point for "have we scrolled past the bar?" — the bar itself
-          can't answer that, because once pinned its own top IS `stickyTop`. */}
-      <div ref={anchorRef} aria-hidden className="mt-10" />
+      {/* Measuring point for "have we scrolled past the header?" — the header
+          itself can't answer that, because once pinned its own top IS
+          `stickyTop`. */}
+      <div ref={anchorRef} aria-hidden />
 
-      <div
-        className="z-30 border-b border-hairline"
-        style={{ position: "sticky", top: stickyTop, background: "#ffffff" }}
-      >
-        <PageShell as="div" width="full" py={false}>
-          {/* Underline tabs rather than a filled segmented control: the page
-              already carries a red segmented toggle inside two of the sections
-              below, and a second one at page level competed with them. */}
-          <div role="tablist" aria-label="Dashboard views" className="-mb-px flex items-end gap-1">
-            {TABS.map((t) => {
-              const isActive = active === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  id={`dashboard-tab-${t.id}`}
-                  aria-selected={isActive}
-                  aria-controls={`dashboard-panel-${t.id}`}
-                  title={t.hint}
-                  onClick={() => selectTab(t.id)}
-                  className="relative px-4 py-3 text-[14.5px] font-bold transition-colors max-md:flex-1 max-md:px-2 max-md:text-[13.5px]"
-                  style={{ color: isActive ? "var(--color-ink-strong)" : "var(--color-ink-muted)" }}
-                >
-                  {t.label}
-                  <span
-                    aria-hidden
-                    className="absolute inset-x-2 bottom-0 h-[2.5px] rounded-full transition-opacity"
-                    style={{
-                      background:
-                        "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))",
-                      opacity: isActive ? 1 : 0,
-                    }}
-                  />
-                </button>
-              );
-            })}
+      <PageShell as="section" width="full" py={false} className="mt-8 mb-16">
+        {/* NO `overflow-hidden` on this box: it would kill the sticky header
+            inside it. The children all carry their own radius, so nothing needs
+            clipping at the corners. */}
+        <div
+          className="rounded-2xl border bg-white"
+          style={{
+            borderColor: "var(--color-hairline-strong)",
+            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
+          }}
+        >
+          {/* Header — title left, tabs top-right. Sticks while you scroll the
+              active view, so the switcher stays reachable without scrolling back
+              up, then leaves with the container. */}
+          <div
+            className="sticky z-20 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-t-2xl border-b bg-white px-5 py-4 max-md:px-4"
+            style={{ top: stickyTop, borderColor: "var(--color-hairline)" }}
+          >
+            <div className="min-w-0">
+              <span
+                className="block uppercase font-bold tracking-[0.12em]"
+                style={{
+                  fontFamily: "var(--font-mono-display), ui-monospace, monospace",
+                  fontSize: 10.5,
+                  color: "var(--color-altus-red)",
+                }}
+              >
+                Team Analytics
+              </span>
+              <h2
+                className="mt-0.5 font-black leading-tight text-ink-strong"
+                style={{
+                  fontFamily: "var(--font-display), system-ui, sans-serif",
+                  fontSize: 21,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Insights
+              </h2>
+              {/* Reads the ACTIVE tab, so the header always says what you are
+                  looking at rather than describing the box in general. */}
+              <p className="mt-0.5 text-[13px] font-semibold text-ink-muted">
+                {activeTab.hint}
+              </p>
+            </div>
+
+            {/* Segmented switcher — the same shape as the sort control inside
+                the Aging section below, so the surface keeps one vocabulary for
+                "pick one of these". */}
+            <div
+              role="tablist"
+              aria-label="Dashboard views"
+              className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-gray-100 p-1 max-md:w-full"
+            >
+              {TABS.map((t) => {
+                const isActive = active === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    id={`dashboard-tab-${t.id}`}
+                    aria-selected={isActive}
+                    aria-controls={`dashboard-panel-${t.id}`}
+                    title={t.hint}
+                    onClick={() => selectTab(t.id)}
+                    className={`rounded-lg px-4 py-1.5 text-[13.5px] font-bold transition-colors max-md:flex-1 max-md:px-2 ${
+                      isActive ? "bg-white shadow-sm" : "text-gray-500 hover:text-gray-900"
+                    }`}
+                    style={isActive ? { color: "var(--color-altus-red)" } : undefined}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </PageShell>
-      </div>
 
-      <div
-        role="tabpanel"
-        id={`dashboard-panel-${active}`}
-        aria-labelledby={`dashboard-tab-${active}`}
-      >
-        {panel}
-      </div>
+          {/* Body. `--page-gutter: 0px` neutralises the page gutter for every
+              PageShell nested inside a section (StatusTable and the Aging
+              heatmap each render their own), which would otherwise inset the
+              content a second time inside a box that is already inset. */}
+          <div
+            role="tabpanel"
+            id={`dashboard-panel-${active}`}
+            aria-labelledby={`dashboard-tab-${active}`}
+            className="px-5 py-6 max-md:px-4 max-md:py-5"
+            style={{ "--page-gutter": "0px" } as React.CSSProperties}
+          >
+            {panel}
+          </div>
+        </div>
+      </PageShell>
     </>
   );
 }

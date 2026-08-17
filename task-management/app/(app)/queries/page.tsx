@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { BellRing } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { DashboardHeader } from "@/components/layout/header";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import { HrComingSoon } from "@/components/hr/coming-soon";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import {
@@ -41,24 +42,11 @@ export default async function QueriesPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto w-full max-w-[900px] px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-6 wg-rise">
-          <span
-            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
-            style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
-          >
-            HR · Ask HR
-          </span>
-          <h1
-            className="mt-1.5 text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px,3vw,38px)", letterSpacing: "-0.025em" }}
-          >
-            Queries &amp; Notifications
-          </h1>
-          <p className="mt-1 text-[14px] font-medium text-ink-muted">
-            Quick question for HR? Ask below — it goes to the same desk and you&apos;ll be notified when they reply.
-          </p>
-        </header>
+      <main className="mx-auto w-full max-w-[900px] px-8 pt-6 pb-8 max-md:px-4 max-md:pt-5 max-md:pb-6">
+        <PageCommandBar
+          title="Queries & Notifications"
+          hint="Ask HR anything — you'll be notified when they reply."
+        />
 
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
           <div className="space-y-8">

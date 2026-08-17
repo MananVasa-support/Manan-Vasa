@@ -22,6 +22,10 @@ import { CancelledEmail } from "@/emails/notifications/Cancelled";
 import { CommentedEmail } from "@/emails/notifications/Commented";
 import { DailyDigestEmail } from "@/emails/notifications/DailyDigest";
 import {
+  TaskReminderDigestEmail,
+  type TaskReminderGroup,
+} from "@/emails/notifications/TaskReminderDigest";
+import {
   WeeklyGoalsMondayEmail,
   type WeeklyGoalLine,
 } from "@/emails/notifications/WeeklyGoalsMonday";
@@ -407,6 +411,52 @@ export async function sendDigestEmail(
         recipientName: args.recipient.name,
         pendingTasks:  args.pendingTasks,
         siteUrl:       args.siteUrl ?? "",
+      }),
+      ...companyBcc(),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Task Reminder Settings — admin-authored daily reminders              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * ONE consolidated reminder to ONE recipient, grouped by employee.
+ *
+ * Called once per recipient per rule by app/api/cron/task-reminders — never
+ * once per task. See the template for why.
+ */
+export async function sendTaskReminderEmail(args: {
+  recipient: { email: string; name: string };
+  ruleName: string;
+  groups: TaskReminderGroup[];
+  totalTasks: number;
+  siteUrl: string | undefined;
+}): Promise<{ id: string | null; error: string | null }> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+
+    const people = args.groups.length;
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: args.recipient.email,
+      subject: clampSubject(
+        `${args.ruleName}: ${args.totalTasks} open task${
+          args.totalTasks === 1 ? "" : "s"
+        } across ${people} ${people === 1 ? "person" : "people"}`,
+      ),
+      react: TaskReminderDigestEmail({
+        recipientName: args.recipient.name,
+        ruleName: args.ruleName,
+        groups: args.groups,
+        totalTasks: args.totalTasks,
+        siteUrl: args.siteUrl ?? "",
       }),
       ...companyBcc(),
     });

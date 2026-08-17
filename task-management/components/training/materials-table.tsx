@@ -105,7 +105,7 @@ export function MaterialsTable({
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex w-[300px] max-md:w-full items-center gap-2 rounded-lg border border-hairline-strong bg-white px-3">
           <Search size={17} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search materials…" className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Local search — materials" title="Local search — filters only the list on this page" aria-label="Local search — materials — this page only" className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal" />
         </div>
         <select className={CHIP} value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="Filter by subject">
           <option value="">All Subjects</option>
