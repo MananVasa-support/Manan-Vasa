@@ -465,9 +465,9 @@ function ManagerRail({
           <>
             Target ={" "}
             <span className="font-semibold tabular-nums text-gray-900">
-              {PER_REPORT_PER_DAY} × direct reports × {workingDays}
+              {PER_REPORT_PER_DAY} × {workingDays}
             </span>{" "}
-            working {workingDays === 1 ? "day" : "days"} per manager
+            working {workingDays === 1 ? "day" : "days"} × direct reports
           </>
         }
         actions={
