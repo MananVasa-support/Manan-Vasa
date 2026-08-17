@@ -221,7 +221,9 @@ export function AgingHeatmap({
       <CollapsibleBody expanded={open}>
 
       <div
-        className="wms-card aging-shell relative overflow-hidden rounded-xl bg-white p-6 shadow-xs hover:shadow-sm max-md:p-4"
+        /* Vertical padding trimmed below the horizontal: the gutter still needs
+           to clear the card edge, but the stack inside is what was tall. */
+        className="wms-card aging-shell relative overflow-hidden rounded-xl bg-white px-4 py-3 shadow-xs hover:shadow-sm max-md:px-3 max-md:py-2.5"
       >
         {/* The red/green "heat wash" backdrop was removed — it was the other
             half of the peach tint. The heat colours still live where they carry
@@ -237,7 +239,10 @@ export function AgingHeatmap({
               No pending tasks for the current filter.
             </p>
           ) : (
-            <div className="mt-6 space-y-2">
+            /* No gap between lanes and no card per lane: the rows are separated
+               by a hairline rule instead, which is what lets twice as many
+               people fit on screen at once. */
+            <div className="mt-3">
               <LaneHeader />
               {top12.map((r, i) => (
                 <Lane
@@ -326,19 +331,20 @@ function SortControl({
 }
 
 function AlertBanner({ count }: { count: number }) {
+  // Same warning, a third of the height: the shadow is gone, the rule is 3px
+  // rather than 4, and the count sits inline with its sentence instead of
+  // towering over it at 22px.
   return (
     <div
-      className="mt-1 mb-3 flex items-center gap-3 rounded-chip px-5 py-3.5"
+      className="mb-2 flex items-center gap-2 rounded-chip px-3 py-1"
       style={{
-        background:
-          "linear-gradient(90deg, rgba(225, 6, 0, 0.12), rgba(225, 6, 0, 0.04))",
-        borderLeft: "4px solid #dc2626",
-        boxShadow: "0 4px 14px -8px rgba(220, 38, 38, 0.45)",
+        background: "rgba(225, 6, 0, 0.07)",
+        borderLeft: "3px solid #dc2626",
       }}
     >
-      <AlertTriangle className="size-6 shrink-0" style={{ color: "#A80400" }} />
-      <p style={{ fontSize: 17, color: "var(--color-ink-strong)" }}>
-        <span className="tabular-nums font-black" style={{ fontSize: 22 }}>
+      <AlertTriangle className="size-4 shrink-0" style={{ color: "#A80400" }} />
+      <p style={{ fontSize: 12.5, color: "var(--color-ink-strong)" }}>
+        <span className="tabular-nums font-black" style={{ fontSize: 14 }}>
           {count}
         </span>
         <span className="font-semibold" style={{ color: "var(--color-ink-soft)" }}>
@@ -353,12 +359,12 @@ function AlertBanner({ count }: { count: number }) {
 
 function Legend({ onPick }: { onPick: (b: AgeBucketId) => void }) {
   return (
-    <div className="mt-4 flex items-center gap-1.5 flex-wrap">
+    <div className="mt-2 flex items-center gap-1 flex-wrap">
       <span
-        className="uppercase font-bold tracking-[0.10em] mr-1.5"
+        className="uppercase font-bold tracking-[0.10em] mr-1"
         style={{
           fontFamily: "var(--font-mono-display), ui-monospace, monospace",
-          fontSize: 13,
+          fontSize: 10.5,
           color: "var(--color-ink-muted)",
         }}
       >
@@ -375,10 +381,10 @@ function Legend({ onPick }: { onPick: (b: AgeBucketId) => void }) {
             aria-label={`Show all pending tasks aged ${b.label}`}
             /* Solid pill in the bucket's own tier colour, so the legend is a
                direct colour key for the bars rather than a pastel echo of them. */
-            className="inline-flex items-center rounded-full px-3 py-1 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
+            className="inline-flex items-center rounded-full px-2 py-[3px] transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
             style={{ background: c.fill, color: c.ink }}
           >
-            <span className="font-black tabular-nums" style={{ fontSize: 13 }}>
+            <span className="font-black tabular-nums" style={{ fontSize: 10.5 }}>
               {b.id}d
             </span>
           </button>
@@ -388,50 +394,31 @@ function Legend({ onPick }: { onPick: (b: AgeBucketId) => void }) {
   );
 }
 
+/** Column track shared by the header and every lane — one constant so the two
+ *  can never drift out of alignment. */
+const LANE_COLUMNS = "minmax(0, 210px) 58px 1fr 40px 18px";
+
 function LaneHeader() {
+  const cap = {
+    fontFamily: "var(--font-mono-display), ui-monospace, monospace",
+    fontSize: 10,
+    color: "var(--color-ink-muted)",
+  } as const;
   return (
     <div
-      className="grid items-center gap-4 px-3 pb-2 max-md:hidden"
-      style={{ gridTemplateColumns: "260px 88px 1fr 64px 28px" }}
+      className="grid items-center gap-3 border-b border-hairline px-3 pb-1 max-md:hidden"
+      style={{ gridTemplateColumns: LANE_COLUMNS }}
     >
-      <span
-        className="uppercase font-bold tracking-[0.10em]"
-        style={{
-          fontFamily: "var(--font-mono-display), ui-monospace, monospace",
-          fontSize: 12,
-          color: "var(--color-ink-muted)",
-        }}
-      >
+      <span className="uppercase font-bold tracking-[0.10em]" style={cap}>
         Employee
       </span>
-      <span
-        className="text-center uppercase font-bold tracking-[0.10em]"
-        style={{
-          fontFamily: "var(--font-mono-display), ui-monospace, monospace",
-          fontSize: 12,
-          color: "var(--color-ink-muted)",
-        }}
-      >
+      <span className="text-center uppercase font-bold tracking-[0.10em]" style={cap}>
         Risk
       </span>
-      <span
-        className="uppercase font-bold tracking-[0.10em]"
-        style={{
-          fontFamily: "var(--font-mono-display), ui-monospace, monospace",
-          fontSize: 12,
-          color: "var(--color-ink-muted)",
-        }}
-      >
+      <span className="uppercase font-bold tracking-[0.10em]" style={cap}>
         Pending by age (← oldest)
       </span>
-      <span
-        className="text-right uppercase font-bold tracking-[0.10em]"
-        style={{
-          fontFamily: "var(--font-mono-display), ui-monospace, monospace",
-          fontSize: 12,
-          color: "var(--color-ink-muted)",
-        }}
-      >
+      <span className="text-right uppercase font-bold tracking-[0.10em]" style={cap}>
         Total
       </span>
       <span aria-hidden />
@@ -470,25 +457,33 @@ function Lane({
           onDrill(row.employeeId, null);
         }
       }}
-      // Tier-3 mobile fix — at 390px the 260+88+1fr+64+28 grid (≈624px min)
-      // overflows the section by ~250px. We collapse to a 2-row stacked
-      // layout via `aging-lane-mobile` (set in globals.css) on `max-md`.
-      className="aging-lane aging-lane-mobile grid items-center gap-4 px-3 py-3.5 rounded-chip transition-all max-md:gap-2 max-md:px-2 max-md:py-3"
+      // A 44px TABLE ROW, not a card: no per-lane background, no radius, no
+      // shadow — just a hairline rule underneath. That is where the vertical
+      // space came from; roughly twice as many people now fit on one screen.
+      //
+      // 44px is the floor, not a target to beat: the 26px avatar leaves 9px of
+      // air above and below it, which is what keeps the row compact rather than
+      // cramped. Going lower would start clipping the avatar.
+      //
+      // Tier-3 mobile fix — at 390px the desktop grid overflows the section, so
+      // `aging-lane-mobile` (globals.css) collapses it to 2 stacked rows on
+      // max-md, where the height has to go back to auto.
+      className="aging-lane aging-lane-mobile grid h-[44px] items-center gap-3 border-b border-hairline px-3 transition-colors last:border-b-0 max-md:h-auto max-md:gap-2 max-md:px-2 max-md:py-2"
       style={{
-        gridTemplateColumns: "260px 88px 1fr 64px 28px",
-        background: "var(--color-surface-card)",
-        border: "1px solid var(--color-hairline)",
+        gridTemplateColumns: LANE_COLUMNS,
         opacity: 0,
-        animation: `fadeUp 420ms ease-out ${index * 50 + 200}ms forwards`,
+        // Tightened from `index * 50 + 200`: at 12 lanes the old stagger took
+        // 0.8s to finish, which reads as the section loading slowly.
+        animation: `fadeUp 320ms ease-out ${index * 16 + 120}ms forwards`,
         cursor: "pointer",
       }}
     >
       {/* Employee — avatar + name */}
-      <div className="flex items-center gap-3 min-w-0">
-        <Avatar name={row.employeeName} avatarUrl={avatarUrl ?? null} size={40} />
+      <div className="flex items-center gap-2 min-w-0">
+        <Avatar name={row.employeeName} avatarUrl={avatarUrl ?? null} size={26} />
         <span
-          className="text-ink-strong truncate font-bold"
-          style={{ fontSize: 17 }}
+          className="text-ink-strong truncate font-semibold"
+          style={{ fontSize: 13.5 }}
         >
           {row.employeeName}
         </span>
@@ -497,11 +492,13 @@ function Lane({
       {/* Risk score */}
       <RiskChip score={row.risk} />
 
-      {/* Heat bar */}
+      {/* Heat bar — a thin lane. Segments are flush (no per-segment radius) and
+          the container clips them, so the eight tiers read as one continuous
+          measure rather than eight little pills. */}
       <div
-        className="relative rounded-bar bg-surface-soft overflow-hidden"
+        className="relative rounded-full bg-surface-soft overflow-hidden"
         style={{
-          height: 52,
+          height: 16,
           border: "1px solid var(--color-hairline)",
         }}
       >
@@ -537,7 +534,7 @@ function Lane({
         className="text-right tabular-nums text-ink-strong font-black"
         style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
-          fontSize: 26,
+          fontSize: 15,
           letterSpacing: "-0.02em",
         }}
       >
@@ -550,64 +547,42 @@ function Lane({
         aria-hidden
         style={{ color: "var(--color-ink-subtle)" }}
       >
-        <ChevronRight size={20} strokeWidth={2.4} />
+        <ChevronRight size={14} strokeWidth={2.4} />
       </span>
     </div>
   );
 }
 
+/**
+ * Risk badge — a flat tinted pill.
+ *
+ * The three-band red / amber / green semantic is unchanged; what went is the
+ * decoration around it: the 135° gradient, the coloured drop-glow, the white
+ * inner border, the 8px status dot and the 76px minimum width. At 17px inside a
+ * 76px pill this was the second-largest thing in the row after the bar, for a
+ * two-digit number. The tint alone carries the band.
+ */
 function RiskChip({ score }: { score: number }) {
   const tone = score >= 60 ? "red" : score >= 35 ? "amber" : "green";
   const palette = {
-    red: {
-      bg: "linear-gradient(135deg, #fecaca, #f87171)",
-      fg: "#7f1d1d",
-      dot: "#dc2626",
-      glow: "0 4px 12px rgba(220, 38, 38, 0.35)",
-    },
-    amber: {
-      bg: "linear-gradient(135deg, #fef3c7, #fbbf24)",
-      fg: "#78350f",
-      dot: "#d97706",
-      glow: "0 4px 12px rgba(217, 119, 6, 0.30)",
-    },
-    green: {
-      bg: "linear-gradient(135deg, #d1fae5, #34d399)",
-      fg: "#064e3b",
-      dot: "#059669",
-      glow: "0 4px 12px rgba(5, 150, 105, 0.25)",
-    },
+    red: { bg: "#fee2e2", fg: "#991b1b" },
+    amber: { bg: "#fef3c7", fg: "#92400e" },
+    green: { bg: "#d1fae5", fg: "#065f46" },
   }[tone];
   return (
-    <div
-      className="inline-flex items-center justify-center gap-2 rounded-pill px-3 py-1.5 mx-auto"
+    <span
+      className="mx-auto inline-flex items-center justify-center rounded-pill px-1.5 py-0.5 font-black tabular-nums"
       style={{
         background: palette.bg,
-        minWidth: 76,
-        boxShadow: palette.glow,
-        border: "1px solid rgba(255,255,255,0.5)",
+        color: palette.fg,
+        minWidth: 34,
+        fontSize: 11.5,
+        letterSpacing: "-0.01em",
       }}
       title={`Aging risk score: ${score}/100`}
     >
-      <span
-        className="size-2 rounded-full"
-        style={{
-          background: palette.dot,
-          boxShadow: tone === "red" ? `0 0 8px ${palette.dot}` : "none",
-        }}
-      />
-      <span
-        className="font-black tabular-nums"
-        style={{
-          fontFamily: "var(--font-display), system-ui, sans-serif",
-          fontSize: 17,
-          color: palette.fg,
-          letterSpacing: "-0.01em",
-        }}
-      >
-        {score}
-      </span>
-    </div>
+      {score}
+    </span>
   );
 }
 
@@ -630,7 +605,9 @@ function Segment({
   onOpen: () => void;
 }) {
   const c = BUCKET_COLOR[bucketId];
-  const showLabel = widthPct > 8;
+  // Threshold nudged up with the smaller type: an 11px count needs a little
+  // more of the lane behind it than a 17px one did to avoid touching the seams.
+  const showLabel = widthPct > 11;
   // `isCritical` lived here to drive the heatPulse animation. The animation is
   // gone; CRITICAL_BUCKETS is still used by the risk score and the risk sort.
 
@@ -661,7 +638,13 @@ function Segment({
                  the tier off its own token, and scaling made rows jitter;
                • the text-shadow — unnecessary now the ink is chosen per tier,
                  and it muddied dark text on amber and sky. */
-          className="aging-segment flex h-full items-center justify-center rounded-md transition-opacity duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2"
+          /* `rounded-md` went with the taller bar — at 18px the radius ate the
+             narrow segments, and the parent already clips the lane to a pill.
+             Flush segments also make the eight tiers read as one measure. */
+          /* `leading-none`: the lane's inner box is 14px and 11px text carries a
+             ~13px line box by default, so the count sat off-centre against the
+             segment. */
+          className="aging-segment flex h-full items-center justify-center leading-none transition-opacity duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:-outline-offset-2"
           style={{
             width: `${widthPct}%`,
             // Ink comes from the tier: amber-400 and sky-400 need dark text,
@@ -673,7 +656,7 @@ function Segment({
             outlineColor: c.deep,
             fontFamily: "var(--font-display), system-ui, sans-serif",
             fontWeight: 900,
-            fontSize: 17,
+            fontSize: 11,
           }}
           aria-label={`${employeeName}, ${bucketLabel}: ${count} pending`}
         >

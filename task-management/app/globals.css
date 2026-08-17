@@ -1720,27 +1720,24 @@ html[data-density="dense"] body {
   color: rgb(var(--vp-cyan-deep));
 }
 
-/* Aging Heatmap — click-anywhere lanes. Each lane lifts on hover with
-   a heat-tinted shadow + the chevron slides forward. */
+/* Aging Heatmap — click-anywhere lanes.
+   The lanes used to be cards: hover LIFTED each one 2px on a heat-tinted
+   drop-shadow. Once they became 46px table rows separated by a hairline, a lift
+   made the whole list shuffle under the cursor and the glow reintroduced exactly
+   the visual weight the compaction removed. Hover is now a row tint — the
+   convention for a dense table — and the chevron still slides forward. */
 .aging-lane {
   transition:
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 220ms ease-out;
+    background-color 140ms ease-out,
+    box-shadow 140ms ease-out;
 }
 .aging-lane:hover {
-  transform: translateY(-2px);
-  border-color: rgba(168, 4, 0, 0.35);
-  box-shadow:
-    0 16px 36px -16px rgba(168, 4, 0, 0.32),
-    0 4px 14px -4px rgba(15, 23, 42, 0.08);
+  background-color: var(--color-surface-soft);
 }
 .aging-lane:focus-visible {
   outline: none;
-  border-color: rgb(var(--vp-cyan));
-  box-shadow:
-    0 0 0 3px rgb(var(--vp-cyan) / 0.32),
-    0 16px 36px -16px rgba(168, 4, 0, 0.28);
+  background-color: var(--color-surface-soft);
+  box-shadow: inset 0 0 0 2px rgb(var(--vp-cyan) / 0.55);
 }
 .aging-lane-chevron > svg {
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -1779,20 +1776,26 @@ html[data-density="dense"] body {
    its value is shown inline next to the bar's number. */
 @media (max-width: 768px) {
   .aging-lane-mobile {
-    grid-template-columns: 1fr 56px 20px !important;
+    grid-template-columns: 1fr auto 40px 18px !important;
     grid-template-rows: auto auto;
     grid-template-areas:
-      "name total chev"
-      "bar  bar   bar";
-    row-gap: 8px;
+      "name risk total chev"
+      "bar  bar  bar   bar";
+    row-gap: 6px;
   }
+  /* Child order is: 1 employee · 2 risk · 3 bar · 4 total · 5 chevron.
+     These rules previously mapped 2→total and 4→"Avg days", a column the lane
+     no longer has — so the RISK badge was landing in the total slot and the
+     TOTAL was being lifted onto the bar with a `margin-top: -22px` tuned to the
+     old 52px bar height. At 18px that offset floats it clear off the lane.
+     Risk and total now get their own slots on the top row, which the smaller
+     badges leave room for. */
   .aging-lane-mobile > :nth-child(1) {
     grid-area: name;
     min-width: 0;
   }
   .aging-lane-mobile > :nth-child(2) {
-    /* Total badge — fits in the 56px slot */
-    grid-area: total;
+    grid-area: risk;
     justify-self: end;
   }
   .aging-lane-mobile > :nth-child(3) {
@@ -1800,12 +1803,9 @@ html[data-density="dense"] body {
     grid-area: bar;
     min-width: 0;
   }
-  /* The original 4th column ("Avg days") gets folded into the bar row. */
   .aging-lane-mobile > :nth-child(4) {
-    grid-area: bar;
-    align-self: end;
+    grid-area: total;
     justify-self: end;
-    margin-top: -22px;
   }
   .aging-lane-mobile > :nth-child(5) {
     grid-area: chev;
