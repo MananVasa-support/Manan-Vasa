@@ -223,16 +223,10 @@ export function ExecDashboard({
     <ExecCtx.Provider value={ctx}>
       {children}
 
-      {/* Summary: ONE full-width column at every breakpoint. These were two
-          half-width panels side-by-side, which left "Delivered on time" a
-          narrow well around a fixed-width gauge while "Attention Required"
-          filled its column — the two read as different weights. Stacked
-          full-bleed, both cards get the same structural width. */}
-      <style>{`
-        .exec-summary-grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      `}</style>
+      {/* The `.exec-summary-grid` rule that used to live here is gone with the
+          section it shaped: the gauge and the attention list were a two-column
+          grid forced to one column, and they are now two independent
+          full-width sections in two different tabs. */}
 
       {/* Drill-down modal — rendered ONCE for the whole surface (not per
           section); fetches on demand only. */}
@@ -304,15 +298,29 @@ export function ExecDelegationSection() {
   );
 }
 
-/** DELIVERED ON TIME & ATTENTION REQUIRED — the summary row. */
-export function ExecSummarySection() {
-  const { rise, doneOnTimeView, notApprovedAgingView, isAdmin, meId, resolveAvatar } =
-    useExec();
-  // Two cards side by side, each carrying its own header ABOVE its own white
-  // box. No <ExecCard> frame — it would put both headers back inside a card.
+/**
+ * DELIVERED ON TIME — the on-time gauge.
+ *
+ * This and `ExecAttentionSection` below were one `ExecSummarySection` that
+ * rendered both, stacked. They answer opposite questions — "how are we doing?"
+ * versus "what is stuck?" — and the dashboard now files those under different
+ * tabs (Overview / Attention), so they are separate placeable sections. Both
+ * still read the same context, so nothing about the data changed.
+ */
+export function ExecOnTimeSection() {
+  const { rise, doneOnTimeView } = useExec();
   return (
-    <motion.div {...rise(0)} className="exec-summary-grid grid gap-6 max-md:gap-4">
+    <motion.div {...rise(0)}>
       <OnTimeGauge data={doneOnTimeView} />
+    </motion.div>
+  );
+}
+
+/** ATTENTION REQUIRED — declined / not-approved work, oldest waiting first. */
+export function ExecAttentionSection() {
+  const { rise, notApprovedAgingView, isAdmin, meId, resolveAvatar } = useExec();
+  return (
+    <motion.div {...rise(0)}>
       <NotApprovedSidebar
         data={notApprovedAgingView}
         isAdmin={isAdmin}

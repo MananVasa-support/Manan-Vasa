@@ -11,8 +11,10 @@ import {
   ExecDashboard,
   ExecOverdueSection,
   ExecDelegationSection,
-  ExecSummarySection,
+  ExecOnTimeSection,
+  ExecAttentionSection,
 } from "@/components/dashboard/exec/exec-dashboard";
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
@@ -222,22 +224,27 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 </div>
               )}
               </KpiStrip>
-              {/* Section order below is the FOUNDER-SPECIFIED sequence:
-                    1. Task KPI summary + analytics banner  (above)
-                    2. Overdue Tasks by person
-                    3. Status by Employee
-                    4. Aging Heatmap
-                    5. Delegation Scorecard
-                    6. Employee Rankings
-                    7. Status Distribution
-                    8. Delivered On Time & Attention Required
+              {/* Everything below the Task Report banner is dealt into three
+                  tabs. The eight sections used to run down one column in a
+                  founder-specified order, which meant scrolling past the
+                  leaderboard and the status split to reach the aging lanes.
+                  They are now grouped by the QUESTION each one answers:
 
-                  The three Exec sections are wrapped by <ExecDashboard>, which
-                  is now a PROVIDER rather than a card — it owns the 3/7-day
-                  window, the privacy filter, the section-search filter and the
-                  drill-down modal, and hands them to the sections through
-                  context. That's what lets other sections sit BETWEEN them
-                  without duplicating any of that state. */}
+                    Overview    — Overdue by person · Status Distribution ·
+                                  Delivered on Time
+                    Performance — Top Performers · Status by Employee
+                    Attention   — Delegation Scorecard · Attention Required ·
+                                  Aging Heatmap
+
+                  Every section appears in exactly one tab; nothing is
+                  duplicated, and only the selected tab is mounted.
+
+                  <ExecDashboard> stays a PROVIDER wrapped around the whole
+                  thing — it owns the 3/7-day window, the privacy filter, the
+                  section-search filter and the drill-down modal, and hands them
+                  to its sections through context. Because the tabs render
+                  INSIDE it, an Exec section still reads that context from
+                  whichever tab it now sits in. */}
               <ExecDashboard
                 doneOnTime={data.doneOnTime}
                 initiator={data.initiator}
@@ -246,48 +253,65 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 isAdmin={Boolean(me?.isAdmin)}
                 meId={me?.id ?? null}
               >
-                {/* 2 — Overdue Tasks */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
-                  <ExecOverdueSection />
-                </PageShell>
+                <DashboardTabs
+                  overview={
+                    <>
+                      {/* Overdue Tasks by person — also carries the surface's
+                          global empty state, so it leads the default tab. */}
+                      <PageShell as="div" width="full" py={false} className="mt-10">
+                        <ExecOverdueSection />
+                      </PageShell>
 
-                {/* 3 — Status by Employee */}
-                <StatusTable rows={data.statusTable} view={filters.view} avatarById={avatarById} />
+                      <PageShell as="div" width="full" py={false} className="mt-12">
+                        <div className="flex w-full max-w-none flex-col space-y-8">
+                          <StatusDistributionChart
+                            data={data.statusDistribution}
+                            labels={statusLabels}
+                            tones={statusTones}
+                            isAdmin={Boolean(me?.isAdmin)}
+                          />
+                          <ExecOnTimeSection />
+                        </div>
+                      </PageShell>
+                    </>
+                  }
+                  performance={
+                    <>
+                      {/* Leaderboard first, then the per-employee status
+                          breakdown it ranks — best to worst in both. */}
+                      <PageShell as="div" width="full" py={false} className="mt-10">
+                        <TopPerformersSection
+                          performers={data.topPerformers}
+                          avatarById={avatarById}
+                        />
+                      </PageShell>
 
-                {/* 4 — Aging Heatmap */}
-                <AgingHeatmap
-                  rows={data.agingTable}
-                  cellTasks={data.agingHeatmapData.byCell}
-                  avatarById={avatarById}
-                  me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
+                      <StatusTable
+                        rows={data.statusTable}
+                        view={filters.view}
+                        avatarById={avatarById}
+                      />
+                    </>
+                  }
+                  attention={
+                    <>
+                      <PageShell as="div" width="full" py={false} className="mt-10">
+                        <ExecDelegationSection />
+                      </PageShell>
+
+                      <PageShell as="div" width="full" py={false} className="mt-12">
+                        <ExecAttentionSection />
+                      </PageShell>
+
+                      <AgingHeatmap
+                        rows={data.agingTable}
+                        cellTasks={data.agingHeatmapData.byCell}
+                        avatarById={avatarById}
+                        me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
+                      />
+                    </>
+                  }
                 />
-
-                {/* 5 — Delegation Scorecard */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
-                  <ExecDelegationSection />
-                </PageShell>
-
-                {/* 6 + 7 — Employee Rankings, then Status Distribution.
-                    STACKED, not side-by-side. The old two-up grid gave each
-                    half a column, which squeezed the leaderboard's podium into
-                    a third of the screen and forced the status cards into three
-                    cramped columns. Full width each, one above the other. */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
-                  <div className="flex w-full max-w-none flex-col space-y-8">
-                    <TopPerformersSection performers={data.topPerformers} avatarById={avatarById} />
-                    <StatusDistributionChart
-                      data={data.statusDistribution}
-                      labels={statusLabels}
-                      tones={statusTones}
-                      isAdmin={Boolean(me?.isAdmin)}
-                    />
-                  </div>
-                </PageShell>
-
-                {/* 8 — Delivered On Time & Attention Required */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
-                  <ExecSummarySection />
-                </PageShell>
               </ExecDashboard>
             </div>
           </>
