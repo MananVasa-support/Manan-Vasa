@@ -4,6 +4,7 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 import { GlobalSearch } from "@/components/header/global-search";
+import { NewTaskQuickAction } from "@/components/header/new-task-quick-action";
 import { workspaceForPath } from "@/lib/workspaces";
 
 /**
@@ -75,9 +76,18 @@ export function AppTopBar({ bell }: { bell?: React.ReactNode }) {
         />
       </div>
 
-      {/* FAR RIGHT — notifications. `ml-auto` keeps it pinned to the edge no
-          matter how wide the search field ends up. */}
-      <div className="ml-auto flex shrink-0 items-center gap-2">{bell}</div>
+      {/* FAR RIGHT — create, then notifications. `ml-auto` keeps the cluster
+          pinned to the edge no matter how wide the search field ends up.
+
+          The + sits immediately LEFT of the bell: creating a task is an action
+          the user initiates, the bell is a thing that interrupts them, and the
+          action reads first in that pair. It used to live in the WMS
+          dashboard's Task Summary header, where it was reachable from one
+          section of one page and vanished when that section was collapsed. */}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <NewTaskQuickAction />
+        {bell}
+      </div>
     </div>
   );
 }

@@ -3,8 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowUpRight, Plus } from "lucide-react";
-import { NEW_TASK_OPEN_EVENT } from "@/components/tasks/new-task-dialog";
+import { ArrowUpRight } from "lucide-react";
 import type { NeonKey } from "./kpi-card";
 import { KpiDetailPanel } from "./kpi-detail-panel";
 import type { KpiSet, WmsSummary } from "@/lib/types";
@@ -117,34 +116,17 @@ export function KpiStrip({
             {headline === 1 ? "task" : "tasks"} in the current filter
           </>
         }
-        /* Create + collapse, paired in one control cluster. The + opens the
-           SAME modal as the sidebar's New Task button: it dispatches the window
-           event that <NewTaskDialog> listens for, rather than mounting a second
-           copy of the dialog — that component owns the modal's open state and a
-           global "N" listener, so a second instance would stack two modals and
-           open both on one keypress. */
+        /* Collapse only. The red + that used to sit here moved to the global
+           top bar (<NewTaskQuickAction>, left of the notification bell):
+           creating a task is an app-wide action, but here it was reachable from
+           one section of one page and disappeared with the section whenever the
+           summary was folded away. */
         actions={
-          <>
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new Event(NEW_TASK_OPEN_EVENT))}
-              aria-label="New task"
-              title="New task (N)"
-              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
-              style={{
-                background: "var(--color-altus-red)",
-                border:
-                  "1px solid color-mix(in srgb, var(--color-altus-red) 28%, transparent)",
-              }}
-            >
-              <Plus size={15} strokeWidth={2.8} aria-hidden />
-            </button>
-            <CollapseToggle
-              expanded={isKpiExpanded}
-              onToggle={() => setIsKpiExpanded((v) => !v)}
-              label="the Task summary"
-            />
-          </>
+          <CollapseToggle
+            expanded={isKpiExpanded}
+            onToggle={() => setIsKpiExpanded((v) => !v)}
+            label="the Task summary"
+          />
         }
       />
 
