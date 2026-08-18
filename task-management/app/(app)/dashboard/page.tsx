@@ -223,28 +223,25 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 </div>
               )}
               </KpiStrip>
-              {/* Everything below the Task Report banner is dealt into three
-                  tabs — Attention (default) · Overview · Performance — grouped
-                  by the question each answers:
+              {/* Fixed vertical order below the Task Report banner:
+                    1 Overdue Tasks by Person
+                    2 Aging Heatmap
+                    3 Delivered on Time
+                    4 Insights (the tabbed analytics box)
 
-                    Attention   — Delivered On Time · Overdue by Person ·
-                                  Aging Heatmap
-                    Overview    — Status Distribution · Status by Doer ·
-                                  Who is Delegating
-                    Performance — Top Performers
+                  The first three were panels of the Insights "Attention" tab.
+                  They are the questions the dashboard is opened to answer, so
+                  they are now always on screen instead of behind a click; the
+                  tabs keep the deliberate second look (Overview / Performance).
+                  Promoting Overdue also fixes a constraint the old layout had to
+                  work around — it carries the surface's GLOBAL EMPTY STATE, which
+                  previously could only be seen if it lived in the default tab.
 
-                  Attention leads because the dashboard is opened to find out
-                  what is on fire. Only the selected tab is MOUNTED, so each is
-                  its own short scroll rather than one long one.
-
-                  The "Attention Required" (declined / re-work) widget is gone
-                  entirely — component, section and query plumbing.
-
-                  <ExecDashboard> wraps the WHOLE tab container, not each panel:
-                  it is a context provider (3/7-day window, privacy filter,
-                  section search, drill-down modal) and its sections throw if
-                  rendered outside it. Panels are built in this render but only
-                  the active one mounts, so the provider must sit above them. */}
+                  <ExecDashboard> stays a PROVIDER around the whole stack: it owns
+                  the 3/7-day window, the privacy filter, the section search and
+                  the drill-down modal, and its sections throw if rendered outside
+                  it — so it must sit above both the promoted sections and the
+                  tabs. */}
               <ExecDashboard
                 doneOnTime={data.doneOnTime}
                 initiator={data.initiator}
@@ -252,47 +249,59 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 isAdmin={Boolean(me?.isAdmin)}
                 meId={me?.id ?? null}
               >
-                <DashboardTabs
-                  attention={
-                    <div className="flex flex-col gap-6">
-                      <ExecOnTimeSection />
-                      {/* Also carries the surface's global empty state, so it
-                          must live in the DEFAULT tab or that state can never
-                          be seen. */}
-                      <ExecOverdueSection />
-                      <AgingHeatmap
-                        rows={data.agingTable}
-                        cellTasks={data.agingHeatmapData.byCell}
-                        avatarById={avatarById}
-                        me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
-                      />
-                    </div>
-                  }
-                  overview={
-                    <div className="flex flex-col gap-6">
-                      <StatusDistributionChart
-                        data={data.statusDistribution}
-                        labels={statusLabels}
-                        tones={statusTones}
-                        isAdmin={Boolean(me?.isAdmin)}
-                      />
-                      <StatusTable
-                        rows={data.statusTable}
-                        view={filters.view}
-                        avatarById={avatarById}
-                      />
-                      <ExecDelegationSection />
-                    </div>
-                  }
-                  performance={
-                    <div className="flex flex-col gap-6">
-                      <TopPerformersSection
-                        performers={data.topPerformers}
-                        avatarById={avatarById}
-                      />
-                    </div>
-                  }
-                />
+                {/* ONE column owns the rhythm: gap-6 (24px) between every block,
+                    and nothing carries its own top margin. `mt-6` is the column's
+                    own clearance from the KpiStrip above — gap only spaces
+                    siblings INSIDE the column. */}
+                <div className="mt-6 flex flex-col gap-6">
+                  {/* 1 — Overdue Tasks by Person. PageShell: outside the tabs box
+                      these sections no longer inherit the panel's padding, so each
+                      needs the page gutter itself. AgingHeatmap renders its own. */}
+                  <PageShell as="div" width="full" py={false}>
+                    <ExecOverdueSection />
+                  </PageShell>
+
+                  {/* 2 — Aging Heatmap */}
+                  <AgingHeatmap
+                    rows={data.agingTable}
+                    cellTasks={data.agingHeatmapData.byCell}
+                    avatarById={avatarById}
+                    me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
+                  />
+
+                  {/* 3 — Delivered on Time */}
+                  <PageShell as="div" width="full" py={false}>
+                    <ExecOnTimeSection />
+                  </PageShell>
+
+                  {/* 4 — Insights, last. */}
+                  <DashboardTabs
+                    overview={
+                      <div className="flex flex-col gap-6">
+                        <StatusDistributionChart
+                          data={data.statusDistribution}
+                          labels={statusLabels}
+                          tones={statusTones}
+                          isAdmin={Boolean(me?.isAdmin)}
+                        />
+                        <StatusTable
+                          rows={data.statusTable}
+                          view={filters.view}
+                          avatarById={avatarById}
+                        />
+                        <ExecDelegationSection />
+                      </div>
+                    }
+                    performance={
+                      <div className="flex flex-col gap-6">
+                        <TopPerformersSection
+                          performers={data.topPerformers}
+                          avatarById={avatarById}
+                        />
+                      </div>
+                    }
+                  />
+                </div>
               </ExecDashboard>
             </div>
           </>
