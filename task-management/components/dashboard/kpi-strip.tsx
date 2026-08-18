@@ -12,6 +12,7 @@ import { PageShell } from "@/components/layout/page-shell";
 import { CardGrid } from "@/components/layout/card-grid";
 import { CollapseToggle, CollapsibleBody } from "./section-chrome";
 import { DashboardSectionHeader } from "./section-header";
+import { DashboardViewTabs } from "./dashboard-view";
 
 interface Entry {
   key: keyof KpiSet;
@@ -121,17 +122,26 @@ export function KpiStrip({
             {headline === 1 ? "task" : "tasks"} in the current filter
           </>
         }
-        /* Collapse only. The red + that used to sit here moved to the global
-           top bar (<NewTaskQuickAction>, left of the notification bell):
-           creating a task is an app-wide action, but here it was reachable from
-           one section of one page and disappeared with the section whenever the
-           summary was folded away. */
+        /* Overview/Performance switcher, then collapse. The pills used to live
+           on a "TEAM ANALYTICS · Insights" masthead of their own further down
+           the page; that was a second header saying little the pills did not,
+           so the control moved up here and the masthead was deleted. The fold
+           control stays rightmost, as it is everywhere else.
+
+           The red + that also used to sit here moved to the global top bar
+           (<NewTaskQuickAction>, left of the notification bell): creating a task
+           is an app-wide action, but here it was reachable from one section of
+           one page and disappeared with the section whenever the summary was
+           folded away. */
         actions={
-          <CollapseToggle
-            expanded={isKpiExpanded}
-            onToggle={() => setIsKpiExpanded((v) => !v)}
-            label="the Task summary"
-          />
+          <>
+            <DashboardViewTabs />
+            <CollapseToggle
+              expanded={isKpiExpanded}
+              onToggle={() => setIsKpiExpanded((v) => !v)}
+              label="the Task summary"
+            />
+          </>
         }
       />
 
@@ -139,7 +149,16 @@ export function KpiStrip({
           open card-detail panel, and the Task Analytics banner passed in as
           children. Collapsed, only the "Tasks <n>" line and the toggle remain. */}
       <CollapsibleBody expanded={isKpiExpanded}>
-      <CardGrid min={165} gap="0.7rem">
+      {/* 14px between tiles. NOT the 10-12px the brief named: the grid was
+          already at 0.7rem = 11.2px, so gap-2.5 (10px) would have TIGHTENED it
+          and gap-3 (12px) would have moved it 0.8px. The gap reads smaller than
+          it measures now that the cards are solid blocks of colour — 11px of
+          near-white between two saturated tiles carries less visual separation
+          than the same 11px did between two white outlined boxes, because the
+          old cards had their own hairline border doing part of the work.
+          `min` stays 165px, so auto-fit still reflows 6 -> 4 -> 3 -> 2 -> 1 and
+          the tiles keep sharing the row width at 1fr each. */}
+      <CardGrid min={165} gap="0.875rem">
         {shown.map((item) => {
           const kpi = kpis[item.key];
           const delta = kpi.current - kpi.previous;

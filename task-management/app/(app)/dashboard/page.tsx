@@ -14,6 +14,7 @@ import {
   ExecOnTimeSection,
 } from "@/components/dashboard/exec/exec-dashboard";
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
+import { DashboardViewProvider } from "@/components/dashboard/dashboard-view";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
@@ -178,6 +179,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               </div>
             )}
             <div className={mobileToday ? "max-md:hidden" : undefined}>
+              {/* The Overview/Performance selection is shared between the
+                  switcher (in the Task Summary header, just below) and the
+                  analytics panel at the bottom of the column. They are far
+                  apart in the tree and this page is a SERVER component, so the
+                  state lives in a client provider wrapped around both. */}
+              <DashboardViewProvider>
               {/* Task Analytics deep-dive — on-demand route (load-neutral),
                   surfaced for admins + managers (anyone with a downline).
                   Passed INTO KpiStrip as children so the summary's single
@@ -303,6 +310,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   />
                 </div>
               </ExecDashboard>
+              </DashboardViewProvider>
             </div>
           </>
         )}
