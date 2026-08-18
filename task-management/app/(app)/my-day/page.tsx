@@ -12,9 +12,6 @@ import { getPlanDayPayload } from "@/app/(app)/goals/plan/payload";
 import { clampDayOffset } from "@/lib/queries/daily-checklist";
 import { resolvePlanTarget } from "@/lib/goals/plan-target";
 
-const ACCENT = "#E10600";
-const ACCENT_DEEP = "#A80400";
-
 export const dynamic = "force-dynamic";
 
 /**
@@ -82,41 +79,35 @@ export default async function MyDayPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="full" py={false} className="pt-5 pb-12 max-md:pt-4 max-md:pb-10">
-        <header className="mb-2.5 wg-rise">
-          <div className="flex items-start justify-between gap-3">
-            <span
-              className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ color: "#ffffff", background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+        {/* The header is now just the manager utility row. The eyebrow pill
+            ("WMS · Daily Loop") is gone and the title moved INLINE with the day
+            tabs — see PlanBoard’s `heading` prop — so the planner starts at the
+            top of the page instead of under two stacked chrome rows. */}
+        {isManager && (
+          <div className="mb-2 flex justify-end wg-rise">
+            <a
+              href="/goals/recycle-bin"
+              className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:border-hairline-strong"
             >
-              WMS · Daily Loop
-            </span>
-            {isManager && (
-              <a
-                href="/goals/recycle-bin"
-                className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:border-hairline-strong"
-              >
-                <Trash2 size={13} /> Recycle Bin
-              </a>
-            )}
+              <Trash2 size={13} /> Recycle Bin
+            </a>
           </div>
-          {/* Trimmed (Sir): the title + eyebrow + a two-line explainer pushed the
-              actual planner below the fold. The title sits INLINE with the
-              eyebrow row and the explainer is gone — the board explains itself. */}
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(19px, 1.9vw, 24px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.04,
-              marginTop: 2,
-            }}
-          >
-            Plan My Day
-          </h1>
-        </header>
+        )}
         <PlanBoard
+          heading={
+            <h1
+              className="mr-1 text-ink-strong wg-rise"
+              style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(19px, 1.9vw, 24px)",
+                letterSpacing: "-0.025em",
+                lineHeight: 1.04,
+              }}
+            >
+              Plan My Day
+            </h1>
+          }
           target={target}
           initialPlan={payload.initialPlan}
           sources={payload.sources}

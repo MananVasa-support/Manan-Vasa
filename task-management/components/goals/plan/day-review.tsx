@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { CheckCircle2, Check, Sunrise, ClipboardCheck, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { Check, Sunrise, ClipboardCheck, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { ScoreRing } from "@/components/weekly-goals/score-ring";
 import type { PlanItem, PlanPhase } from "./types";
@@ -130,65 +130,38 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
   // ── ACTIVE — day planned, before close-out ──────────────────────────────
   if (phase === "active") {
     return (
-      // FULL WIDTH. This was a 720px centred card sized for a bullet list, and
-      // capping it at 1200px still read as a floating window with the table
-      // squeezed inside it. The commitment table has ten columns including the
-      // pinned actions — it gets the whole content column.
+      // FULL WIDTH, and no hero. The "Your day is planned" card — big icon,
+      // headline, explainer, tinted surround — pushed the actual commitments
+      // below the fold on a laptop. The table IS the page: header straight
+      // into data, plain white, subtle dividers.
       <section className="w-full wg-rise">
-        <div
-          className="rounded-3xl border p-8 text-center max-md:p-6"
-          style={{
-            borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 26%, transparent)`,
-            background: `color-mix(in srgb, ${GOALS_ACCENT} 5%, #fff)`,
-          }}
-        >
-          <span
-            className="mx-auto grid size-16 place-items-center rounded-2xl text-white shadow-[0_10px_28px_rgba(124,45,18,0.3)]"
+        {/* The commitment list. Hover a row for the full title + description;
+            click one to open the detail slide-over. */}
+        <PlanTaskTable
+          items={items}
+          onOpen={setOpenItem}
+          onTransfer={onTransfer ? transfer : undefined}
+          onRemove={onRemove ? remove : undefined}
+          busyId={busy}
+        />
+
+        <div className="mt-4 flex items-center justify-end gap-2.5 max-md:flex-col-reverse max-md:items-stretch">
+          <button
+            type="button"
+            onClick={onReopen}
+            disabled={busy === "__reopen"}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-chip border border-hairline bg-surface-card px-4 text-[13px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
+          >
+            {busy === "__reopen" ? <Loader2 size={15} className="animate-spin" /> : <ArrowLeft size={15} />} Adjust plan
+          </button>
+          <button
+            type="button"
+            onClick={onToCloseout}
+            className="wg-btn wg-sheen inline-flex h-10 items-center justify-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white max-md:w-full"
             style={{ background: GOALS_GRADIENT }}
           >
-            <CheckCircle2 size={30} strokeWidth={2.3} />
-          </span>
-          <h2
-            className="mt-4 text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.02em" }}
-          >
-            Your day is planned
-          </h2>
-          <p className="mx-auto mt-1.5 max-w-[42ch] text-[15px] font-medium text-ink-muted">
-            You&apos;re set to clock in. {total} commitment{total === 1 ? "" : "s"} lined up for today —
-            come back at the end of the day to mark what you delivered.
-          </p>
-
-          {/* The commitment list. Hover a row for the full title + description;
-              click one to open the detail slide-over. */}
-          <div className="mt-6 text-left">
-            <PlanTaskTable
-              items={items}
-              onOpen={setOpenItem}
-              onTransfer={onTransfer ? transfer : undefined}
-              onRemove={onRemove ? remove : undefined}
-              busyId={busy}
-            />
-          </div>
-
-          <div className="mt-7 flex items-center justify-center gap-3 max-md:flex-col">
-            <button
-              type="button"
-              onClick={onToCloseout}
-              className="wg-btn wg-sheen inline-flex h-12 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] max-md:w-full"
-              style={{ background: GOALS_GRADIENT }}
-            >
-              <ClipboardCheck size={18} /> Close out my day
-            </button>
-            <button
-              type="button"
-              onClick={onReopen}
-              disabled={busy === "__reopen"}
-              className="inline-flex h-12 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
-            >
-              {busy === "__reopen" ? <Loader2 size={16} className="animate-spin" /> : <ArrowLeft size={16} />} Adjust plan
-            </button>
-          </div>
+            <ClipboardCheck size={16} /> Close out my day
+          </button>
         </div>
 
         <PlanItemDrawer
