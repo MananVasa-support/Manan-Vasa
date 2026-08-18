@@ -1,8 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { getPunctualityDrilldown } from "@/app/(app)/dashboard/drilldown-actions";
 import type {
   PunctualityBucket,
@@ -29,6 +31,9 @@ import type {
  * load path never pays for it, and re-selecting a card you've already viewed is
  * served from the last response rather than re-hitting the server.
  */
+/** Rows shown before "Load more" — and the size of each further page. */
+const PAGE = 6;
+
 export function PunctualityTaskList({
   basis,
   bucket,
@@ -45,6 +50,10 @@ export function PunctualityTaskList({
     | { kind: "ok"; data: PunctualityDrilldown }
   >({ kind: "loading" });
 
+  // How many rows are on screen. The list runs to hundreds and a wall of them
+  // buries the gauge beside it, so it opens at PAGE and grows on demand.
+  const [shown, setShown] = React.useState(PAGE);
+
   // Keyed by everything the result depends on, so flipping back to a card you
   // already looked at doesn't re-hit the server.
   const requestKey = `${basis}|${bucket}|${search}`;
@@ -58,6 +67,10 @@ export function PunctualityTaskList({
       setState({ kind: "ok", data: hit });
       return;
     }
+
+    // Switching card / basis / filters is a different list — start it at the
+    // top rather than carrying the previous list's expansion over.
+    setShown(PAGE);
 
     let cancelled = false;
     setState({ kind: "loading" });
@@ -115,19 +128,23 @@ export function PunctualityTaskList({
                 </tr>
               </thead>
               <tbody>
-                {state.data.tasks.map((t) => (
+                {state.data.tasks.slice(0, shown).map((t) => (
                   <tr
                     key={t.id}
                     className="border-t border-gray-100 transition-colors hover:bg-gray-50"
                   >
                     <td className="px-3.5 py-2.5">
-                      <span
-                        className="block max-w-[420px] truncate text-[15px] font-semibold leading-snug text-gray-900"
+                      {/* The whole title is a link to the task — this list is a
+                          triage queue, so the next move after spotting a late
+                          row is always to open it. */}
+                      <Link
+                        href={`/tasks/${t.id}` as Route}
+                        className="block max-w-[420px] truncate text-[15px] font-semibold leading-snug text-gray-900 hover:text-altus-red hover:underline"
                         title={t.title}
                       >
                         {t.taskNo ? `#${t.taskNo} · ` : ""}
                         {t.title}
-                      </span>
+                      </Link>
                       {t.client && (
                         <span className="block truncate text-[12.5px] font-medium text-gray-500">
                           {t.client}
@@ -156,7 +173,21 @@ export function PunctualityTaskList({
             </table>
           </div>
 
-          {state.data.truncated && (
+          {shown < state.data.tasks.length && (
+            <button
+              type="button"
+              onClick={() => setShown((n) => n + PAGE)}
+              className="shrink-0 border-t border-gray-100 bg-gray-50 px-3.5 py-2.5 text-[12.5px] font-bold text-gray-700 transition-colors hover:bg-gray-100"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <ChevronDown size={14} strokeWidth={2.6} />
+                Load more · showing {shown} of{" "}
+                {state.data.tasks.length.toLocaleString("en-IN")}
+              </span>
+            </button>
+          )}
+
+          {state.data.truncated && shown >= state.data.tasks.length && (
             <p className="shrink-0 border-t border-gray-100 bg-gray-50 px-3.5 py-2 text-[12px] font-semibold text-gray-500">
               Showing {state.data.tasks.length.toLocaleString("en-IN")} of{" "}
               {state.data.total.toLocaleString("en-IN")} — narrow the dashboard

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Loader2, Trash2 } from "lucide-react";
 import { PRIORITY_LABELS } from "@/db/enums";
 import type { TaskPriority } from "@/db/enums";
@@ -69,9 +70,11 @@ export function PlanTaskTable({
   /** Row currently mid-write, for the spinner. */
   busyId?: string | null;
 }) {
-  // Which row the pointer is on, for the hover preview. Kept here rather than
-  // per-row so only one preview can ever be open.
+  // Which row the pointer is on, for the hover preview, plus where the cursor
+  // is so the card can follow it. Kept here rather than per-row so only one
+  // preview can ever be open.
   const [hovered, setHovered] = React.useState<string | null>(null);
+  const [cursor, setCursor] = React.useState<{ x: number; y: number } | null>(null);
   const hasActions = Boolean(onTransfer || onRemove);
 
   if (items.length === 0) {
@@ -119,8 +122,15 @@ export function PlanTaskTable({
             return (
               <tr
                 key={it.id}
-                onMouseEnter={() => setHovered(it.id)}
-                onMouseLeave={() => setHovered((h) => (h === it.id ? null : h))}
+                onMouseEnter={(e) => {
+                  setHovered(it.id);
+                  setCursor({ x: e.clientX, y: e.clientY });
+                }}
+                onMouseMove={(e) => setCursor({ x: e.clientX, y: e.clientY })}
+                onMouseLeave={() => {
+                  setHovered((h) => (h === it.id ? null : h));
+                  setCursor(null);
+                }}
                 onClick={() => onOpen(it)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -247,11 +257,13 @@ export function PlanTaskTable({
       </table>
 
       {/* Hover preview — the unabridged title, the full category and the
-          description. Rendered once, below the table, rather than as a floating
-          portal per row: the table already scrolls horizontally, and a portal
-          anchored to a cell inside a scroll container is the classic way to end
-          up with a tooltip stranded off-screen. */}
-      {hovered && <HoverPreview item={items.find((i) => i.id === hovered)!} />}
+          description, floating just ABOVE the cursor.
+          Portalled to <body> and `fixed`: the table is `overflow-x-auto`, which
+          clips absolutely-positioned children, so an in-flow tooltip would be
+          cut off at the table's edge. */}
+      {hovered && cursor && (
+        <HoverPreview item={items.find((i) => i.id === hovered)!} cursor={cursor} />
+      )}
     </div>
   );
 }
@@ -343,14 +355,44 @@ function RowActions({
   );
 }
 
-function HoverPreview({ item }: { item: PlanItem }) {
+function HoverPreview({
+  item,
+  cursor,
+}: {
+  item: PlanItem;
+  cursor: { x: number; y: number };
+}) {
   const category = planCategory(item.kind, item.carriedOver);
-  return (
-    <div className="border-t border-hairline bg-surface-soft px-4 py-3">
+  const WIDTH = 460;
+  const GAP = 16; // clearance so the card never sits under the pointer
+
+  // Sits ABOVE the cursor by default and flips below only when there isn't room
+  // — near the top of the viewport an always-above card would be clipped.
+  const above = cursor.y > 240;
+  const left = Math.max(12, Math.min(cursor.x - WIDTH / 2, window.innerWidth - WIDTH - 12));
+
+  return createPortal(
+    <div
+      role="tooltip"
+      // `pointer-events-none` is essential: the card tracks the cursor, so if it
+      // could receive the pointer it would steal the row's mouseleave and the
+      // preview would stick.
+      className="pointer-events-none fixed z-[80] rounded-xl border border-hairline-strong bg-surface-card p-3.5"
+      style={{
+        width: WIDTH,
+        left,
+        top: above ? cursor.y - GAP : cursor.y + GAP,
+        transform: above ? "translateY(-100%)" : undefined,
+        boxShadow: "0 18px 44px -12px rgba(15,23,42,0.28)",
+      }}
+    >
       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
         <span
           className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
-          style={{ background: "#fff", color: CATEGORY_ACCENT[category] }}
+          style={{
+            background: "var(--color-surface-soft)",
+            color: CATEGORY_ACCENT[category],
+          }}
         >
           {category}
         </span>
@@ -359,9 +401,9 @@ function HoverPreview({ item }: { item: PlanItem }) {
         </p>
       </div>
       {item.description ? (
-        <p className="mt-1.5 max-w-[110ch] whitespace-pre-wrap text-[12.5px] leading-relaxed text-ink-muted">
-          {item.description.length > 400
-            ? `${item.description.slice(0, 400)}…`
+        <p className="mt-1.5 whitespace-pre-wrap text-[12.5px] leading-relaxed text-ink-muted">
+          {item.description.length > 320
+            ? `${item.description.slice(0, 320)}…`
             : item.description}
         </p>
       ) : (
@@ -369,6 +411,7 @@ function HoverPreview({ item }: { item: PlanItem }) {
           No description on this commitment.
         </p>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

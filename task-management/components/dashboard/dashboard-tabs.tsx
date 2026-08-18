@@ -125,7 +125,10 @@ export function DashboardTabs({
           `stickyTop`. */}
       <div ref={anchorRef} aria-hidden />
 
-      <PageShell as="section" width="full" py={false} className="mt-8 mb-16">
+      {/* `mt-3`, not `mt-8`: the tab bar is the header for everything below the
+          Task Report banner, so it has to read as attached to it. At 32px it
+          floated in its own band and looked like an unrelated widget. */}
+      <PageShell as="section" width="full" py={false} className="mt-3 mb-10">
         {/* NO `overflow-hidden` on this box: it would kill the sticky header
             inside it. The children all carry their own radius, so nothing needs
             clipping at the corners. */}

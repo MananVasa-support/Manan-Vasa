@@ -130,10 +130,11 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
   // ── ACTIVE — day planned, before close-out ──────────────────────────────
   if (phase === "active") {
     return (
-      // Was `max-w-[720px]` — a narrow centred card sized for a bullet list.
-      // The commitment list is now a full data table, so the card widens to let
-      // its eight columns breathe.
-      <section className="mx-auto max-w-[1200px] wg-rise">
+      // FULL WIDTH. This was a 720px centred card sized for a bullet list, and
+      // capping it at 1200px still read as a floating window with the table
+      // squeezed inside it. The commitment table has ten columns including the
+      // pinned actions — it gets the whole content column.
+      <section className="w-full wg-rise">
         <div
           className="rounded-3xl border p-8 text-center max-md:p-6"
           style={{
