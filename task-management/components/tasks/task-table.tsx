@@ -188,7 +188,26 @@ const COLUMN_LABELS: Record<string, string> = {
   ageDays: "Age",
 };
 
-const COLUMN_VIS_STORAGE_KEY = "altus.tasks.columnVisibility.v1";
+// Columns hidden on a fresh install. Both stay in the Columns menu — this is
+// a DEFAULT, not a removal — so anyone who wants the task number or the created
+// date ticks it back on and the choice persists.
+//
+// They lead the table today but answer almost nothing: the ID is an internal
+// handle nobody quotes, and "Created" is the one date that never drives a
+// decision (Due and Age both do). Hiding them hands their width to the columns
+// people actually read.
+const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
+  taskNo: false,
+  createdAt: false,
+};
+
+// v2, bumped deliberately. The persist effect below writes on EVERY mount, so
+// every existing user already has a v1 blob saying "{}" = show everything. Read
+// under the old key and that blob would immediately overwrite the defaults
+// above and nobody would ever see this change. Bumping the key retires those
+// entries; a v2 blob only exists once someone has actually opened the Columns
+// menu, and that choice is theirs to keep.
+const COLUMN_VIS_STORAGE_KEY = "altus.tasks.columnVisibility.v2";
 
 type StatusLabels = Record<TaskStatus, string>;
 type StatusTones = Record<TaskStatus, StatusColorToken>;
@@ -465,15 +484,24 @@ export function TaskTable({
     [employees, me, resolvedLabels, resolvedTones, openInDrawer, openTask],
   );
 
-  // #11 — per-user column visibility, persisted in localStorage. Start
-  // empty (all visible) on both server + first client render to avoid a
-  // hydration mismatch, then hydrate the saved choice after mount.
+  // #11 — per-user column visibility, persisted in localStorage. Seeded from
+  // the module-level DEFAULT, which is a static object — identical on the
+  // server and on the first client render — so it carries no hydration risk
+  // (the reason this used to start as `{}`). The saved choice loads after mount.
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+    React.useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY);
   React.useEffect(() => {
     try {
       const raw = localStorage.getItem(COLUMN_VIS_STORAGE_KEY);
-      if (raw) setColumnVisibility(JSON.parse(raw) as VisibilityState);
+      // Spread OVER the defaults rather than replacing them: a stored blob only
+      // names the columns that existed when it was written, so a plain replace
+      // would silently show any column added later that ships hidden.
+      if (raw) {
+        setColumnVisibility({
+          ...DEFAULT_COLUMN_VISIBILITY,
+          ...(JSON.parse(raw) as VisibilityState),
+        });
+      }
     } catch {
       /* ignore malformed storage */
     }
@@ -791,7 +819,10 @@ export function TaskTable({
                     /* py-1.5, down from py-2.5. The header has no margin to
                        trim — it is a sticky <th>, so its vertical padding IS
                        the gap the spec is asking to close. */
-                    className={`sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
+                    /* `w-full` on the wide column's header too: auto layout
+                       resolves a column's width from the whole column, so the
+                       th and td have to agree or the header lags the body. */
+                    className={`sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
                     style={{
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
@@ -937,7 +968,17 @@ export function TaskTable({
                 //
                 // Only a capped cell needs overflow/ellipsis; uncapped cells must
                 // NOT clip, or the sideways scroll would reveal cut-off values.
-                const maxW = isActions ? "" : col.meta?.wide ? "max-w-[52ch]" : "";
+                // The wide (Task) column is the table's ONE flexible column:
+                // `w-full` makes auto table-layout hand it whatever width the
+                // fixed, nowrap columns don't use, instead of spreading the
+                // slack thinly across columns that had already sized to their
+                // content and gained nothing from it. Hiding ID No. + Created
+                // by default freed real width, and this is what spends it — on
+                // the only column whose text was being ellipsized.
+                // min-w-[280px] still guarantees a floor when the table is
+                // scrolling; max-w-[64ch] (was 52ch) is the ceiling that keeps
+                // one 250-character title from stretching the row past 2000px.
+                const maxW = isActions ? "" : col.meta?.wide ? "w-full max-w-[64ch]" : "";
                 return (
                   <td
                     key={cell.id}
