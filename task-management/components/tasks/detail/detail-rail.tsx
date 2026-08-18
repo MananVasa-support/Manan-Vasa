@@ -41,6 +41,7 @@ const TL: Record<TimelineEntry["kind"], { label: string; dot: string }> = {
   work_started: { label: "Started Work", dot: "#3b82f6" },
   work_resumed: { label: "Resumed", dot: "#3b82f6" },
   work_paused: { label: "Paused", dot: "#f59e0b" },
+  timer_restarted: { label: "Timer Restarted", dot: "#f59e0b" },
   revision_started: { label: "Reopened", dot: "#3b82f6" },
   work_done: { label: "Task Done", dot: "#16a34a" },
   sent_back: { label: "Not Approved", dot: "#e10600" },

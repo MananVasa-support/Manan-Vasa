@@ -325,6 +325,79 @@ export async function pauseWork(actor: TimeActor, taskId: string): Promise<TimeR
   return { ok: true };
 }
 
+// ── Restart timer ────────────────────────────────────────────────────────────
+
+/**
+ * Reset the CURRENT session's clock to 00:00:00.
+ *
+ * Deliberately narrow: it rewinds the session in progress and nothing else. No
+ * event row is ever deleted and no banked time is touched, because a session's
+ * `duration_seconds` is only written when it CLOSES — so the time being
+ * discarded here was never in the rollup to begin with, and every completed
+ * session from earlier rounds is left exactly as it was. That is what keeps this
+ * safe to expose next to Pause: the worst case is losing the minutes since the
+ * last Start, never the audit trail.
+ *
+ * Running  → rewind the open session's started_at to now; it keeps running.
+ * Paused   → nothing is running to rewind, so open a fresh session at zero,
+ *            which is the only reading of "restart" that leaves a timer at
+ *            00:00:00. Revision is inherited, so a rework round stays a rework
+ *            round.
+ */
+export async function restartTimer(actor: TimeActor, taskId: string): Promise<TimeResult> {
+  const loaded = await loadCtx(taskId, actor);
+  if (!loaded.ok) return loaded;
+  if (!loaded.canOperate) return { ok: false, error: "forbidden" };
+  if (loaded.ctx.approvalStatus === "approved")
+    return { ok: false, error: "locked", message: "This task is already approved." };
+
+  const now = new Date();
+  const doerId = loaded.ctx.doerId;
+  let restarted = false;
+
+  await db.transaction(async (tx) => {
+    const open = await liveSession(tx, taskId);
+    const revision = open ? open.revision : await currentRevisionOf(tx, taskId);
+    let sessionId: string | null = open?.id ?? null;
+
+    if (open) {
+      // Guarded on `ended_at is null` so a session auto-closed by the cron
+      // between our read and this write is never resurrected.
+      await tx
+        .update(taskWorkSessions)
+        .set({ startedAt: now })
+        .where(and(eq(taskWorkSessions.id, open.id), isNull(taskWorkSessions.endedAt)));
+    } else {
+      sessionId = randomUUID();
+      await tx.insert(taskWorkSessions).values({
+        id: sessionId,
+        taskId,
+        doerId,
+        revision,
+        startedAt: now,
+      });
+    }
+
+    await appendEvent(tx, {
+      taskId,
+      actorId: actor.id,
+      doerId,
+      kind: "timer_restarted",
+      revision,
+      at: now,
+      sessionId,
+      // The timeline renders "restarted by {name}" from the actor join, but the
+      // name is stamped here too so the row survives an employee rename.
+      meta: { actorName: actor.name },
+    });
+    await recomputeRollup(tx, taskId);
+    restarted = true;
+  });
+
+  if (!restarted) return { ok: false, error: "conflict", message: "Couldn't restart the timer." };
+  return { ok: true };
+}
+
 // ── Mark Done ────────────────────────────────────────────────────────────────
 
 export async function markDone(actor: TimeActor, taskId: string): Promise<TimeResult> {

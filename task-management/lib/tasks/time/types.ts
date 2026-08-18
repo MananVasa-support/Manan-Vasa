@@ -5,6 +5,10 @@
 
 /** Kinds written to the `task_time_events` append-only log. */
 export type TimeEventKind =
+  // `task_time_events.kind` is plain `text` with no CHECK constraint or enum
+  // (see migration 0175), so adding a kind here needs NO migration — this union
+  // is the only thing that constrains it.
+  | "timer_restarted"
   | "work_started"
   | "work_paused"
   | "work_resumed"
