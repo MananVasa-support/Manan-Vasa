@@ -1958,9 +1958,14 @@ html[data-density="dense"] body {
    control rather than a flat box. */
 .nt-input {
   width: 100%;
-  padding: 15px 18px;
+  /* 38px total: 6px+6px padding + 14px text at 1.4 line-height + 1.5px borders.
+     Was 15px/18px at 17px type, which rested at ~56px and made the New Task
+     modal taller than most laptop viewports. Every consumer sizes off this one
+     rule, so the multi-select boxes must track it — see MultiDoer's minHeight. */
+  min-height: 38px;
+  padding: 6px 12px;
   font-family: var(--font-sans, system-ui, sans-serif);
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--color-ink-strong);
@@ -2001,13 +2006,16 @@ select.nt-input {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  padding-right: 46px;
+  /* Chevron gutter tracks the 12px horizontal padding above (was 46px/16px,
+     sized for the old 56px field) so a native <select> has the same text inset
+     as every sibling input at the compact 38px height. */
+  padding-right: 32px;
   cursor: pointer;
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"),
     linear-gradient(180deg, #ffffff 0%, #f5f7fa 100%);
   background-repeat: no-repeat, no-repeat;
-  background-position: right 16px center, center;
+  background-position: right 11px center, center;
   background-size: 14px, auto;
 }
 

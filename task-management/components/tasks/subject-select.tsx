@@ -190,10 +190,12 @@ export function SubjectSelect({
             onClick={() => void saveAdd()}
             disabled={saving}
             aria-label="Save new subject"
+            // 38px square = the height of the input it sits beside. At 46px the
+            // row was taller than the field and the input floated inside it.
             className="inline-flex shrink-0 items-center justify-center rounded-lg border border-hairline bg-white text-ink-strong transition-colors hover:bg-surface-muted disabled:opacity-50"
-            style={{ width: 46, height: 46 }}
+            style={{ width: 38, height: 38 }}
           >
-            <Check size={18} strokeWidth={2.4} />
+            <Check size={16} strokeWidth={2.4} />
           </button>
           <button
             type="button"
@@ -201,9 +203,9 @@ export function SubjectSelect({
             disabled={saving}
             aria-label="Cancel"
             className="inline-flex shrink-0 items-center justify-center rounded-lg border border-hairline bg-white text-ink-muted transition-colors hover:bg-surface-muted disabled:opacity-50"
-            style={{ width: 46, height: 46 }}
+            style={{ width: 38, height: 38 }}
           >
-            <X size={18} strokeWidth={2.4} />
+            <X size={16} strokeWidth={2.4} />
           </button>
         </div>
         {error && (
@@ -301,8 +303,8 @@ export function SubjectSelect({
               aria-controls={listId}
               aria-autocomplete="list"
               aria-activedescendant={open ? `${listId}-opt-${hi}` : undefined}
-              className="w-full bg-transparent outline-none py-2.5"
-              style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink-strong)" }}
+              className="w-full bg-transparent outline-none py-1.5"
+              style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink-strong)" }}
             />
           </div>
         </div>
@@ -323,7 +325,7 @@ export function SubjectSelect({
                 aria-selected={isSel}
                 onMouseEnter={() => setHi(i)}
                 onClick={() => choose(name)}
-                className="flex items-center justify-between gap-3 mx-1.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
+                className="flex items-center justify-between gap-3 mx-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                 style={{
                   background: isHi
                     ? "color-mix(in srgb, var(--color-altus-red) 14%, transparent)"
@@ -336,7 +338,7 @@ export function SubjectSelect({
                 <span
                   className="truncate"
                   style={{
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: isHi || isSel ? 700 : 600,
                     color: isHi || isSel ? "var(--color-altus-red-deep)" : "var(--color-ink-strong)",
                   }}
@@ -353,15 +355,15 @@ export function SubjectSelect({
             aria-selected={hi === filtered.length}
             onMouseEnter={() => setHi(filtered.length)}
             onClick={() => startAdd()}
-            className="flex items-center gap-2 mx-1.5 mt-1 px-3 py-2.5 rounded-lg cursor-pointer font-bold transition-colors"
+            className="flex items-center gap-2 mx-1.5 mt-1 px-3 py-2 rounded-lg cursor-pointer font-bold transition-colors"
             style={{
               background: hi === filtered.length ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" : "transparent",
               color: "var(--color-altus-red-deep)",
               borderTop: "1px solid var(--color-hairline)",
-              fontSize: 15,
+              fontSize: 14,
             }}
           >
-            <Plus size={16} strokeWidth={2.6} />
+            <Plus size={15} strokeWidth={2.6} />
             Add New Subject…
           </li>
         </ul>

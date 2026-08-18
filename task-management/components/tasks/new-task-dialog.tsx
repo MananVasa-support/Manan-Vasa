@@ -385,9 +385,11 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
             </div>
           </div>
 
-          {/* Scrollable body — fills the rectangle */}
+          {/* Scrollable body — fills the rectangle. py-4 rather than py-6: the
+              header already carries its own py-5 above the hairline, so 24px of
+              body padding on top of it read as a gap rather than a margin. */}
           <div
-            className="px-8 py-6 max-md:px-5 max-md:py-5"
+            className="px-8 py-4 max-md:px-5 max-md:py-4"
             style={{
               maxHeight: "calc(100vh - 200px)",
               overflowY: "auto",

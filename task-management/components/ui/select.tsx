@@ -130,7 +130,12 @@ export function Select({
                   // Shared premium trigger language (.gdd-trigger): red-tinted
                   // 1.5px border → full altus-red on hover/focus/open, top-lit
                   // surface + inset highlight + soft shadow, visible red focus ring.
-                  "gdd-trigger flex w-full items-center gap-2 h-11 px-3.5 rounded-xl text-[15px] text-left text-ink-strong outline-none",
+                  //
+                  // h-9.5 (38px) / px-3 / text-sm is the app's one field height —
+                  // the same box `.nt-input` rests at, so a styled trigger and a
+                  // plain input never differ by a few pixels in the same row.
+                  // (Was h-11 px-3.5 text-[15px].)
+                  "gdd-trigger flex w-full items-center gap-2 h-9.5 px-3 rounded-xl text-sm text-left text-ink-strong outline-none",
                   "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none",
                 ),
             className,
@@ -175,7 +180,7 @@ export function Select({
             <CommandInput className="sr-only" aria-label="Filter options" placeholder="" />
           )}
           <CommandList className="gdd-scroll max-h-[22rem] overflow-auto">
-            <CommandEmpty className="px-3 py-3 text-[15px] text-ink-subtle">
+            <CommandEmpty className="px-3 py-2.5 text-sm text-ink-subtle">
               No results.
             </CommandEmpty>
             {options.map((opt) => {
