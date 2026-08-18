@@ -1,7 +1,7 @@
 import { and, eq, gte, inArray, lt, or, asc, desc, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { unstable_cache } from "next/cache";
-import { db, employees, tasks } from "@/lib/db";
+import { db, employees, tasks, taskTimeRollup } from "@/lib/db";
 import { TASK_STATUSES, TASK_PRIORITIES, PENDING_STATUSES } from "@/db/enums";
 import type { TaskStatus, ApprovalStatus } from "@/db/enums";
 import { employeeIdsInDepartments } from "@/lib/queries/departments";
@@ -108,11 +108,18 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
       updatedAt: tasks.updatedAt,
       approvalStatus: tasks.approvalStatus,
       firstReadAt: tasks.firstReadAt,
+      // "Start Time" — when the doer first hit Start on the timer. LEFT join, so
+      // a task nobody has started simply has no rollup row and reads null.
+      startedAt: taskTimeRollup.firstStartedAt,
       completedAt: tasks.completedAt,
     })
     .from(tasks)
     .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
     .leftJoin(initEmp, eq(tasks.initiatorId, initEmp.id))
+    // LEFT, never INNER: the rollup row is only written once a task has its
+    // first time event, so an inner join here would silently drop every task
+    // that has never been started from the whole list.
+    .leftJoin(taskTimeRollup, eq(tasks.id, taskTimeRollup.taskId))
     .where(and(...conditions))
     .orderBy(desc(tasks.createdAt))
     .limit(1000);
@@ -141,6 +148,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     updatedAt: r.updatedAt,
     approvalStatus: r.approvalStatus,
     firstReadAt: r.firstReadAt,
+    startedAt: r.startedAt ?? null,
     completedAt: r.completedAt,
   }));
 }
@@ -165,6 +173,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     dueAt: new Date(r.dueAt as unknown as string | Date),
     updatedAt: new Date(r.updatedAt as unknown as string | Date),
     firstReadAt: r.firstReadAt ? new Date(r.firstReadAt as unknown as string | Date) : null,
+    startedAt: r.startedAt ? new Date(r.startedAt as unknown as string | Date) : null,
     completedAt: r.completedAt ? new Date(r.completedAt as unknown as string | Date) : null,
   }));
 }
@@ -251,6 +260,7 @@ export async function listTasksPage(
       firstReadAt: r.firstReadAt
         ? new Date(r.firstReadAt as unknown as string | Date)
         : null,
+      startedAt: r.startedAt ? new Date(r.startedAt as unknown as string | Date) : null,
       completedAt: r.completedAt
         ? new Date(r.completedAt as unknown as string | Date)
         : null,
@@ -325,11 +335,14 @@ async function listTasksPageUncached(
       updatedAt: tasks.updatedAt,
       approvalStatus: tasks.approvalStatus,
       firstReadAt: tasks.firstReadAt,
+      // "Start Time" — see the note on the same join in listTasksUncached.
+      startedAt: taskTimeRollup.firstStartedAt,
       completedAt: tasks.completedAt,
     })
     .from(tasks)
     .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
     .leftJoin(initEmp, eq(tasks.initiatorId, initEmp.id))
+    .leftJoin(taskTimeRollup, eq(tasks.id, taskTimeRollup.taskId))
     .where(and(...conditions))
     .orderBy(desc(tasks.createdAt), desc(tasks.id))
     .limit(pageSize + 1);
@@ -363,6 +376,7 @@ async function listTasksPageUncached(
     updatedAt: r.updatedAt,
     approvalStatus: r.approvalStatus,
     firstReadAt: r.firstReadAt,
+    startedAt: r.startedAt ?? null,
     completedAt: r.completedAt,
   }));
 

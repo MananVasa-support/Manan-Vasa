@@ -38,12 +38,38 @@ function fullTime(iso: string): string {
   return `${formatDate(d)}, ${time}`;
 }
 
+// Work events that happened on revision 2+ ARE rework, so they say so. The
+// "Rev N" badge already carried that, but only to someone who knows a revision
+// implies a rejection — a manager auditing the log reads labels, not badges.
+const REWORK_LABEL: Partial<Record<TimelineEntry["kind"], string>> = {
+  work_started: "Rework Start",
+  work_resumed: "Rework Resumed",
+  work_paused: "Rework Paused",
+  work_done: "Rework Ended — Marked Done",
+};
+
 /** Modern vertical activity timeline. Click any event to expand its details. */
 export function ActivityTimeline({ entries }: { entries: TimelineEntry[] }) {
   const [open, setOpen] = React.useState<string | null>(null);
+  // Rework rounds = how many times this task was sent back. Counted from the log
+  // itself rather than threaded in as a prop, so it can never disagree with the
+  // events rendered directly below it.
+  const reworkRounds = entries.filter((e) => e.kind === "sent_back").length;
   if (entries.length === 0) return null;
 
   return (
+    <>
+      {reworkRounds > 0 && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-hairline bg-surface-soft px-3 py-2">
+          <RotateCcw size={14} className="shrink-0 text-altus-red" />
+          <span className="text-[12.5px] font-bold text-ink-strong">
+            {reworkRounds} rework round{reworkRounds > 1 ? "s" : ""}
+          </span>
+          <span className="text-[12px] font-medium text-ink-subtle">
+            — rejection cycles before final approval
+          </span>
+        </div>
+      )}
     <ol className="relative flex flex-col">
       {entries.map((e, i) => {
         const meta = META[e.kind] ?? META.created;
@@ -64,7 +90,7 @@ export function ActivityTimeline({ entries }: { entries: TimelineEntry[] }) {
                 className={`flex w-full items-center justify-between gap-2 text-left ${hasDetail ? "cursor-pointer" : "cursor-default"}`}
               >
                 <span className="text-[13.5px] font-bold text-ink-strong">
-                  {meta.label}
+                  {(e.revision > 1 && REWORK_LABEL[e.kind]) || meta.label}
                   {e.revision > 1 && (
                     <span className="ml-2 rounded-full bg-surface-soft px-2 py-0.5 text-[10.5px] font-bold text-ink-muted">
                       Rev {e.revision}
@@ -100,5 +126,6 @@ export function ActivityTimeline({ entries }: { entries: TimelineEntry[] }) {
         );
       })}
     </ol>
+    </>
   );
 }

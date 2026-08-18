@@ -377,5 +377,10 @@ export interface TaskListRow {
   updatedAt: Date;
   approvalStatus: "approved" | "not_approved" | "cancelled" | "transferred" | null;
   firstReadAt: Date | null;
+  /** When work was FIRST started on this task — task_time_rollup.first_started_at,
+   *  i.e. the first `work_started` time event. Null until someone hits Start.
+   *  Distinct from createdAt (when it was raised) and firstReadAt (when the doer
+   *  opened it): a task can sit read-but-untouched for days. */
+  startedAt: Date | null;
   completedAt: Date | null;
 }

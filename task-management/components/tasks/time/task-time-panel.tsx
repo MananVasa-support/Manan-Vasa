@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Play,
   Pause,
+  RotateCcw,
   CheckCircle2,
   Lock,
   Loader2,
@@ -75,8 +76,16 @@ export function TaskTimePanel(props: Props) {
   const r = state.rollup;
   const hasWork = r.totalActiveSeconds > 0 || !!live;
   const awaitingReview = taskStatus === "done" && approvalStatus !== "approved";
-  const firstOfRevision = !state.sessions.some((s) => s.revision === r.currentRevision);
-  const startLabel = firstOfRevision ? (r.currentRevision > 1 ? "Start Revision" : "Start Work") : "Resume";
+  // REWORK MODE keys off the task's CURRENT status, not off currentRevision.
+  // Those are not the same thing: currentRevision is rejectionCount + 1, so once
+  // a task has ever been sent back it stays > 1 forever — the controls would go
+  // on saying "Revision" long after the rework was finished and re-approved.
+  // Status answers the question the buttons are actually asking: are you redoing
+  // this right now?
+  const reworkMode = taskStatus === "not_approved";
+  const startLabel = reworkMode ? "Rework Start Task" : "Start Task";
+  const pauseLabel = reworkMode ? "Rework Pause Task" : "Pause Task";
+  const endLabel = reworkMode ? "Rework End Task" : "End Task";
 
   function act(fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) {
     start(async () => {
@@ -96,7 +105,7 @@ export function TaskTimePanel(props: Props) {
         <h2 className="text-[15px] font-black uppercase tracking-[0.1em] text-ink-strong">Time Intelligence</h2>
         {r.rejectionCount > 0 && (
           <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-altus-red)_10%,white)] px-2.5 py-1 text-[11px] font-bold text-altus-red-deep">
-            {r.rejectionCount} revision{r.rejectionCount > 1 ? "s" : ""}
+            {r.rejectionCount} rework round{r.rejectionCount > 1 ? "s" : ""}
           </span>
         )}
       </div>
@@ -131,7 +140,7 @@ export function TaskTimePanel(props: Props) {
                   onClick={() => act(() => pauseWorkAction(taskId))}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
                 >
-                  {pending ? <Loader2 size={15} className="animate-spin" /> : <Pause size={15} />} Pause
+                  {pending ? <Loader2 size={15} className="animate-spin" /> : <Pause size={15} />} {pauseLabel}
                 </button>
               ) : (
                 <button
@@ -140,7 +149,14 @@ export function TaskTimePanel(props: Props) {
                   onClick={() => act(() => startWorkAction(taskId))}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[#18181b] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50"
                 >
-                  {pending ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />} {startLabel}
+                  {pending ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : reworkMode ? (
+                    <RotateCcw size={15} />
+                  ) : (
+                    <Play size={15} />
+                  )}{" "}
+                  {startLabel}
                 </button>
               )}
               {hasWork && (
@@ -150,7 +166,7 @@ export function TaskTimePanel(props: Props) {
                   onClick={() => act(() => markDoneAction(taskId))}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-[13px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
                 >
-                  <CheckCircle2 size={15} /> Mark Done
+                  <CheckCircle2 size={15} /> {endLabel}
                 </button>
               )}
             </>
@@ -225,10 +241,10 @@ export function TaskTimePanel(props: Props) {
 
       {/* Analytics chips */}
       <div className="mt-4 grid grid-cols-4 gap-2 max-sm:grid-cols-2">
-        <Chip label="Original" value={formatMinutesLabel(r.originalSeconds)} />
-        <Chip label="Revision" value={formatMinutesLabel(r.revisionSeconds)} />
+        <Chip label="Actual Work Time" value={formatMinutesLabel(r.originalSeconds)} />
+        <Chip label="Rework Time" value={formatMinutesLabel(r.revisionSeconds)} />
         <Chip label="Sessions" value={String(r.sessionCount)} />
-        <Chip label="Rejections" value={String(r.rejectionCount)} />
+        <Chip label="Rework Rounds" value={String(r.rejectionCount)} />
         <Chip label="Avg session" value={formatMinutesLabel(r.avgSessionSec)} />
         <Chip label="Longest" value={formatMinutesLabel(r.longestSessionSec)} />
         <Chip label="Shortest" value={r.shortestSessionSec != null ? formatMinutesLabel(r.shortestSessionSec) : "—"} />

@@ -16,7 +16,7 @@ import {
   type Updater,
   type Table as TableInstance,
 } from "@tanstack/react-table";
-import { differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays, format } from "date-fns";
 
 // Classic numbered pagination: a rows-per-page selector (default 25) with
 // First « · Prev · 1 2 3 … N · Next · Last » controls.
@@ -47,6 +47,18 @@ function safeFormat(value: unknown): string {
   if (!value) return "—";
   const d = value instanceof Date ? value : new Date(value as string);
   return Number.isNaN(d.getTime()) ? "—" : formatDate(d);
+}
+
+// "18 Aug 2026, 04:35 PM" for the Start/End timestamp columns. Same null/invalid
+// guard as safeFormat — one bad row must degrade to a dash, not throw during
+// render and take the whole table with it. These two columns are the only place
+// the list shows a TIME as well as a date, so the format lives here rather than
+// in lib/format's date-only helper.
+function safeFormatDateTime(value: unknown): string {
+  if (!value) return "—";
+  const d = value instanceof Date ? value : new Date(value as string);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${format(d, "dd MMM yyyy")}, ${format(d, "hh:mm a")}`;
 }
 
 // Due-date urgency for the list. Terminal/finished tasks never read as overdue
@@ -177,6 +189,8 @@ import {
 
 // Friendly labels for the column show/hide menu (#11).
 const COLUMN_LABELS: Record<string, string> = {
+  startedAt: "Start Time",
+  completedAt: "End Time",
   taskNo: "ID No.",
   client: "Client",
   doerName: "Doer",
@@ -248,6 +262,43 @@ function buildColumns(
           ariaLabel="Select task"
         />
       ),
+    },
+    // Start / End lead the table: they are the first two columns after the
+    // select checkbox. Both come from the time engine — startedAt is
+    // task_time_rollup.first_started_at (the first Start press) and completedAt
+    // is the task's own completion stamp — so a task that has never been
+    // started, or is still open, reads "—" rather than guessing from createdAt.
+    {
+      accessorKey: "startedAt",
+      header: "Start Time",
+      meta: { narrow: true },
+      cell: (info) => {
+        const v = info.getValue<Date | null>();
+        return (
+          <span
+            className={`tabular-nums ${v ? "text-ink-soft" : "text-ink-subtle"}`}
+            style={{ fontSize: 13 }}
+          >
+            {safeFormatDateTime(v)}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "completedAt",
+      header: "End Time",
+      meta: { narrow: true },
+      cell: (info) => {
+        const v = info.getValue<Date | null>();
+        return (
+          <span
+            className={`tabular-nums ${v ? "text-ink-soft" : "text-ink-subtle"}`}
+            style={{ fontSize: 13 }}
+          >
+            {safeFormatDateTime(v)}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "taskNo",
