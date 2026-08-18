@@ -2410,9 +2410,42 @@ select.nt-input {
 
 /* Premium, slim scrollbar for the kanban board — smooth horizontal scroll
    with a subtle pill thumb instead of the chunky native bar (sir's #1). */
+/* ── Trackpad / touch panning, applied to every scroll container ────────────
+ * Tailwind's overflow utilities set only `overflow`. These four declarations
+ * are what make a two-finger swipe behave natively inside one, and they were
+ * missing everywhere: ~50 table and grid wrappers across the app each carry a
+ * bare `overflow-x-auto`, so setting this per-component would mean 50 diffs
+ * that the next new table would immediately forget.
+ *
+ *   touch-action           — without an explicit value a container inside a
+ *                            drag surface can have panning taken away from it;
+ *                            naming both axes keeps two-finger pan working.
+ *                            An element that needs to opt out (a dnd-kit
+ *                            draggable sets `none`) still wins: the effective
+ *                            value is the INTERSECTION down the ancestor
+ *                            chain, so this grants, never overrides.
+ *   overscroll-behavior    — stops the gesture chaining to the page/modal
+ *                            behind once the container hits its end.
+ *   -webkit-overflow-…     — legacy iOS Safari momentum. Inert elsewhere.
+ *
+ * `:where()` keeps specificity at 0, so any component can still override any
+ * of it with a plain class. */
+:where(.overflow-x-auto, .overflow-y-auto, .overflow-auto, .overflow-x-scroll, .overflow-y-scroll) {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .kanban-scroll {
-  scroll-behavior: smooth;
-  overscroll-behavior-x: contain;
+  /* NO `scroll-behavior: smooth` here. The wheel handler writes scrollLeft on
+     every tick, and smooth turns each of those writes into its own animation —
+     a trackpad emitting 60 deltas/sec then spends its time interrupting and
+     restarting the previous animation, which is what made two-finger panning
+     feel laggy and rubbery. Programmatic jumps that DO want easing should call
+     scrollTo({ behavior: "smooth" }) themselves. */
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-ink-subtle) 35%, transparent) transparent;
 }
@@ -2500,6 +2533,12 @@ select.nt-input {
 
 /* Tasteful, brand-tinted slim scrollbar for the option lists. */
 .gdd-scroll {
+  /* Contain the gesture: without this, flicking past the end of an open
+     dropdown chains the scroll into the modal (or the page) behind it and the
+     list slides out from under the pointer. */
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-altus-red) 34%, transparent) transparent;
 }
