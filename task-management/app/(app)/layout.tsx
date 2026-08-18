@@ -12,6 +12,7 @@ import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { ChromeShell } from "@/components/layout/chrome-shell";
 import { AppTopBar } from "@/components/layout/app-top-bar";
+import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { NotificationBell } from "@/components/header/notification-bell";
 import { ModuleFooter } from "@/components/layout/module-footer";
 import { ModuleShortcuts } from "@/components/layout/module-shortcuts";
@@ -207,6 +208,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <ModuleShortcuts allowed={MODULE_ORDER.filter((id) => canAccessWorkspace(id, access))} />
       <IdleTimerClient timeoutMinutes={15} />
       <OnboardingNudge />
+      {/* The app's ONE New Task dialog, mounted above ChromeShell so it exists
+          on every (app) route — including the hub and the full-screen HR
+          surfaces, neither of which renders a sidebar. It draws nothing; the
+          global header +, the rail button and the "N" shortcut all open it by
+          dispatching NEW_TASK_OPEN_EVENT. It previously lived inside the
+          sidebar, gated to WMS, so those triggers were inert everywhere else. */}
+      <NewTaskTrigger />
       <ChromeShell
         sidebar={<DashboardSidebar />}
         footer={<ModuleFooter access={access} />}
