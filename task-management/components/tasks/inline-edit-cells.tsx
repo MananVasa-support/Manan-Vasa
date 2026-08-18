@@ -8,6 +8,7 @@ import { format, differenceInCalendarDays } from "date-fns";
 import { formatDate } from "@/lib/format";
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { fireToast } from "@/lib/toast";
+import { scheduleReconcile } from "@/lib/client/reconcile";
 import {
   TASK_PRIORITIES,
   PRIORITY_LABELS,
@@ -64,6 +65,40 @@ function toYmd(value: Date | null): string {
 }
 
 // ── Doer ───────────────────────────────────────────────────────────────────
+/**
+ * A brief "saved" tint on the cell that was just edited.
+ *
+ * The toast confirms the write, but it appears in a corner far from the cell
+ * the user is looking at — on a wide table that is easy to miss entirely. This
+ * marks the change AT the point of interaction, then fades, so the row does not
+ * accumulate permanent decoration.
+ */
+function useSavedFlash(ms = 1400): [boolean, () => void] {
+  const [on, setOn] = React.useState(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+  const flash = React.useCallback(() => {
+    setOn(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOn(false), ms);
+  }, [ms]);
+  return [on, flash];
+}
+
+/** Shared styling for the saved flash — a soft green seat, no layout shift. */
+const savedStyle = (on: boolean) =>
+  on
+    ? {
+        background: "color-mix(in srgb, #16a34a 14%, transparent)",
+        boxShadow: "inset 0 0 0 1px color-mix(in srgb, #16a34a 45%, transparent)",
+      }
+    : undefined;
+
 export function InlineDoerCell({
   taskId,
   doerId,
@@ -116,7 +151,10 @@ export function InlineDoerCell({
         fireToast({ message: res.error || "Could not reassign." });
       } else {
         fireToast({ message: `Reassigned to ${nm}.` });
-        router.refresh();
+        // The cell already shows the new doer. Reconcile server-derived fields
+        // in ONE coalesced background pass rather than re-fetching the whole
+        // view per edit — see lib/client/reconcile.
+        scheduleReconcile(() => router.refresh());
       }
     } finally {
       setPending(false);
@@ -223,7 +261,7 @@ export function InlinePriorityCell({
         fireToast({ message: res.error || "Could not change priority." });
       } else {
         fireToast({ message: `Priority set to ${PRIORITY_LABELS[p]}.` });
-        router.refresh();
+        scheduleReconcile(() => router.refresh());
       }
     } finally {
       setPending(false);
@@ -297,6 +335,7 @@ export function InlineDueCell({
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [shown, setShown] = React.useState<Date | null>(dueAt);
+  const [saved, flashSaved] = useSavedFlash();
   React.useEffect(() => setShown(dueAt), [dueAt]);
 
   const u = dueColor(shown, status);
@@ -322,8 +361,9 @@ export function InlineDueCell({
         setShown(prev);
         fireToast({ message: res.error || "Could not reschedule." });
       } else {
+        flashSaved();
         fireToast({ message: "Due date updated." });
-        router.refresh();
+        scheduleReconcile(() => router.refresh());
       }
     } finally {
       setPending(false);
@@ -338,10 +378,19 @@ export function InlineDueCell({
           onClick={(e) => e.stopPropagation()}
           disabled={pending}
           className="inline-flex items-center gap-1 rounded-chip px-1.5 py-1 -mx-1.5 hover:bg-surface-soft transition-colors"
-          style={{ cursor: pending ? "wait" : "pointer", opacity: pending ? 0.7 : 1 }}
+          style={{
+            cursor: pending ? "wait" : "pointer",
+            opacity: pending ? 0.7 : 1,
+            ...savedStyle(saved),
+          }}
           aria-label="Reschedule due date"
         >
           {display}
+          {/* Confirmation at the point of interaction, not just in a corner
+              toast the eye may never reach on a wide table. */}
+          {saved && (
+            <Check size={13} strokeWidth={3} aria-hidden style={{ color: "#15803d" }} />
+          )}
         </button>
       </Popover.Trigger>
       <Popover.Portal>

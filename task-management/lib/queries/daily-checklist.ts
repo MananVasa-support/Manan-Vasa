@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dailyChecklist, dailyPlanDay, goals, weeklyGoals, weeklyGoalActuals, tasks, employees } from "@/db/schema";
 import type { TaskStatus, TaskPriority } from "@/db/enums";
@@ -232,6 +232,62 @@ export async function countPlannedItems(
     .from(dailyChecklist)
     .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)));
   return row?.n ?? 0;
+}
+
+/**
+ * HOW MANY things the employee has lined up for `ymd` — the number the
+ * clock-in gate measures against.
+ *
+ * Same two sources as `hasPlannedWork` below, summed rather than short-circuited
+ * at the first hit:
+ *
+ *  1. `daily_checklist` rows for the day. One row covers every flavour of
+ *     planned item — a pulled weekly goal (`goal_id`), a pulled Y/Q/M goal
+ *     (`cascade_goal_id`), a pulled WMS task (`task_id`), or a typed daily
+ *     commitment (none of them set). Yesterday's unfinished work arrives here
+ *     too, by having its `plan_date` moved onto today.
+ *  2. Open ASSIGNED tasks due by end of day IST. `<` start-of-tomorrow also
+ *     sweeps in anything overdue, which is the WMS half of "unfinished from
+ *     yesterday".
+ *
+ * DEDUPLICATED, and that is the whole subtlety. A task the employee pulled onto
+ * the plan exists in BOTH sets — as a `tasks` row and as a `daily_checklist`
+ * row carrying its `task_id`. Adding the two counts blind would let three
+ * pulled tasks read as six and open the gate on half a plan, so assigned tasks
+ * already represented on the checklist are excluded.
+ */
+export async function countPlannedWork(
+  employeeId: string,
+  ymd: string = todayYmd(),
+): Promise<number> {
+  const cutoff = startOfTomorrowIstInstant(ymd);
+
+  // Everything on the plan, plus the task ids among them, in one read.
+  const planned = await db
+    .select({ taskId: dailyChecklist.taskId })
+    .from(dailyChecklist)
+    .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)));
+
+  const pulledTaskIds = planned
+    .map((r) => r.taskId)
+    .filter((id): id is string => Boolean(id));
+
+  const [assigned] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.doerId, employeeId),
+        eq(tasks.archived, false),
+        sql`${tasks.status} not in ('done','approved','cancelled')`,
+        sql`${effectiveDueAtSql()} < ${cutoff.toISOString()}::timestamptz`,
+        // The dedupe. `notInArray` on an EMPTY list generates invalid SQL,
+        // so the clause is added only when something was actually pulled.
+        ...(pulledTaskIds.length > 0 ? [notInArray(tasks.id, pulledTaskIds)] : []),
+      ),
+    );
+
+  return planned.length + (assigned?.n ?? 0);
 }
 
 export async function hasPlannedWork(

@@ -106,3 +106,20 @@ export function goalCaptureEnabled(): boolean {
 export function voiceCaptureEnabled(): boolean {
   return goalCaptureEnabled() && !!process.env.WHISPER_API_KEY;
 }
+
+/**
+ * Clock-IN planning gate: an employee must have MIN_ATTENDANCE_ITEMS things on
+ * today's plan before they can punch in.
+ *
+ * ON by default, killable with PUNCH_PLAN_GATE_OFF=true — the switch both punch
+ * surfaces already named in their comments but never actually read, because the
+ * gate had been force-disabled with a hardcoded `false` since 2026-07-27.
+ *
+ * ⚠ This is the ONLY way out. The gate has no role exemptions (Sir): a
+ * super-admin who has not planned their day is blocked like anyone else, so
+ * this env var is the recovery path if attendance ever needs unblocking again.
+ * It must stay settable in production without a deploy.
+ */
+export function punchPlanGateOn(): boolean {
+  return process.env.PUNCH_PLAN_GATE_OFF !== "true";
+}

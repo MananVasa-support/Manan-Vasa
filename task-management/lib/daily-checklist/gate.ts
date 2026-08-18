@@ -1,10 +1,14 @@
 import "server-only";
-import { todayYmd, hasPlannedWork, countPlannedItems } from "@/lib/queries/daily-checklist";
-import { MIN_DAILY_ITEMS } from "./constants";
+import {
+  todayYmd,
+  countPlannedItems,
+  countPlannedWork,
+} from "@/lib/queries/daily-checklist";
+import { MIN_DAILY_ITEMS, MIN_ATTENDANCE_ITEMS } from "./constants";
 // Re-export so existing server-side callers can still import it from here.
 // CLIENT components must import from "@/lib/daily-checklist/constants" instead
 // (this module is server-only — importing it from "use client" breaks the build).
-export { MIN_DAILY_ITEMS } from "./constants";
+export { MIN_DAILY_ITEMS, MIN_ATTENDANCE_ITEMS } from "./constants";
 
 /**
  * Daily-checklist gate for the compulsory post-login wall: the day is planned
@@ -41,18 +45,40 @@ export async function needsGoalsPlanCommit(
 }
 
 /**
- * Daily-plan gate. The day is "planned" once the checklist EXISTS — i.e. the
- * employee has at least one planned item today, whether that's a manager-ASSIGNED
- * task (live from the `tasks` table) or a PERSONAL item (a `daily_checklist` row)
- * or both. So when a manager has already planned the day, the employee can clock
- * in immediately without recreating anything (one task · one owner · one record).
+ * Daily-plan gate for ATTENDANCE: nobody marks themselves present without a real
+ * plan for the day. The day qualifies once there are at least
+ * `MIN_ATTENDANCE_ITEMS` things lined up.
  *
- * This is strictly MORE permissive than the old "commit 5 rows" rule — nobody who
- * could clock in before is newly blocked — and it finally recognises assigned work.
+ * WHAT COUNTS — anything on today's plan, plus assigned work due today:
+ * pulled weekly goals, pulled Y/Q/M goals, pulled WMS tasks, typed daily
+ * commitments, yesterday's unfinished carried onto today, and open assigned
+ * tasks due (or overdue) today. `countPlannedWork` dedupes the overlap.
+ *
+ * ⚠ THIS IS NOW STRICTER, and deliberately so. It previously asked only for ONE
+ * item (`hasPlannedWork`) and its comment advertised that nobody who could clock
+ * in before would be newly blocked. That is no longer true: someone with four
+ * items who could clock in yesterday cannot today. The rule is that a day with
+ * fewer than five things on it is not a planned day.
+ *
+ * `hasPlannedWork` in lib/queries/daily-checklist is left in place but now has
+ * no callers — it is the ≥1 predicate this replaced.
  */
 export async function needsDailyPlan(
   employeeId: string,
   now: Date = new Date(),
 ): Promise<boolean> {
-  return !(await hasPlannedWork(employeeId, todayYmd(now)));
+  return (await countPlannedWork(employeeId, todayYmd(now))) < MIN_ATTENDANCE_ITEMS;
+}
+
+/**
+ * How short of the bar the employee is, for messaging. Returns the count and
+ * the requirement so the punch can say "3 of 5" instead of merely refusing —
+ * a gate that will not say how far off you are makes people guess.
+ */
+export async function dailyPlanShortfall(
+  employeeId: string,
+  now: Date = new Date(),
+): Promise<{ have: number; need: number }> {
+  const have = await countPlannedWork(employeeId, todayYmd(now));
+  return { have, need: MIN_ATTENDANCE_ITEMS };
 }
