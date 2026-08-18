@@ -19,17 +19,22 @@ interface Entry {
   sublabel: string;
   neonKey: NeonKey;
   href: Route;
+  /** Solid card fill. Every card is one flat block of colour with white type on
+   *  it, so the status reads from across the room instead of from a 3px accent
+   *  rail on a white surface. Literal Tailwind classes, not a computed string —
+   *  Tailwind scans source text, so `bg-${x}-600` would never be generated. */
+  fill: string;
 }
 
 // One compact card per KPI, in a single row. The first (Total) reads as the
 // anchor; the rest follow in the operational reading order.
 const ITEMS: Entry[] = [
-  { key: "total", label: "Total", sublabel: "All Tasks", neonKey: "total", href: "/tasks" },
-  { key: "needHelp", label: "Need Info", sublabel: "Awaiting info", neonKey: "need-help", href: "/tasks?status=need_info" },
-  { key: "notApproved", label: "Not Approved", sublabel: "Sent Back", neonKey: "not-approved", href: "/tasks?status=not_approved" },
-  { key: "done", label: "Done", sublabel: "Done + Approved", neonKey: "done", href: "/tasks?status=done,approved" },
-  { key: "pending", label: "Pending", sublabel: "In Progress", neonKey: "pending", href: "/tasks?status=initiated,follow_up" },
-  { key: "notStarted", label: "Not Started", sublabel: "Awaiting Pickup", neonKey: "not-started", href: "/tasks?status=not_started" },
+  { key: "total", label: "Total", sublabel: "All Tasks", neonKey: "total", href: "/tasks", fill: "bg-slate-900" },
+  { key: "needHelp", label: "Need Info", sublabel: "Awaiting info", neonKey: "need-help", href: "/tasks?status=need_info", fill: "bg-red-600" },
+  { key: "notApproved", label: "Not Approved", sublabel: "Sent Back", neonKey: "not-approved", href: "/tasks?status=not_approved", fill: "bg-red-900" },
+  { key: "done", label: "Done", sublabel: "Done + Approved", neonKey: "done", href: "/tasks?status=done,approved", fill: "bg-emerald-600" },
+  { key: "pending", label: "Pending", sublabel: "In Progress", neonKey: "pending", href: "/tasks?status=initiated,follow_up", fill: "bg-blue-600" },
+  { key: "notStarted", label: "Not Started", sublabel: "Awaiting Pickup", neonKey: "not-started", href: "/tasks?status=not_started", fill: "bg-slate-700" },
 ];
 
 /**
@@ -141,37 +146,25 @@ export function KpiStrip({
           const up = delta > 0;
           const flat = delta === 0;
           const arrow = up ? "▲" : flat ? "→" : "▼";
-          const deltaColor = flat
-            ? "var(--color-ink-subtle)"
-            : up
-              ? "var(--color-green-deep)"
-              : "var(--color-red-deep)";
           const isOpen = expanded === item.key;
-          const neon = `var(--kpi-neon-${item.neonKey})`;
-          const neonDeep = `var(--kpi-neon-${item.neonKey}-deep)`;
-          // The badge pill's rest fill. An explicit token per status rather than
-          // a tint of `neon` — see the --kpi-soft-* note in globals.css.
-          const soft = `var(--kpi-soft-${item.neonKey})`;
+          // The --kpi-neon-* / --kpi-soft-* tokens no longer drive the card: they
+          // existed to tint a white surface (accent rail, border, badge fill),
+          // and the surface is now the status colour itself. KpiDetailPanel below
+          // still resolves them from `active.neonKey` for the expanded panel.
 
           return (
             <div key={item.key}>
+              {/* Solid block of status colour, white type on top. The 3px accent
+                  rail that used to run along the top is gone — it was how a white
+                  card carried its status, and a card that IS the status has no
+                  use for it. Open state reads as a white ring rather than a
+                  coloured border, which would vanish against its own fill. */}
               <div
-                className="group relative h-full overflow-hidden rounded-2xl transition-all duration-200"
-                style={{
-                  background: "var(--color-surface-card)",
-                  border: `1px solid ${isOpen ? `rgb(${neonDeep})` : "var(--color-hairline-strong)"}`,
-                  boxShadow: isOpen
-                    ? `0 0 0 1px rgb(${neonDeep}), 0 12px 28px -16px rgb(${neon} / 0.6)`
-                    : "0 1px 2px rgba(15,23,42,0.05)",
-                }}
+                className={`group relative h-full overflow-hidden rounded-xl p-4 text-white shadow-sm transition-all duration-200 ${item.fill} ${
+                  isOpen ? "ring-2 ring-white/70 ring-inset" : ""
+                }`}
               >
-                {/* top accent rail */}
-                <span
-                  aria-hidden
-                  className="absolute inset-x-0 top-0 h-[3px]"
-                  style={{ background: `linear-gradient(90deg, rgb(${neon}), rgb(${neonDeep}))` }}
-                />
-                <div className="px-3.5 pt-3.5 pb-3">
+                <div>
                  <div className="flex items-start justify-between gap-1.5">
                   <Link
                     href={item.href}
@@ -182,8 +175,8 @@ export function KpiStrip({
                         don't push the number down — every card's number lands on
                         the same baseline. */}
                     <span
-                      className="flex items-start gap-1 uppercase font-black tracking-[0.07em] leading-[1.15]"
-                      style={{ fontSize: 11.5, color: `rgb(${neonDeep})`, minHeight: 24 }}
+                      className="flex items-start gap-1 uppercase font-bold tracking-[0.07em] leading-[1.15] text-white"
+                      style={{ fontSize: 11.5, minHeight: 24 }}
                     >
                       <span className="min-w-0">{item.label}</span>
                       <ArrowUpRight
@@ -193,7 +186,7 @@ export function KpiStrip({
                       />
                     </span>
                     <span
-                      className="block tabular-nums leading-none mt-2 text-ink-strong"
+                      className="block tabular-nums leading-none mt-2 text-white"
                       style={{
                         fontFamily: "var(--font-display), system-ui, sans-serif",
                         fontWeight: 900,
@@ -214,12 +207,15 @@ export function KpiStrip({
                     onClick={() => setExpanded((cur) => (cur === item.key ? null : item.key))}
                     aria-expanded={isOpen}
                     aria-label={isOpen ? `Hide ${item.label} details` : `View ${item.label} details`}
-                    className="inline-flex shrink-0 items-center justify-center rounded-full px-2.5 py-1 font-black uppercase tracking-[0.04em] transition-colors"
-                    style={{
-                      fontSize: 11,
-                      color: isOpen ? "#fff" : `rgb(${neonDeep})`,
-                      background: isOpen ? `rgb(${neonDeep})` : soft,
-                    }}
+                    // Translucent white rather than a solid colour: one badge
+                    // recipe that keeps its contrast on all six fills, from
+                    // slate-900 to emerald-600, with no per-status tuning. Open
+                    // state just raises the opacity — a coloured fill would be
+                    // invisible against the card it sits on.
+                    className={`inline-flex shrink-0 items-center justify-center rounded-full px-2.5 py-1 font-medium uppercase tracking-[0.04em] text-white backdrop-blur-sm transition-colors ${
+                      isOpen ? "bg-white/40 hover:bg-white/50" : "bg-white/20 hover:bg-white/30"
+                    }`}
+                    style={{ fontSize: 11 }}
                   >
                     {isOpen ? "Hide" : "View"}
                   </button>
@@ -235,14 +231,19 @@ export function KpiStrip({
                       longest wording still clears the narrowest card. No inner
                       collapse any more — the card only exists when the whole
                       section is expanded. */}
+                  {/* NOTE: the up/down colour is gone. This line used to be
+                      green when the number rose and red when it fell, which
+                      cannot survive on a red or emerald card — the delta would
+                      either vanish into the fill or fight it. Direction now
+                      rides entirely on the ▲/▼/→ glyph. */}
                   <span
-                    className="mt-2 flex items-baseline gap-1 whitespace-nowrap tabular-nums font-extrabold"
-                    style={{ fontSize: 12.5, color: deltaColor }}
+                    className="mt-2 flex items-baseline gap-1 whitespace-nowrap tabular-nums font-extrabold text-white/80"
+                    style={{ fontSize: 12.5 }}
                   >
                     <span>
                       {arrow} {Math.abs(delta)}
                     </span>
-                    <span className="font-semibold opacity-60" style={{ fontSize: 11 }}>
+                    <span className="font-semibold text-white/70" style={{ fontSize: 11 }}>
                       {vsLabel}
                     </span>
                   </span>
