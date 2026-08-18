@@ -1468,6 +1468,9 @@ html[data-density="dense"] body {
   --vp-cyan-deep:   168 4 0;   /* #A80400 */
   --vp-cyan-glow:   rgba(225, 6, 0, 0.25);
   --vp-cyan-tint:   rgba(225, 6, 0, 0.08);
+  /* Neutral row-hover wash. Deliberately NOT --vp-cyan-tint: that one is red,
+     and red on this surface already means overdue / not-approved / critical. */
+  --task-row-hover-tint: rgba(15, 23, 42, 0.045);
 }
 
 /* The strip's substrate band. Light warm-white gradient with a soft
@@ -1838,9 +1841,49 @@ html[data-density="dense"] body {
 }
 
 /* Tasks table row — cyan hover rail (matches Status by Doer). */
+/* Row hover. The tint is NEUTRAL now: `--vp-cyan-tint` is a misnamed legacy
+   token whose value is Altus red at 8% (see the --vp-cyan block), so every
+   hovered row used to wash red — which competed with the red that actually
+   means something here (overdue accents, Not Approved pills, the Critical
+   badge). Slate at 4.5% reads as "you are on this row" without claiming
+   urgency; the red is spent on the left accent instead, where it anchors the
+   eye without tinting the content.
+
+   The left accent itself is a `border-l-4` on the row (see task-table.tsx), NOT
+   a box-shadow: the row already carries an INLINE box-shadow for overdue/today
+   urgency and keyboard focus, and inline styles beat this rule — so a hover
+   shadow here would simply not paint on exactly the rows that matter most. A
+   border is a different property, so the two compose instead of fighting. */
+.task-row {
+  cursor: default;
+  transition:
+    background-color 150ms ease-in-out,
+    border-color 150ms ease-in-out,
+    box-shadow 150ms ease-in-out;
+}
+/* Only when the row actually opens something — set by task-table.tsx when the
+   list is in drawer mode. A pointer on a row that does nothing is a lie. */
+.task-row.is-clickable {
+  cursor: pointer;
+}
 .task-row:hover {
-  background: var(--vp-cyan-tint);
-  box-shadow: inset 3px 0 0 rgb(var(--vp-cyan));
+  background: var(--task-row-hover-tint);
+  /* Lightweight lift. Overridden by the inline shadow on overdue / today /
+     focused rows, which already carry a stronger marker of their own. */
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.07);
+}
+
+/* Quick actions sit back until you are on the row, so a long list is not a wall
+   of icons — then come forward together. */
+.task-row .task-quick-actions {
+  opacity: 0.6;
+  transition:
+    opacity 150ms ease-in-out,
+    transform 150ms ease-in-out;
+}
+.task-row:hover .task-quick-actions {
+  opacity: 1;
+  transform: scale(1.05);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -1864,7 +1907,7 @@ html[data-density="dense"] body {
    — visually identical to the row, but with no transparency. */
 .task-row:hover > .task-actions-cell {
   background:
-    linear-gradient(var(--vp-cyan-tint), var(--vp-cyan-tint)),
+    linear-gradient(var(--task-row-hover-tint), var(--task-row-hover-tint)),
     var(--color-surface-card);
 }
 

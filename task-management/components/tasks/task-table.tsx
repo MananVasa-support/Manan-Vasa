@@ -21,24 +21,13 @@ import { differenceInCalendarDays, format } from "date-fns";
 // Classic numbered pagination: a rows-per-page selector (default 25) with
 // First « · Prev · 1 2 3 … N · Next · Last » controls.
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
-const DEFAULT_PAGE_SIZE = 25;
+// Progressive disclosure replaces paging: the grid opens at 13 rows and grows
+// by 13 on each Load More. TanStack's pagination row model still does the
+// slicing — pageIndex is pinned at 0 and pageSize IS the visible count — so
+// sorting, grouping and the phone card list all stay on the same slice for free.
+const INITIAL_ROWS = 13;
+const LOAD_MORE_STEP = 13;
 
-// Up to ~12 numbered buttons: first + a 10-wide window around the current
-// page + last, with an ellipsis wherever the window detaches from an end —
-// e.g. 1 2 3 4 5 6 7 8 9 10 11 … 18, or 1 … 4 5 6 7 8 9 10 11 12 13 … 18.
-function pageWindow(current: number, total: number): (number | "ellipsis")[] {
-  const WINDOW = 5;
-  if (total <= WINDOW + 2) return Array.from({ length: total }, (_, i) => i + 1);
-  let end = Math.min(total - 1, Math.max(current + 4, WINDOW + 1));
-  const start = Math.max(2, end - WINDOW + 1);
-  end = Math.min(total - 1, start + WINDOW - 1);
-  const pages: (number | "ellipsis")[] = [1];
-  if (start > 2) pages.push("ellipsis");
-  for (let p = start; p <= end; p++) pages.push(p);
-  if (end < total - 1) pages.push("ellipsis");
-  pages.push(total);
-  return pages;
-}
 
 // date-fns `format()` throws RangeError on a null/invalid Date — which would
 // crash the ENTIRE table render. Guard every cell so one bad row degrades to
@@ -92,7 +81,6 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   SlidersHorizontal,
   Check,
-  ChevronRight,
   ChevronsRight,
   ArrowUp,
   ArrowDown,
@@ -446,11 +434,22 @@ function buildColumns(
       accessorKey: "ageDays",
       header: "Age",
       meta: { mobileHide: true, align: "center" },
-      cell: (info) => (
-        <span className="text-body-lg text-ink tabular-nums">
-          {info.getValue<number>()}d
-        </span>
-      ),
+      // `ageDays` is computed server-side in lib/queries/tasks.ts from
+      // createdAt (+ the completion stamp for finished tasks). It does NOT
+      // depend on the Created column being rendered — hiding that column via
+      // the Columns menu changes nothing here, because `createdAt` stays in the
+      // row payload either way and only its CELL is suppressed.
+      cell: (info) => {
+        const d = info.getValue<number>();
+        return (
+          <span className="text-body-lg text-ink tabular-nums">
+            {/* 0 means created and (if finished) closed on the same calendar
+                day — under a day of life. "0d" read as "no age recorded"; the
+                "<" says the clock has started but not turned over. */}
+            {d === 0 ? "< 1d" : `${d}d`}
+          </span>
+        );
+      },
     },
     {
       id: "actions",
@@ -582,8 +581,9 @@ export function TaskTable({
   // mode. Tracked by task id so it survives re-sorts.
   const [focusedId, setFocusedId] = React.useState<string | null>(null);
   const router = useRouter();
-  // Rows per page — user-selectable (10/25/50/100), default 25.
-  const [pageSize, setPageSize] = React.useState<number>(DEFAULT_PAGE_SIZE);
+  // How many rows are rendered. Grows on Load More; never shrinks except when
+  // the underlying list changes (new search / grouping / filter).
+  const [shown, setShown] = React.useState<number>(INITIAL_ROWS);
 
   // Free-text search across task no + the human-readable fields. Runs purely
   // client-side over the already-loaded rows (the list query returns the full
@@ -648,19 +648,20 @@ export function TaskTable({
     getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    // Fixed PAGE_SIZE pages; sorting/visibility apply across the full set
-    // before the page slice. Page index is driven by the numbered pager below.
+    // Used as a "first N rows" window, not as pages: pageIndex stays 0 and
+    // pageSize tracks `shown`. Sorting/visibility still apply across the FULL
+    // set before the slice, so Load More reveals the next rows in order rather
+    // than re-sorting what is on screen.
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE } },
+    initialState: { pagination: { pageIndex: 0, pageSize: INITIAL_ROWS } },
     autoResetPageIndex: false,
   });
 
-  // Apply the chosen rows-per-page and jump back to the first page so the
-  // user lands at the top of the re-sliced list rather than a now-stale page.
+  // The window is always the first `shown` rows.
   React.useEffect(() => {
-    table.setPageSize(pageSize);
+    table.setPageSize(shown);
     table.setPageIndex(0);
-  }, [pageSize, table]);
+  }, [shown, table]);
 
   // Total rows per group across the full (unpaginated) set, for the count
   // shown in each group header. Keyed by the same label `groupValue` renders.
@@ -674,35 +675,20 @@ export function TaskTable({
     return m;
   }, [groupBy, visibleRows, resolvedLabels]);
 
-  // Jump back to the first page whenever the grouping changes, so you start at
-  // the top of the newly-ordered list rather than a now-meaningless page.
+  // Regrouping reorders everything, so collapse back to the first 13 rather
+  // than leaving a long expansion pointing at a list that no longer matches it.
   React.useEffect(() => {
-    table.setPageIndex(0);
-  }, [groupBy, table]);
+    setShown(INITIAL_ROWS);
+  }, [groupBy]);
 
-  // Keep the current page valid when the underlying rows change (new filter /
-  // refresh). Clamp to the last page rather than always snapping to page 1, so
-  // an inline status edit doesn't yank you back to the top — you only move if
-  // your page no longer exists (e.g. a filter shrank the result set).
+  // A new search is a different list — start it at 13 again.
   React.useEffect(() => {
-    const maxIndex = Math.max(0, Math.ceil(visibleRows.length / pageSize) - 1);
-    if (table.getState().pagination.pageIndex > maxIndex) {
-      table.setPageIndex(maxIndex);
-    }
-  }, [visibleRows, table, pageSize]);
-
-  // A new search resets to the first page so results start at the top.
-  React.useEffect(() => {
-    table.setPageIndex(0);
-  }, [query, table]);
+    setShown(INITIAL_ROWS);
+  }, [query]);
 
   // Scroll the table back into view when the page changes, so the new rows are
   // visible without a manual scroll up.
   const listTopRef = React.useRef<HTMLDivElement>(null);
-  function goToPage(index: number) {
-    table.setPageIndex(index);
-    listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
 
   // J/K/Enter/F — keyboard navigation over the current page's rows. Skips when
   // typing or when a modifier is held, so it never fights ⌘K, browser
@@ -753,12 +739,12 @@ export function TaskTable({
       ?.scrollIntoView({ block: "nearest" });
   }, [focusedId]);
 
+  // Pre-slice total = every row that survived filters + search. `rendered` is
+  // what the window is actually showing, which is `shown` until the list runs
+  // out. Both feed the footer's "Showing X of Y".
   const totalFiltered = table.getPrePaginationRowModel().rows.length;
-  const pageCount = table.getPageCount();
-  const pageIndex = table.getState().pagination.pageIndex;
-  const rangeStart = totalFiltered === 0 ? 0 : pageIndex * pageSize + 1;
-  const rangeEnd = Math.min(totalFiltered, (pageIndex + 1) * pageSize);
-  const pages = pageWindow(pageIndex + 1, pageCount);
+  const rendered = Math.min(shown, totalFiltered);
+  const hasMore = rendered < totalFiltered;
 
   function alignClass(c: TaskCol): string {
     const a = c.meta?.align;
@@ -767,19 +753,18 @@ export function TaskTable({
 
   const selectedIds = table.getSelectedRowModel().rows.map((r) => r.original.id);
 
-  const pageInfo =
+  const countLabel =
     totalFiltered === 0
       ? "No tasks"
-      : pageCount > 1
-        ? `Page ${pageIndex + 1} of ${pageCount} · showing ${rangeStart}–${rangeEnd} of ${totalFiltered}`
-        : `Showing all ${totalFiltered} ${totalFiltered === 1 ? "task" : "tasks"}`;
+      : hasMore
+        ? `Showing ${rendered.toLocaleString("en-IN")} of ${totalFiltered.toLocaleString("en-IN")}`
+        : `Showing all ${totalFiltered.toLocaleString("en-IN")} ${totalFiltered === 1 ? "task" : "tasks"}`;
 
   return (
     <div ref={listTopRef} className="scroll-mt-6">
-      {/* Toolbar — one line: Group-by ▾ · Search · pager (1 … N · Next · Last)
-          · Rows/page · page readout · Columns. Everything pagination-related
-          lives up here so the table gets the vertical space below. A quiet
-          glass strip so the controls read as one instrument panel. */}
+      {/* Toolbar — Group-by ▾ · Search · Columns. The pager and rows-per-page
+          that used to sit here are gone; the row count and Load More live in
+          the table's sticky footer instead, beside the rows they describe. */}
       <div
         className="wg-rise mb-3 flex items-center gap-2 flex-wrap rounded-section border border-hairline px-3 py-2 max-md:px-3"
         style={{
@@ -796,18 +781,12 @@ export function TaskTable({
           <div className="w-full sm:w-[220px] md:w-[260px] min-w-[150px]">
             <SearchBox value={query} onChange={setQuery} resultCount={visibleRows.length} />
           </div>
-          <CompactPager
-            pages={pages}
-            pageIndex={pageIndex}
-            pageCount={pageCount}
-            canNext={table.getCanNextPage()}
-            onGoto={goToPage}
-          />
         </div>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <div className="flex items-center max-md:hidden">
-            <RowsPerPageSelect value={pageSize} onChange={setPageSize} />
-          </div>
+          {/* No numbered pager and no rows-per-page: the grid is a single
+              growing list now, and both controls describe a page model that no
+              longer exists. The count and the Load More that replaced them live
+              in the table's own sticky footer, next to the rows they govern. */}
           <MobileSortControl table={table} className="hidden max-md:flex" />
           <ColumnsMenu table={table} />
         </div>
@@ -825,26 +804,34 @@ export function TaskTable({
         />
       )}
 
+      {/* CARD — border, radius and shadow only. It no longer scrolls itself: the
+          scrolling moved to the inner div so the footer below can sit outside
+          the scrollport and stay put while rows move under it. */}
       <div
-        // The scroll container for BOTH axes:
-        //   overflow-x-auto — columns size to their content, so wide data scrolls
-        //     sideways instead of being truncated. The Manage column is pinned
-        //     with `sticky right-0`, which only works because the sticky ancestor
-        //     is THIS element (an overflow container), not the page.
-        //   overflow-y-auto + max-h — caps the table to the viewport so the
-        //     sticky header row stays frozen while you page through rows.
-        //     100px was reclaimed off the bottom (260px → 160px of chrome), which
-        //     is worth roughly two more rows at the current density.
-        // `max-h`, deliberately, NOT a fixed `h-`: a short list must shrink to
-        // its rows rather than leave a tall empty box below the last one.
-        // `overscroll-x-contain` stops a sideways fling from also triggering the
-        // browser's back-navigation gesture.
-        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-x-auto overflow-y-auto overscroll-x-contain max-h-[calc(100vh-160px)] max-md:hidden"
+        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-hidden flex flex-col max-md:hidden"
         style={{
           animationDelay: "60ms",
           boxShadow:
             "0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 40px -24px rgba(15, 23, 42, 0.20)",
         }}
+      >
+      <div
+        // The scroll container for BOTH axes:
+        //   overflow-x-auto — columns size to their content, so wide data (Start
+        //     Time, End Time, Client, Subject, Task, Doer …) scrolls sideways
+        //     instead of being truncated. The Manage column is pinned with
+        //     `sticky right-0`, which only works because the sticky ancestor is
+        //     THIS element (an overflow container) — so the scrolling had to stay
+        //     on one div rather than being split across the two axes.
+        //   overflow-y-auto + max-h — the 13-row window. Rows are content-sized
+        //     rather than a fixed height, so 560px is an APPROXIMATION of
+        //     13 rows (~40px) plus the header (~40px); it is the cap that stops
+        //     Load More growing the page instead of the scroller.
+        // `max-h`, deliberately, NOT a fixed `h-`: a short list must shrink to
+        // its rows rather than leave a tall empty box below the last one.
+        // `overscroll-x-contain` stops a sideways fling from also triggering the
+        // browser's back-navigation gesture.
+        className="overflow-x-auto overflow-y-auto overscroll-x-contain max-h-[560px]"
       >
       <table className="min-w-full">
         <thead>
@@ -990,9 +977,32 @@ export function TaskTable({
                  (rgba(60,44,40,0.07)) that made the list read as one block.
                  `last:border-b-0` is dropped — a closing rule under the final
                  row is what makes the table look finished rather than cut off. */
-              className={`task-row border-b border-gray-200 transition-colors hover:bg-slate-50/80 ${
-                row.original.id === focusedId ? "is-focused bg-altus-red/[0.06]" : ""
-              }`}
+              // Row click opens the drawer, so the whole row is the target and
+              // not just the title link. Guarded below against clicks that
+              // started on a control.
+              onClick={
+                openInDrawer
+                  ? (e) => {
+                      // Never hijack a click that belongs to something else:
+                      // the select checkbox, the inline status editor, the
+                      // Manage cluster, or the title link (which handles
+                      // modifier-clicks to open a new tab itself).
+                      const el = e.target as HTMLElement;
+                      if (el.closest("a, button, input, select, textarea, [role='button'], [role='menuitem']"))
+                        return;
+                      // A drag-select of cell text should not open the record.
+                      if (window.getSelection()?.toString()) return;
+                      openTask(row.original.id);
+                    }
+                  : undefined
+              }
+              // border-l-4 transparent by default so turning it red on hover
+              // costs no layout shift — a border that appears would push every
+              // cell 4px right. See the note in globals.css for why this is a
+              // border and not a box-shadow.
+              className={`task-row border-b border-l-4 border-gray-200 border-l-transparent hover:border-l-red-600 ${
+                openInDrawer ? "is-clickable" : ""
+              } ${row.original.id === focusedId ? "is-focused bg-altus-red/[0.06]" : ""}`}
               style={{
                 boxShadow:
                   [
@@ -1051,6 +1061,27 @@ export function TaskTable({
       </table>
       </div>
 
+      {/* Sticky footer INSIDE the card but OUTSIDE the scrollport, so it never
+          drifts sideways with a horizontal scroll the way a footer inside the
+          overflow-x container would. `sticky bottom-0` is belt-and-braces —
+          being the last child of the flex column already pins it. */}
+      <div className="sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-3 border-t border-hairline bg-slate-50 px-3.5 py-2">
+        <span className="text-[12.5px] font-semibold text-ink-subtle tabular-nums">
+          {countLabel}
+        </span>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShown((n) => n + LOAD_MORE_STEP)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[12.5px] font-bold text-ink-strong transition-colors hover:bg-gray-200"
+          >
+            <ChevronDown size={14} strokeWidth={2.6} />
+            Load More
+          </button>
+        )}
+      </div>
+      </div>
+
       {/* Phone card layout (< sm). Same rows as the table above so sort,
           group-by, and pagination apply identically. Shows every desktop
           field — parity. */}
@@ -1093,14 +1124,22 @@ export function TaskTable({
         })}
       </div>
 
-      {/* Mobile-only footer: on phones the toolbar is too tight for the
-          rows-per-page + readout, and after scrolling a page of cards the
-          controls should be at hand. On md+ they live in the top toolbar. */}
-      <div className="mt-5 flex items-center gap-4 flex-wrap justify-center md:hidden">
-        <RowsPerPageSelect value={pageSize} onChange={setPageSize} />
+      {/* Phones get the same control as the desktop footer. The card list is
+          not inside a scroll container, so this sits after it rather than
+          sticking. */}
+      <div className="mt-5 flex items-center justify-center gap-3 md:hidden">
         <p className="text-[13px] font-semibold text-ink-subtle tabular-nums">
-          {pageInfo}
+          Showing {rendered.toLocaleString("en-IN")} of {totalFiltered.toLocaleString("en-IN")}
         </p>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShown((n) => n + LOAD_MORE_STEP)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+          >
+            <ChevronDown size={14} strokeWidth={2.6} /> Load More
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1152,86 +1191,6 @@ export function NoResults({
   );
 }
 
-// Compact numbered pager for the top toolbar: 1 2 3 … N · Next · Last. The
-// current page reads red; the always-present "1" doubles as a jump-to-first
-// (so a dedicated First/Prev is unnecessary — the previous page number is
-// always one tap away in the window). Hidden entirely on a single-page list.
-function CompactPager({
-  pages,
-  pageIndex,
-  pageCount,
-  canNext,
-  onGoto,
-}: {
-  pages: (number | "ellipsis")[];
-  pageIndex: number;
-  pageCount: number;
-  canNext: boolean;
-  onGoto: (index: number) => void;
-}) {
-  if (pageCount <= 1) return null;
-  return (
-    <nav
-      className="flex items-center gap-1 flex-wrap"
-      aria-label="Task list pages"
-    >
-      {pages.map((p, i) =>
-        p === "ellipsis" ? (
-          <span
-            key={`ellipsis-${i}`}
-            className="px-1 text-ink-subtle font-bold select-none"
-            aria-hidden
-          >
-            …
-          </span>
-        ) : (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onGoto(p - 1)}
-            aria-current={p - 1 === pageIndex ? "page" : undefined}
-            className={`inline-flex items-center justify-center min-w-7 h-7 px-2 rounded-md text-[12px] font-bold tabular-nums border transition-all ${
-              p - 1 === pageIndex
-                ? "text-white border-transparent"
-                : "bg-surface-card text-ink-strong border-hairline hover:border-altus-red hover:text-altus-red"
-            }`}
-            style={
-              p - 1 === pageIndex
-                ? {
-                    background:
-                      "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-                    boxShadow: "0 4px 12px -4px rgba(225, 6, 0, 0.5)",
-                  }
-                : undefined
-            }
-          >
-            {p}
-          </button>
-        ),
-      )}
-      <button
-        type="button"
-        onClick={() => onGoto(pageIndex + 1)}
-        disabled={!canNext}
-        aria-label="Next page"
-        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        Next
-        <ChevronRight size={15} strokeWidth={2.4} />
-      </button>
-      <button
-        type="button"
-        onClick={() => onGoto(pageCount - 1)}
-        disabled={!canNext}
-        aria-label="Last page"
-        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        Last
-        <ChevronsRight size={15} strokeWidth={2.4} />
-      </button>
-    </nav>
-  );
-}
 
 // Search box for the task list. Matches the task No. (with or without the
 // leading #) plus title / subject / client / doer / initiator / status —
@@ -1282,47 +1241,6 @@ function SearchBox({
   );
 }
 
-// Rows-per-page selector. Lets the user trade a denser list (100/page) for a
-// shorter one (10/page). Built on the app's Radix dropdown for a consistent,
-// styleable menu (a native <select> can't match the rest of the controls).
-function RowsPerPageSelect({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-}) {
-  return (
-    <div className="inline-flex items-center gap-2">
-      <span className="text-[13px] font-semibold text-ink-subtle">Rows</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-pill text-[13px] font-bold tabular-nums border border-hairline bg-surface-card text-ink-strong hover:border-altus-red hover:text-altus-red transition-all"
-          >
-            {value}
-            <ChevronsUpDown size={13} strokeWidth={2.4} className="opacity-60" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center">
-          {PAGE_SIZE_OPTIONS.map((n) => (
-            <DropdownMenuItem
-              key={n}
-              onSelect={() => onChange(n)}
-              className={n === value ? "font-bold" : ""}
-            >
-              <span className="inline-flex w-4 justify-center">
-                {n === value ? <Check size={14} strokeWidth={2.6} /> : null}
-              </span>
-              <span className="tabular-nums">{n} / page</span>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
 
 // "Group By" control — a single compact pill that reflects the current
 // grouping (red-tinted + "Group: Client" when active), opening a rich menu

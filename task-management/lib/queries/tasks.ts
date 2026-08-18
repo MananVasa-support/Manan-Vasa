@@ -29,6 +29,48 @@ function dayIndex(d: Date): number {
   );
 }
 
+/**
+ * Statuses whose age STOPS counting. Deliberately narrower than "not pending":
+ * `not_approved` is excluded because a sent-back task is live work — it is
+ * waiting on the doer, and freezing its age would hide exactly the rework that
+ * has been sitting longest.
+ */
+const AGE_FROZEN_STATUSES = new Set<TaskStatus>([
+  "done",
+  "approved",
+  "cancelled",
+  "transferred",
+]);
+
+/**
+ * Age in whole calendar days.
+ *
+ * Open tasks count to TODAY, so the number climbs while the work is live.
+ * Finished ones freeze at the day they finished — previously every row measured
+ * to `now`, so a task closed last March kept ageing forever and "oldest open
+ * work" could be beaten by something that had been done for a year.
+ *
+ * The freeze point is `completed_at` where there is one. Only `status = "done"`
+ * stamps that column (tasks/actions.ts + the time engine), so cancelled,
+ * approved and transferred rows fall back to `updated_at` — the last time the
+ * row was touched, which for a terminal task is when it was terminated. It is a
+ * proxy, not a true closure timestamp; a later edit to a cancelled task would
+ * nudge its age.
+ *
+ * Whole days, not elapsed 24h periods: the Due column uses
+ * `differenceInCalendarDays`, and two adjacent columns measuring in different
+ * units is the drift `dayIndex` exists to remove.
+ */
+function ageInDays(
+  row: { createdAt: Date; completedAt: Date | null; status: TaskStatus; updatedAt: Date },
+  nowDay: number,
+): number {
+  const frozenAt =
+    row.completedAt ?? (AGE_FROZEN_STATUSES.has(row.status) ? row.updatedAt : null);
+  const endDay = frozenAt ? dayIndex(frozenAt) : nowDay;
+  return Math.max(0, endDay - dayIndex(row.createdAt));
+}
+
 // A task's "effective" status spans two columns: the working `status` and the
 // admin `approval_status` verdict. The dashboard counts treat a task as e.g.
 // Not Approved when EITHER column says so (lib/queries/dashboard.ts), so the
@@ -142,7 +184,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     initiatorName: r.initiatorName ?? null,
     createdAt: r.createdAt,
     dueAt: r.dueAt,
-    ageDays: Math.max(0, nowDay - dayIndex(r.createdAt)),
+    ageDays: ageInDays(r, nowDay),
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,
@@ -370,7 +412,7 @@ async function listTasksPageUncached(
     initiatorName: r.initiatorName ?? null,
     createdAt: r.createdAt,
     dueAt: r.dueAt,
-    ageDays: Math.max(0, nowDay - dayIndex(r.createdAt)),
+    ageDays: ageInDays(r, nowDay),
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,

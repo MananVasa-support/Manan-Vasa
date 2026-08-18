@@ -117,7 +117,12 @@ export function TaskRowActions({ row, me }: Props) {
     "inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-ink-subtle transition-colors disabled:opacity-40 disabled:cursor-not-allowed";
 
   return (
-    <div className="inline-flex items-center gap-0.5">
+    // `task-quick-actions` is the hook globals.css uses to hold this cluster at
+    // 60% until the pointer is on the row, then bring it to full opacity and a
+    // slight scale. Styling it from the row's CSS rather than with `group-hover`
+    // keeps it working inside the frozen Manage cell, which paints its own
+    // background and sits in a separate stacking context.
+    <div className="task-quick-actions inline-flex items-center gap-0.5">
       {/* ORDER: Delete first, then Archive (reversed 2026-08). */}
       {me.isAdmin && (
         <button
