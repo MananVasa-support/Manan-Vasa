@@ -200,26 +200,56 @@ export function AgingTaskDrawer({
                   });
                   const prioTone = PRIORITY_TONE[t.priority];
                   const prioLabel = PRIORITY_LABELS[t.priority];
+                  // `description` is nullable, so fall back to the client name
+                  // rather than rendering an empty row.
+                  const taskText = t.description?.trim() || t.title;
+                  // The hover carries what truncation ate: the FULL task text,
+                  // plus the client on its own line so the tooltip still
+                  // answers "whose?" even when the row is clipped short.
+                  const taskHover = [t.description?.trim(), `Client: ${t.title}`]
+                    .filter(Boolean)
+                    .join("\n\n");
                   return (
                     <tr
                       key={t.id}
                       className="aging-drawer-row group h-11 border-b border-gray-100 transition-colors hover:bg-gray-50/80"
                     >
-                      {/* Task ID + title/description */}
-                      <td className="max-w-[38ch] px-3 py-1.5">
+                      {/* Task ID + what the task IS, then the client.
+                          HEADS UP on the field names: in this schema `title` is
+                          the CLIENT NAME — the New Task form's "Client Name"
+                          field writes straight to tasks.title — and the work
+                          itself lives in `description`. So leading with `title`
+                          meant every row in a triage list read "Altus Corp",
+                          which is the same for whole runs of rows and tells you
+                          nothing about what is aging. `description` leads now;
+                          the client stays as muted context rather than being
+                          dropped, since knowing whose work is stuck is half of
+                          why you opened the cell. */}
+                      <td className="max-w-[280px] px-3 py-1.5">
                         <Link
                           href={`/tasks/${t.id}` as Route}
+                          // Native title, not a rich tooltip: this sits inside a
+                          // horizontally-scrolling table with a sticky actions
+                          // column, where a portalled popover has to be
+                          // re-anchored on every scroll. The full text is the
+                          // whole point of the hover, and the browser already
+                          // wraps and positions it for free.
+                          title={taskHover}
                           className="flex items-baseline gap-2 hover:underline"
                         >
                           <span className="shrink-0 text-[11px] font-black tabular-nums text-gray-400">
                             {t.taskNo != null ? `#${t.taskNo}` : "—"}
                           </span>
-                          <span className="truncate text-[13px] font-semibold text-gray-900">
-                            {t.title}
+                          {/* min-w-0 is what actually lets `truncate` bite: a
+                              flex child's default min-width is auto, so without
+                              it the span refuses to shrink below its text and
+                              overflows the 280px cap instead of ellipsing. */}
+                          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-gray-900">
+                            {taskText}
                           </span>
                           {t.description && (
-                            <span className="truncate text-[12px] font-normal text-gray-500">
-                              — {t.description}
+                            <span className="max-w-[14ch] shrink-0 truncate text-[12px] font-normal text-gray-500">
+                              · {t.title}
                             </span>
                           )}
                         </Link>
