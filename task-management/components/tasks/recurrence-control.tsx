@@ -5,6 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Repeat } from "lucide-react";
 import type { TaskRecurrence } from "@/db/enums";
 import { Select } from "@/components/ui/select";
+import { DateField } from "@/components/ui/date-field";
 
 /**
  * Google-Calendar-faithful recurrence picker.
@@ -390,8 +391,7 @@ function CustomDialog({
                   style={{ accentColor: "var(--color-altus-red)" }}
                 />
                 On
-                <input
-                  type="date"
+                <DateField
                   value={draft.until ?? ""}
                   disabled={draft.endsType !== "until"}
                   onChange={(e) => patch({ endsType: "until", until: e.target.value || null })}

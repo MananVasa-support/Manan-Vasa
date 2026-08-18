@@ -23,6 +23,7 @@ import type {
   BatchTypeOption,
   CategoryOption,
 } from "./types";
+import { DateField } from "@/components/ui/date-field";
 
 const ACCENT = "#E10600";
 const ACCENT_DEEP = "#A80400";
@@ -276,8 +277,7 @@ export function BatchScheduleForm({
 
               <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
                 <Field label="Start Date" required>
-                  <input
-                    type="date"
+                  <DateField
                     value={form.startDate}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -292,8 +292,7 @@ export function BatchScheduleForm({
                   />
                 </Field>
                 <Field label="End Date" required>
-                  <input
-                    type="date"
+                  <DateField
                     value={form.endDate}
                     min={form.startDate || undefined}
                     onChange={(e) => set("endDate", e.target.value)}

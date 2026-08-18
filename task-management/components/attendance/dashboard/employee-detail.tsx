@@ -37,6 +37,7 @@ import type {
   DayRow,
   EmployeeMonthStatus,
 } from "@/lib/queries/attendance-status";
+import { DateField } from "@/components/ui/date-field";
 
 const MONTH_LABELS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -772,8 +773,7 @@ function LeaveCompOffPanel({
             </label>
             <label className="block">
               <span className={labelCls}>From</span>
-              <input
-                type="date"
+              <DateField
                 value={startDate}
                 disabled={busy}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -782,8 +782,7 @@ function LeaveCompOffPanel({
             </label>
             <label className="block">
               <span className={labelCls}>To</span>
-              <input
-                type="date"
+              <DateField
                 value={endDate}
                 disabled={busy}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -840,8 +839,7 @@ function LeaveCompOffPanel({
                 </label>
                 <label className="block">
                   <span className={labelCls}>Redeem on</span>
-                  <input
-                    type="date"
+                  <DateField
                     value={redeemDate}
                     disabled={busy}
                     onChange={(e) => setRedeemDate(e.target.value)}

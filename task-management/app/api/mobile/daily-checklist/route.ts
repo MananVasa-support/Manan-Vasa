@@ -14,6 +14,7 @@ import {
   listPullableGoals,
   type DailyItem,
 } from "@/lib/queries/daily-checklist";
+import { formatDMonY } from "@/lib/format";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ async function loadBoard(employeeId: string) {
   ]);
   const now = new Date();
   const weekday = now.toLocaleDateString("en-US", { weekday: "long", timeZone: TZ });
-  const date = now.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: TZ });
+  const date = formatDMonY(new Date(now.toLocaleDateString("en-CA", { timeZone: TZ })));
   return {
     date,
     weekday,

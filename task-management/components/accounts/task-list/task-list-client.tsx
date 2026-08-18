@@ -31,6 +31,7 @@ import {
   updateShot,
   deleteShot,
 } from "@/app/(app)/accounts/task-list/actions";
+import { DateField } from "@/components/ui/date-field";
 
 // ── Shared bits ──────────────────────────────────────────────────────────────
 
@@ -537,8 +538,8 @@ export function TaskListTable({
             <option key={g} value={g}>{g}</option>
           ))}
         </select>
-        <input type="date" className={CHIP} value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Target date from" title="Target date — from" />
-        <input type="date" className={CHIP} value={to} onChange={(e) => setTo(e.target.value)} aria-label="Target date to" title="Target date — to" />
+        <DateField className={CHIP} value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Target date from" title="Target date — from" />
+        <DateField className={CHIP} value={to} onChange={(e) => setTo(e.target.value)} aria-label="Target date to" title="Target date — to" />
         {hasFilters && (
           <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
             <X size={15} strokeWidth={2.4} /> Clear
@@ -705,10 +706,10 @@ function TaskEditRow({
         <input value={draft.links} onChange={(e) => setDraft((d) => ({ ...d, links: e.target.value }))} className={INPUT} style={{ minWidth: 180 }} placeholder="https://…" aria-label="Links" />
       </Td>
       <Td>
-        <input type="date" value={draft.targetDate} onChange={(e) => setDraft((d) => ({ ...d, targetDate: e.target.value }))} className={INPUT} aria-label="Target date" />
+        <DateField value={draft.targetDate} onChange={(e) => setDraft((d) => ({ ...d, targetDate: e.target.value }))} className={INPUT} aria-label="Target date" />
       </Td>
       <Td>
-        <input type="date" value={draft.actualDate} onChange={(e) => setDraft((d) => ({ ...d, actualDate: e.target.value }))} className={INPUT} aria-label="Actual date" />
+        <DateField value={draft.actualDate} onChange={(e) => setDraft((d) => ({ ...d, actualDate: e.target.value }))} className={INPUT} aria-label="Actual date" />
       </Td>
       <Td>
         <div style={{ minWidth: 160 }}>
@@ -991,10 +992,10 @@ function ShotEditRow({
         </div>
       </Td>
       <Td>
-        <input type="date" value={draft.targetDate} onChange={(e) => setDraft((d) => ({ ...d, targetDate: e.target.value }))} className={INPUT} aria-label="Target date" />
+        <DateField value={draft.targetDate} onChange={(e) => setDraft((d) => ({ ...d, targetDate: e.target.value }))} className={INPUT} aria-label="Target date" />
       </Td>
       <Td>
-        <input type="date" value={draft.actualDate} onChange={(e) => setDraft((d) => ({ ...d, actualDate: e.target.value }))} className={INPUT} aria-label="Actual date" />
+        <DateField value={draft.actualDate} onChange={(e) => setDraft((d) => ({ ...d, actualDate: e.target.value }))} className={INPUT} aria-label="Actual date" />
       </Td>
       <Td>
         <div style={{ minWidth: 160 }}>

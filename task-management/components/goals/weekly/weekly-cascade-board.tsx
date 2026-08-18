@@ -37,6 +37,7 @@ import type { GoalDTO } from "@/components/goals/cascade/util";
 import { WeeklyKanban } from "./weekly-kanban";
 import { WeeklyDashboard } from "./weekly-dashboard";
 import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption, RosterMember } from "./types";
+import { DateField } from "@/components/ui/date-field";
 
 /** localStorage key for the weekly board's List ⇄ Kanban preference. */
 const WEEKLY_VIEW_STORE_KEY = "goals-weekly-view";
@@ -909,8 +910,7 @@ const WeeklyQuickAdd = React.forwardRef<
           {/* Target Date (deadline) — turns amber ≤7 days out, red once overdue. */}
           <label className="block">
             <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target Date</span>
-            <input
-              type="date"
+            <DateField
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
               className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-medium text-ink-strong focus:border-altus-red ${QUICK_ADD_FOCUS_RING}`}

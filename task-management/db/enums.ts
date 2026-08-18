@@ -853,3 +853,276 @@ export const DEFAULT_APPRAISAL_RATING_TERMS: ReadonlyArray<{ min: number; label:
   { min: 40, label: "Needs Improvement" },
   { min: 0, label: "Unsatisfactory" },
 ];
+
+// ───────────────────────────────────────────────────────────────────────────
+// BILLING · WMS Proposals (migration 0183)
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Product a proposal is raised for. The Proposals section is WMS-only today. */
+/**
+ * DEMO DATA. Entity = the mailbox/group a proposal belongs to; CC = who is
+ * copied on its correspondence. Both are fixed lists for now, not a managed
+ * roster — replace with a real lookup when one exists.
+ */
+export const BILLING_ENTITY_OPTIONS = ["All Admins", "admin@demo.test", "manan@demo.test"] as const;
+export const BILLING_CC_OPTIONS = ["admin@demo.test", "accounts@demo.test", "manan@demo.test"] as const;
+
+/**
+ * Company a proposal is raised under — the group's trading entities.
+ *
+ * Stored in the existing `entity` column, which stays plain text on purpose: a
+ * proposal saved under the older list must still open and save unchanged, so the
+ * UI keeps any stored value that is not on this list rather than rewriting it.
+ */
+export const BILLING_COMPANY_OPTIONS = ["Altus Corp", "Unleashed", "The Perfect Blend"] as const;
+
+/**
+ * Split a comma-separated address list into clean, de-duplicated addresses.
+ * Semicolons and newlines are accepted too — people paste from mail clients.
+ */
+export function parseEmailList(raw: string): string[] {
+  return [
+    ...new Set(
+      raw
+        .split(/[,;\n]/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+/** Addresses that are not plausibly addresses, for a precise error message. */
+export function invalidEmails(list: readonly string[]): string[] {
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  return list.filter((e) => !EMAIL_RE.test(e));
+}
+
+/**
+ * Product Type offered on a PAYMENT SCHEDULE line. Intentionally a different
+ * set from BILLING_PRODUCTS (the proposal's): this list carries DS and RET and
+ * omits BSSO. Order here is the order shown in the dropdown.
+ */
+export const BILLING_SCHEDULE_PRODUCT_TYPES = ["ps", "pso", "wms", "bss", "ds", "ret"] as const;
+export type BillingScheduleProductType = (typeof BILLING_SCHEDULE_PRODUCT_TYPES)[number];
+export const BILLING_SCHEDULE_PRODUCT_LABELS: Record<BillingScheduleProductType, string> = {
+  ps: "PS",
+  pso: "PSO",
+  wms: "WMS",
+  bss: "BSS",
+  ds: "DS",
+  ret: "RET",
+};
+
+export const BILLING_PRODUCTS = ["wms", "bss", "bsso", "ps", "pso"] as const;
+export type BillingProduct = (typeof BILLING_PRODUCTS)[number];
+export const BILLING_PRODUCT_LABELS: Record<BillingProduct, string> = {
+  wms: "WMS",
+  bss: "BSS",
+  bsso: "BSSO",
+  ps: "PS",
+  pso: "PSO",
+};
+
+/** Label for a stored product code, tolerating rows written before this set. */
+export function billingProductLabel(code: string): string {
+  return BILLING_PRODUCT_LABELS[code as BillingProduct] ?? code.toUpperCase();
+}
+
+/**
+ * WMS Type — the kind of WMS engagement being proposed.
+ *
+ * NOTE: these values were not specified when the section was built, so they are
+ * a reasonable starting set rather than a confirmed taxonomy. Edit this array to
+ * change what the dropdown offers; the column is free text, so existing rows are
+ * unaffected by additions or renames here.
+ */
+export const WMS_PROPOSAL_TYPES = [
+  "new_implementation",
+  "renewal",
+  "upgrade",
+  "add_on_module",
+  "custom_development",
+  "amc_support",
+] as const;
+export type WmsProposalType = (typeof WMS_PROPOSAL_TYPES)[number];
+export const WMS_PROPOSAL_TYPE_LABELS: Record<WmsProposalType, string> = {
+  new_implementation: "New Implementation",
+  renewal: "Renewal",
+  upgrade: "Upgrade",
+  add_on_module: "Add-on Module",
+  custom_development: "Custom Development",
+  amc_support: "AMC / Support",
+};
+
+/** Proposal Status — the lifecycle of a quote. */
+export const BILLING_PROPOSAL_STATUSES = [
+  "draft",
+  "sent",
+  "under_review",
+  "accepted",
+  "rejected",
+  "on_hold",
+] as const;
+export type BillingProposalStatus = (typeof BILLING_PROPOSAL_STATUSES)[number];
+export const BILLING_PROPOSAL_STATUS_LABELS: Record<BillingProposalStatus, string> = {
+  draft: "Draft",
+  sent: "Sent",
+  under_review: "Under Review",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  on_hold: "On Hold",
+};
+
+/**
+ * Milestone stages for a WMS proposal: `advance`, then an OPEN-ENDED run of
+ * `m1`, `m2`, `m3`, … A proposal adds as many as the engagement needs.
+ *
+ * There is deliberately NO `final` stage. A closing/balance payment is a
+ * PAYMENT concern, not a delivery one — it belongs to the Payment Schedule /
+ * Final Balance step. Baking it in here forced every proposal to carry a stage
+ * it might not want and capped the sequence at four.
+ *
+ * The stage is stored as free text, so the sequence is unbounded without a
+ * migration. `BILLING_MILESTONE_SEED_STAGES` is only what a brand-new proposal
+ * is offered up front; everything past it is minted by `nextMilestoneStage`.
+ */
+export const BILLING_MILESTONE_SEED_STAGES = ["advance", "m1", "m2", "m3"] as const;
+export type BillingMilestoneStage = string;
+
+/** Sanity cap — guards a runaway loop, not a real product limit. */
+export const MILESTONE_STAGE_MAX = 50;
+
+const M_RE = /^m(\d+)$/;
+
+/** "advance" → "Advance"; "m7" → "M7"; anything else is echoed upper-cased. */
+export function milestoneStageLabel(stage: string): string {
+  if (stage === "advance") return "Advance";
+  // Legacy rows from the earlier fixed set may still carry `final`; label it
+  // rather than showing a raw slug. New ones are never created.
+  if (stage === "final") return "Final";
+  const m = M_RE.exec(stage);
+  return m ? `M${m[1]}` : stage.toUpperCase();
+}
+
+/**
+ * Sort position. Advance always leads; `m<N>` sorts by N; a legacy `final`
+ * sorts last so an existing proposal keeps reading in the right order.
+ */
+export function milestoneStageRank(stage: string): number {
+  if (stage === "advance") return 0;
+  if (stage === "final") return Number.MAX_SAFE_INTEGER;
+  const m = M_RE.exec(stage);
+  return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER - 1;
+}
+
+/** True for `advance` or `m<N>` — what this feature can create. */
+export function isMilestoneStage(stage: string): boolean {
+  return stage === "advance" || M_RE.test(stage);
+}
+
+/**
+ * The next stage for a proposal that already holds `existing`.
+ *
+ * Continues from the HIGHEST numbered stage present rather than counting rows,
+ * so deleting M2 from [M1, M2, M3] still yields M4 — reusing M2's slot would
+ * silently renumber work the client has already been quoted.
+ */
+export function nextMilestoneStage(existing: readonly string[]): string {
+  let highest = 0;
+  for (const s of existing) {
+    const m = M_RE.exec(s);
+    if (m) highest = Math.max(highest, Number(m[1]));
+  }
+  return `m${Math.min(highest + 1, MILESTONE_STAGE_MAX)}`;
+}
+
+/**
+ * Payment Schedule line types. `final_balance` marks the closing line so the
+ * Final Balance Payment is an explicit row the user controls, rather than the
+ * app guessing which line happens to be last.
+ */
+export const BILLING_PAYMENT_TYPES = ["advance", "milestone", "final_balance", "other"] as const;
+export type BillingPaymentType = (typeof BILLING_PAYMENT_TYPES)[number];
+export const BILLING_PAYMENT_TYPE_LABELS: Record<BillingPaymentType, string> = {
+  advance: "Advance",
+  milestone: "Milestone",
+  final_balance: "Final Balance",
+  other: "Other",
+};
+
+/** GST slabs offered on a schedule line. */
+export const BILLING_GST_RATES = [0, 5, 12, 18, 28] as const;
+
+/**
+ * TDS slabs OFFERED in the form. Withheld at one of a few statutory rates, so
+ * it is a choice rather than a free figure.
+ */
+export const BILLING_TDS_RATES = [2, 5, 10] as const;
+
+/**
+ * Rates the server still ACCEPTS. Deliberately wider than what the form offers:
+ * rows created before the options were narrowed carry 0% or 3%, and rejecting
+ * them would make those lines un-editable — you could not fix a typo in the
+ * description without also being forced to change the TDS.
+ */
+export const BILLING_TDS_RATES_ACCEPTED = [0, 2, 3, 5, 10] as const;
+
+// ── Billing · People Allocation (migration 0189) ───────────────────────────
+
+/**
+ * LEGACY scope values, kept only so allocation lines saved before the switch to
+ * Product still read back with a sensible label. Nothing offers these any more.
+ */
+export const ALLOCATION_SCOPES = ["wms_app", "ps_app"] as const;
+export type AllocationScope = (typeof ALLOCATION_SCOPES)[number];
+export const ALLOCATION_SCOPE_LABELS: Record<AllocationScope, string> = {
+  wms_app: "WMS App",
+  ps_app: "PS App",
+};
+
+/**
+ * The products an allocation line can run against, by full name.
+ *
+ * Codes (WMS/BSS/PSO…) are deliberately not offered here — the people staffing
+ * a client think in product names, not billing codes. The stored value is still
+ * a short stable key so the column never depends on the wording of a label.
+ */
+export const ALLOCATION_PRODUCTS = [
+  { code: "ps", short: "PS", label: "Productivity Shastra" },
+  { code: "pso", short: "PSO", label: "Productivity Shastra Orientation" },
+  { code: "bss", short: "BSS", label: "Business Scale Up Shastra" },
+  { code: "bsso", short: "BSSO", label: "Business Scale Up Shastra Orientation" },
+  { code: "ac", short: "AC", label: "Altus Conclave" },
+  { code: "cty", short: "CTY", label: "Completing the Year" },
+  { code: "ce", short: "CE", label: "Client Ecosystem (CE)" },
+  { code: "ret", short: "RET", label: "Retainership (RET)" },
+] as const;
+
+/** The billing-style short code for a stored product value. */
+export function allocationProductCode(code: string): string {
+  const hit = ALLOCATION_PRODUCTS.find((p) => p.code === code);
+  return hit ? hit.short : code.replace(/_app$/, "").toUpperCase();
+}
+
+export const ALLOCATION_PRODUCT_CODES: readonly string[] = ALLOCATION_PRODUCTS.map((p) => p.code);
+
+/**
+ * Label for a stored product value. Falls back through the legacy scope values
+ * and the billing product codes, so a line saved before this list existed still
+ * reads correctly rather than showing a raw key.
+ */
+export function allocationProductLabel(code: string): string {
+  const hit = ALLOCATION_PRODUCTS.find((p) => p.code === code);
+  if (hit) return hit.label;
+  if (code in ALLOCATION_SCOPE_LABELS) return ALLOCATION_SCOPE_LABELS[code as AllocationScope];
+  return billingProductLabel(code);
+}
+
+/** Bill-raise state of a scope line. Demo values. */
+export const BILL_RAISE_OPTIONS = ["not_raised", "raised", "on_hold"] as const;
+export type BillRaiseOption = (typeof BILL_RAISE_OPTIONS)[number];
+export const BILL_RAISE_LABELS: Record<BillRaiseOption, string> = {
+  not_raised: "Not Raised",
+  raised: "Raised",
+  on_hold: "On Hold",
+};

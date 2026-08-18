@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { InstallmentEditor } from "./installment-editor";
+import { DateField } from "@/components/ui/date-field";
 
 const CYCLE_OPTIONS = OUTSTANDING_CYCLES.map((c) => ({
   value: c,
@@ -516,8 +517,7 @@ function EditContractDialog({
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label={isFullPayment ? "Date" : "Start Date"} required>
-                <input
-                  type="date"
+                <DateField
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className={INPUT_CLASS}

@@ -23,6 +23,7 @@ import {
   rowsMatchTotal,
   type InstallmentRow,
 } from "./cycle-fields";
+import { DateField } from "@/components/ui/date-field";
 
 // Live total wants paise precision (an 18% GST total is rarely round), so use a
 // local 2-dp formatter rather than lib/format's whole-rupee formatInr.
@@ -649,8 +650,7 @@ function CycleSubForm(p: SubFormProps) {
       body = (
         <>
           <Field label="Date" required>
-            <input
-              type="date"
+            <DateField
               value={p.fullDate}
               onChange={(e) => p.setFullDate(e.target.value)}
               className={INPUT_CLASS}
@@ -667,16 +667,14 @@ function CycleSubForm(p: SubFormProps) {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <Field label="Retainer Start Date" required>
-              <input
-                type="date"
+              <DateField
                 value={p.retainerStart}
                 onChange={(e) => p.setRetainerStart(e.target.value)}
                 className={INPUT_CLASS}
               />
             </Field>
             <Field label="Retainer End Date" required>
-              <input
-                type="date"
+              <DateField
                 value={p.retainerEnd}
                 onChange={(e) => p.setRetainerEnd(e.target.value)}
                 className={INPUT_CLASS}
@@ -700,16 +698,14 @@ function CycleSubForm(p: SubFormProps) {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <Field label="Start Date">
-              <input
-                type="date"
+              <DateField
                 value={p.subStart}
                 onChange={(e) => p.setSubStart(e.target.value)}
                 className={INPUT_CLASS}
               />
             </Field>
             <Field label="End Date">
-              <input
-                type="date"
+              <DateField
                 value={p.subEnd}
                 onChange={(e) => p.setSubEnd(e.target.value)}
                 className={INPUT_CLASS}
@@ -741,8 +737,7 @@ function CycleSubForm(p: SubFormProps) {
               />
             </Field>
             <Field label="EMI Start Date" required>
-              <input
-                type="date"
+              <DateField
                 value={p.emiStart}
                 onChange={(e) => p.setEmiStart(e.target.value)}
                 className={INPUT_CLASS}

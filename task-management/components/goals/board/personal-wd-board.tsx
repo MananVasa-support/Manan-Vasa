@@ -11,6 +11,7 @@ import { BoardQuickAdd } from "@/components/goals/board/board-quick-add";
 import { formatWeekShort, nextWeekStart, prevWeekStart } from "@/lib/weekly-goals/week";
 import { formatDate } from "@/lib/format";
 import type { PersonalWDData } from "@/app/(app)/goals/personal-wd-data";
+import { DateField } from "@/components/ui/date-field";
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1";
@@ -76,8 +77,7 @@ export function PersonalWDBoard({ data }: { data: PersonalWDData }) {
               {bucketLabel}
             </span>
           ) : (
-            <input
-              type="date"
+            <DateField
               value={data.periodKey}
               onChange={(e) => e.target.value && goTo(e.target.value)}
               aria-label="Pick a day"

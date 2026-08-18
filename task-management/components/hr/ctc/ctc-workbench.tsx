@@ -47,6 +47,7 @@ import {
   deleteCtcVersion,
   type CtcRosterOption,
 } from "@/app/(app)/hr/ctc/actions";
+import { DateField } from "@/components/ui/date-field";
 
 const RED = "#E10600";
 const RED_DEEP = "#A80400";
@@ -400,8 +401,7 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
         <label className="ctcw-pick">
           <CalendarDays size={15} strokeWidth={2.2} aria-hidden />
           <span className="ctcw-pick-label">Effective Date</span>
-          <input
-            type="date"
+          <DateField
             value={effectiveDate}
             onChange={(e) => {
               setEffectiveDate(e.target.value);
@@ -498,8 +498,7 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
                 growth.map((n) => (
                   <div key={n.id} className="ctcw-note">
                     <div className="ctcw-note-row">
-                      <input
-                        type="date"
+                      <DateField
                         className="ctcw-note-date"
                         value={n.date}
                         onChange={(e) => updateGrowthNote(n.id, { date: e.target.value })}

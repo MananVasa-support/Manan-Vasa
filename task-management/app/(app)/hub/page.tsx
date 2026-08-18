@@ -57,6 +57,7 @@ const HUB_PASTEL: Record<WorkspaceId, { from: string; to: string; ink: string; i
   productivity: { from: "#E0E7FF", to: "#C7D2FE", ink: "#3730A3", inkSoft: "#4338CA" }, // indigo
   goals:     { from: "#FEF3C7", to: "#FDE68A", ink: "#B45309", inkSoft: "#D97706" }, // amber-gold
   billing:   { from: "#F3E8FF", to: "#E9D5FF", ink: "#7E22CE", inkSoft: "#9333EA" }, // purple
+  "people-allocation": { from: "#FFEDD5", to: "#FED7AA", ink: "#C2410C", inkSoft: "#EA580C" }, // orange
 };
 
 function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: number }) {

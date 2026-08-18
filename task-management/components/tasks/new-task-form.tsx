@@ -21,6 +21,7 @@ import { SubjectSelect } from "./subject-select";
 import { Select } from "@/components/ui/select";
 import { VoiceNoteButton } from "@/components/ui/voice-note-button";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { DateField } from "@/components/ui/date-field";
 
 type EmployeeOption = { id: string; name: string };
 
@@ -174,7 +175,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
 
   const submit = handleSubmit((values) => {
     setError(null);
-    // The <input type="date"> gives YYYY-MM-DD; convert to ISO at noon UTC
+    // The <DateField> gives YYYY-MM-DD; convert to ISO at noon UTC
     // so timezone wrap-arounds don't push the due into the wrong day.
     const dueIso = new Date(`${values.dueAt}T12:00:00.000Z`).toISOString();
 
@@ -389,7 +390,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           />
         </Field>
         <Field id="nt-due" label="Due Date" required>
-          <input id="nt-due" type="date" className="nt-input" {...register("dueAt")} />
+          <DateField id="nt-due" className="nt-input" {...register("dueAt")} />
         </Field>
       </div>
 

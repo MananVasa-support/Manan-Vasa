@@ -6472,3 +6472,384 @@ export const kpiAssignmentHistory = pgTable(
 );
 export type KpiAssignmentHistoryRow = typeof kpiAssignmentHistory.$inferSelect;
 export type NewKpiAssignmentHistoryRow = typeof kpiAssignmentHistory.$inferInsert;
+
+// ───────────────────────────────────────────────────────────────────────────
+// BILLING · Client Address Book (migration 0182)
+// Backs the address-book rail on every Billing surface. See the migration for
+// why `contact_person` is separate from `name` and why emails are a child table.
+// ───────────────────────────────────────────────────────────────────────────
+
+export const billingClients = pgTable(
+  "billing_clients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** The account we bill — for a company, its trading name. */
+    name: text("name").notNull(),
+    company: text("company"),
+    /** The human you actually call — deliberately distinct from `name`. */
+    contactPerson: text("contact_person"),
+    phone: text("phone"),
+    altPhone: text("alt_phone"),
+    gstin: text("gstin"),
+    addressLine1: text("address_line1"),
+    addressLine2: text("address_line2"),
+    city: text("city"),
+    state: text("state"),
+    pincode: text("pincode"),
+    country: text("country").notNull().default("India"),
+    notes: text("notes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("billing_clients_active_name_idx").on(t.isActive, t.name),
+    index("billing_clients_company_idx").on(t.company),
+  ],
+);
+
+export const billingClientEmails = pgTable(
+  "billing_client_emails",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => billingClients.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    label: text("label"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("billing_client_emails_client_idx").on(t.clientId)],
+);
+
+export type BillingClient = typeof billingClients.$inferSelect;
+export type NewBillingClient = typeof billingClients.$inferInsert;
+export type BillingClientEmail = typeof billingClientEmails.$inferSelect;
+
+// ───────────────────────────────────────────────────────────────────────────
+// BILLING · WMS Proposals (migration 0183)
+// Only the columns this feature uses are modelled. A pre-existing table may
+// carry extra nullable/defaulted columns from an earlier experiment; Drizzle
+// ignores what it does not declare, and none of them are NOT NULL without a
+// default, so inserts here are complete.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** One file attached to a proposal, as stored in the documents bucket. */
+export interface ProposalAttachment {
+  path: string;
+  name: string;
+  mime: string;
+  size: number;
+}
+
+export const billingProposals = pgTable(
+  "billing_proposals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Proposal Number — the human-facing identifier. Unique in the DB. */
+    code: text("code").notNull(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => billingClients.id, { onDelete: "restrict" }),
+    productType: text("product_type").notNull().default("wms"),
+    /** WMS Type — free text in the DB, offered as a list in the UI. */
+    wmsType: text("wms_type"),
+    /**
+     * Company the proposal is raised under. Surfaced in the UI as "Company";
+     * the column keeps its original name so stored values are not stranded.
+     */
+    entity: text("entity"),
+    /** Recipients this proposal is addressed to. Free-typed addresses. */
+    toEmails: text("to_emails").array().notNull().default([]),
+    /** Recipients copied on this proposal's correspondence. */
+    ccEmails: text("cc_emails").array().notNull().default([]),
+    /** Attached proposal files: [{path,name,mime,size}] in the documents bucket. */
+    attachments: jsonb("attachments").$type<ProposalAttachment[]>().notNull().default([]),
+    status: text("status").notNull().default("draft"),
+    proposalDate: date("proposal_date").notNull(),
+    notes: text("notes"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("billing_proposals_client_idx").on(t.clientId),
+    index("billing_proposals_status_idx").on(t.status, t.proposalDate),
+    index("billing_proposals_product_idx").on(t.productType),
+  ],
+);
+
+export type BillingProposal = typeof billingProposals.$inferSelect;
+export type NewBillingProposal = typeof billingProposals.$inferInsert;
+
+// ───────────────────────────────────────────────────────────────────────────
+// BILLING · WMS proposal milestones (migration 0184)
+// ───────────────────────────────────────────────────────────────────────────
+
+export const billingMilestones = pgTable(
+  "billing_milestones",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => billingProposals.id, { onDelete: "cascade" }),
+    stage: text("stage").notNull(),
+    title: text("title"),
+    description: text("description"),
+    dueDate: date("due_date"),
+    /** Payment due at this milestone. Null = a delivery checkpoint with no invoice. */
+    amount: numeric("amount", { precision: 14, scale: 2 }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isDelivered: boolean("is_delivered").notNull().default(false),
+    deliveredOn: date("delivered_on"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("billing_milestones_proposal_idx").on(t.proposalId, t.sortOrder)],
+);
+
+export type BillingMilestone = typeof billingMilestones.$inferSelect;
+export type NewBillingMilestone = typeof billingMilestones.$inferInsert;
+
+// ───────────────────────────────────────────────────────────────────────────
+// BILLING · Payment Schedule (migration 0185)
+// Balance / Final Balance are DERIVED on read — see lib/billing/schedule-math.ts.
+// ───────────────────────────────────────────────────────────────────────────
+
+export const billingPaymentSchedule = pgTable(
+  "billing_payment_schedule",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => billingProposals.id, { onDelete: "cascade" }),
+    milestoneId: uuid("milestone_id").references(() => billingMilestones.id, { onDelete: "set null" }),
+    paymentType: text("payment_type").notNull().default("milestone"),
+    productType: text("product_type"),
+    description: text("description"),
+    notes: text("notes"),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull().default("0"),
+    gstRate: integer("gst_rate").notNull().default(18),
+    isAdvance: boolean("is_advance").notNull().default(false),
+    isFinal: boolean("is_final").notNull().default(false),
+    tentativeDate: date("tentative_date"),
+    actualDate: date("actual_date"),
+    receiptAmount: numeric("receipt_amount", { precision: 14, scale: 2 }),
+    receiptDate: date("receipt_date"),
+    tdsAmount: numeric("tds_amount", { precision: 14, scale: 2 }),
+    tdsRate: integer("tds_rate").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("billing_payment_schedule_proposal_idx").on(t.proposalId, t.sortOrder),
+    index("billing_payment_schedule_milestone_idx").on(t.milestoneId),
+  ],
+);
+
+export type BillingScheduleRow = typeof billingPaymentSchedule.$inferSelect;
+export type NewBillingScheduleRow = typeof billingPaymentSchedule.$inferInsert;
+
+// ───────────────────────────────────────────────────────────────────────────
+// BILLING · People Allocation (migration 0189)
+// ───────────────────────────────────────────────────────────────────────────
+
+export const billingPeopleAllocation = pgTable(
+  "billing_people_allocation",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => billingClients.id, { onDelete: "cascade" }),
+    appLeadId: uuid("app_lead_id").references(() => employees.id, { onDelete: "set null" }),
+    /** Ordered member list; position IS "Member 1, 2, 3…". */
+    appMemberIds: uuid("app_member_ids").array().notNull().default([]),
+    handholdingLeadId: uuid("handholding_lead_id").references(() => employees.id, { onDelete: "set null" }),
+    handholdingMemberIds: uuid("handholding_member_ids").array().notNull().default([]),
+    notes: text("notes"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("billing_people_allocation_client_idx").on(t.clientId)],
+);
+
+export const billingAllocationScope = pgTable(
+  "billing_allocation_scope",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    allocationId: uuid("allocation_id")
+      .notNull()
+      .references(() => billingPeopleAllocation.id, { onDelete: "cascade" }),
+    scope: text("scope").notNull(),
+    dueDate: date("due_date"),
+    amount: numeric("amount", { precision: 14, scale: 2 }),
+    actualDate: date("actual_date"),
+    actualAmount: numeric("actual_amount", { precision: 14, scale: 2 }),
+    billRaise: text("bill_raise"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("billing_allocation_scope_alloc_idx").on(t.allocationId, t.sortOrder)],
+);
+
+export type BillingPeopleAllocation = typeof billingPeopleAllocation.$inferSelect;
+export type BillingAllocationScope = typeof billingAllocationScope.$inferSelect;
+
+// ───────────────────────────────────────────────────────────────────────────
+// BILLING · Invoices — models over the PRE-EXISTING invoice tables.
+// No new tables: billing_invoices / _lines / _codes / _customers / _issuers /
+// _sequences / _services already exist. billing_customers.client_id is the link
+// back to the Client Address Book (billing_clients), which is how a customer
+// snapshot stays tied to the address-book record it came from.
+// ───────────────────────────────────────────────────────────────────────────
+
+export const billingIssuers = pgTable("billing_issuers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  legalName: text("legal_name"),
+  isGstRegistered: boolean("is_gst_registered").notNull().default(true),
+  gstin: text("gstin"),
+  pan: text("pan"),
+  address: text("address"),
+  state: text("state"),
+  stateCode: text("state_code"),
+  email: text("email"),
+  phone: text("phone"),
+  bankName: text("bank_name"),
+  bankAccountNo: text("bank_account_no"),
+  bankIfsc: text("bank_ifsc"),
+  bankBranch: text("bank_branch"),
+  interestTerms: text("interest_terms"),
+  tdsNote: text("tds_note"),
+  signatureLabel: text("signature_label"),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(100),
+});
+
+export const billingCustomers = pgTable("billing_customers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  /** The Client Address Book record this customer mirrors. */
+  clientId: uuid("client_id"),
+  kindAttn: text("kind_attn"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  stateCode: text("state_code"),
+  pincode: text("pincode"),
+  gstin: text("gstin"),
+  pan: text("pan"),
+  contactPerson: text("contact_person"),
+  contactNo: text("contact_no"),
+  email: text("email"),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const billingCodes = pgTable("billing_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: text("key").notNull(),
+  label: text("label"),
+  proformaCode: integer("proforma_code"),
+  taxCode: integer("tax_code"),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(100),
+});
+
+export const billingServices = pgTable("billing_services", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  parentId: uuid("parent_id"),
+  name: text("name").notNull(),
+  description: text("description"),
+  sacCodeId: uuid("sac_code_id"),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(100),
+});
+
+export const billingSacCodes = pgTable("billing_sac_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").notNull(),
+  description: text("description").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(100),
+});
+
+export const billingSequences = pgTable("billing_sequences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").notNull(),
+  docType: text("doc_type").notNull(),
+  fy: text("fy").notNull(),
+  nextSeq: integer("next_seq").notNull(),
+});
+
+export const billingInvoices = pgTable("billing_invoices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  docType: text("doc_type").notNull(),
+  invoiceNo: text("invoice_no").notNull(),
+  code: text("code").notNull(),
+  seq: integer("seq").notNull(),
+  fy: text("fy").notNull(),
+  entityId: uuid("entity_id"),
+  customerId: uuid("customer_id"),
+  invoiceDate: date("invoice_date").notNull(),
+  dueDate: date("due_date"),
+  // Snapshots — an invoice is a legal document and must not change when the
+  // address book is later edited.
+  customerName: text("customer_name"),
+  kindAttn: text("kind_attn"),
+  billingAddress: text("billing_address"),
+  contactNo: text("contact_no"),
+  customerGstin: text("customer_gstin"),
+  customerState: text("customer_state"),
+  customerStateCode: text("customer_state_code"),
+  entityName: text("entity_name"),
+  entityGstin: text("entity_gstin"),
+  entityPan: text("entity_pan"),
+  entityAddress: text("entity_address"),
+  bankName: text("bank_name"),
+  bankAccountNo: text("bank_account_no"),
+  bankIfsc: text("bank_ifsc"),
+  bankBranch: text("bank_branch"),
+  interestTerms: text("interest_terms"),
+  tdsNote: text("tds_note"),
+  signatureLabel: text("signature_label"),
+  taxMode: text("tax_mode"),
+  cgstRate: numeric("cgst_rate", { precision: 5, scale: 2 }),
+  sgstRate: numeric("sgst_rate", { precision: 5, scale: 2 }),
+  igstRate: numeric("igst_rate", { precision: 5, scale: 2 }),
+  subtotal: numeric("subtotal", { precision: 14, scale: 2 }),
+  cgstAmount: numeric("cgst_amount", { precision: 14, scale: 2 }),
+  sgstAmount: numeric("sgst_amount", { precision: 14, scale: 2 }),
+  igstAmount: numeric("igst_amount", { precision: 14, scale: 2 }),
+  roundOff: numeric("round_off", { precision: 14, scale: 2 }),
+  total: numeric("total", { precision: 14, scale: 2 }),
+  amountInWords: text("amount_in_words"),
+  status: text("status"),
+  convertedFromId: uuid("converted_from_id"),
+  convertedAt: timestamp("converted_at", { withTimezone: true }),
+  notes: text("notes"),
+  createdById: uuid("created_by_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const billingInvoiceLines = pgTable("billing_invoice_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceId: uuid("invoice_id").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  serviceId: uuid("service_id"),
+  subServiceId: uuid("sub_service_id"),
+  description: text("description").notNull(),
+  sacCode: text("sac_code"),
+  quantity: numeric("quantity", { precision: 14, scale: 2 }).notNull().default("1"),
+  rate: numeric("rate", { precision: 14, scale: 2 }).notNull().default("0"),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull().default("0"),
+});
+
+export type BillingInvoice = typeof billingInvoices.$inferSelect;
+export type BillingInvoiceLine = typeof billingInvoiceLines.$inferSelect;
+export type BillingIssuer = typeof billingIssuers.$inferSelect;

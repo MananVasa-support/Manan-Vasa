@@ -84,6 +84,7 @@ import { uploadBroadcastAttachment } from "@/app/(app)/communications/attachment
 import { Avatar } from "@/components/ui/avatar";
 import { fireToast } from "@/lib/toast";
 import type { RichBodyValue } from "./rich-body-editor";
+import { DateField } from "@/components/ui/date-field";
 
 const RichBodyEditor = dynamic(() => import("./rich-body-editor"), {
   ssr: false,
@@ -1160,8 +1161,7 @@ export function BroadcastComposer({
                     ))}
                   </select>
                   {recurrence !== "none" && (
-                    <input
-                      type="date"
+                    <DateField
                       value={recurrenceUntil}
                       onChange={(e) => setRecurrenceUntil(e.target.value)}
                       title="Repeat until (optional)"

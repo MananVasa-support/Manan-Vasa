@@ -68,6 +68,7 @@ import { weeksOfMonth } from "@/lib/goals/fy-calendar";
 import { addDays, formatWeekShort } from "@/lib/weekly-goals/week";
 import { fireToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { DateField } from "@/components/ui/date-field";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -1290,8 +1291,7 @@ function TargetDateInline({
 
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-      <input
-        type="date"
+      <DateField
         defaultValue={iso ?? ""}
         disabled={disabled}
         aria-label="Target date"
@@ -1617,8 +1617,7 @@ function BulkTargetDate({ onApply }: { onApply: (iso: string | null) => void }) 
         style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
       >
         <p className="pb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">Set target date</p>
-        <input
-          type="date"
+        <DateField
           value={iso}
           onChange={(e) => setIso(e.target.value)}
           aria-label="Bulk target date"

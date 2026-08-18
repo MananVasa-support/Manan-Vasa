@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { Plus, Trash2, ArrowRight, Sparkles, Search, X, UserPlus } from "lucide-react";
 import { TASK_PRIORITIES, PRIORITY_LABELS, type TaskPriority } from "@/db/enums";
+import { DateField } from "@/components/ui/date-field";
 
 /**
  * Tasks Bulk-entry GRID — an in-app spreadsheet (ports the Goals bulk grid to
@@ -354,8 +355,7 @@ export function TasksBulkGrid(props: {
                   </select>
                 </td>
                 <td className="border-b border-l align-middle" style={{ borderColor: "var(--color-hairline)", minWidth: 150 }}>
-                  <input
-                    type="date"
+                  <DateField
                     value={r.dueDate}
                     onChange={(e) => setCell(r.id, { dueDate: e.target.value })}
                     className={`${CELL} text-center ${r.dueDate ? "text-ink-strong" : "text-ink-subtle"}`}

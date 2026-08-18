@@ -43,6 +43,7 @@ import {
 } from "@/lib/documents/signing";
 import { COLORS } from "@/lib/salary/pdf-house-style";
 import type { Employee } from "@/db/schema";
+import { formatDMonY } from "@/lib/format";
 
 /**
  * Documents · DigiLocker-VERIFIED e-signing — server actions.
@@ -657,7 +658,9 @@ interface SignedPdfInput {
 }
 
 function fmtStamp(d: Date): string {
-  return format(d, "EEE, dd MMM yyyy · HH:mm");
+  // Weekday and time are deliberate on a signature stamp; the DATE part follows
+  // the app-wide DD-MMM-YYYY standard.
+  return `${format(d, "EEE")}, ${formatDMonY(d)} · ${format(d, "HH:mm")}`;
 }
 
 async function buildSignedPdf(input: SignedPdfInput): Promise<Buffer> {

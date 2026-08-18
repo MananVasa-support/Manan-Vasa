@@ -6,6 +6,7 @@ import { AlertCircle, CalendarPlus, Send } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { LEAVE_KINDS, LEAVE_KIND_LABELS, type LeaveKind } from "@/db/enums";
 import { requestLeave } from "@/app/(app)/attendance/leave/actions";
+import { DateField } from "@/components/ui/date-field";
 
 /** Inclusive calendar-day count between two YYYY-MM-DD strings (UTC-safe). */
 function inclusiveDays(start: string, end: string): number | null {
@@ -135,10 +136,9 @@ export function RequestLeaveForm({ today }: { today: string }) {
 
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           <Field label="Start date" htmlFor="leave-start">
-            <input
+            <DateField
               id="leave-start"
               required
-              type="date"
               value={startDate}
               onChange={(e) => {
                 setStartDate(e.target.value);
@@ -149,10 +149,9 @@ export function RequestLeaveForm({ today }: { today: string }) {
             />
           </Field>
           <Field label="End date" htmlFor="leave-end">
-            <input
+            <DateField
               id="leave-end"
               required
-              type="date"
               value={endDate}
               min={startDate}
               onChange={(e) => setEndDate(e.target.value)}

@@ -8,6 +8,7 @@ import { fireToast } from "@/lib/toast";
 import { ManagedSelect } from "./managed-select";
 import { createIntroduction } from "@/app/(app)/people-gives/actions";
 import type { PgLookups } from "@/lib/queries/people-gives";
+import { DateField } from "@/components/ui/date-field";
 
 const FIELD =
   "w-full rounded-lg border border-hairline-strong bg-white px-3.5 py-3 text-[15px] font-medium text-ink-strong outline-none transition-colors placeholder:font-normal placeholder:text-ink-subtle focus:border-[color:var(--color-altus-red)] focus-visible:border-[color:var(--color-altus-red)]";
@@ -201,7 +202,7 @@ export function IntroductionForm({
       <Section title="Follow-up" hint="Routing and reminders.">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           <Field label="Next Reminder Date" htmlFor="reminder">
-            <input id="reminder" type="date" className={FIELD} value={reminder} onChange={(e) => setReminder(e.target.value)} />
+            <DateField id="reminder" className={FIELD} value={reminder} onChange={(e) => setReminder(e.target.value)} />
           </Field>
           <Field label="Assign Salesperson">
             <ManagedSelect kind="sales_person" label="salesperson" value={salesPersonId} onChange={setSalesPersonId} options={lookups.salesPeople} className={FIELD} />

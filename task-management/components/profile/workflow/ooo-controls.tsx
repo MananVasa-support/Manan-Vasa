@@ -6,6 +6,7 @@ import { setOoo } from "@/app/(app)/profile/actions";
 import { fireToast } from "@/lib/toast";
 import { SectionHeader } from "@/components/profile/identity/avatar-and-name";
 import { Select } from "@/components/ui/select";
+import { DateField } from "@/components/ui/date-field";
 
 export interface ColleagueOption {
   id: string;
@@ -147,9 +148,8 @@ export function OooControls({ initial, colleagues }: Props) {
           }}
         >
           <Label htmlFor="ooo-start">From</Label>
-          <input
+          <DateField
             id="ooo-start"
-            type="date"
             value={start}
             min={todayIso()}
             onChange={(e) => {
@@ -164,9 +164,8 @@ export function OooControls({ initial, colleagues }: Props) {
             style={dateInputStyle}
           />
           <Label htmlFor="ooo-end">Until</Label>
-          <input
+          <DateField
             id="ooo-end"
-            type="date"
             value={end}
             min={start}
             onChange={(e) => {

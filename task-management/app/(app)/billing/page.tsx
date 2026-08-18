@@ -74,7 +74,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
                 lineHeight: 1.02,
               }}
             >
-              Billing · {year}
+              Billing Dashboard · {year}
             </h1>
             <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
               Invoices, payments, billing cycles &amp; revenue management — billed,

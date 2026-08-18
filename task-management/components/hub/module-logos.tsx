@@ -25,6 +25,7 @@ const PAL: Record<WorkspaceId, { from: string; to: string; ink: string }> = {
   events: { from: "#B6EAF4", to: "#8ADBEC", ink: "#0E7490" },
   accounts: { from: "#C7DAFC", to: "#A7C5FA", ink: "#1D4ED8" }, // blue
   billing: { from: "#EAD5FD", to: "#DCBBFB", ink: "#7E22CE" }, // purple (matches the Billing card)
+  "people-allocation": { from: "#FFDCC0", to: "#FCC79C", ink: "#C2410C" }, // orange (matches the card)
 };
 
 function Glyph({ id, ink, light }: { id: WorkspaceId; ink: string; light: string }) {
@@ -140,6 +141,23 @@ function Glyph({ id, ink, light }: { id: WorkspaceId; ink: string; light: string
             <path d="M9 13c6.667 0 6.667-10 0-10" />
             <path d="M6 13l8.5 8" />
           </g>
+        </g>
+      );
+    // People Allocation — a lead figure with two team-mates behind, the shape
+    // the module is about: one person carrying a group.
+    case "people-allocation":
+      return (
+        <g fill={ink}>
+          <circle cx="33" cy="24" r="8.5" />
+          <path d="M18 52 a15 15 0 0 1 30 0 a3 3 0 0 1-3 3 H21 a3 3 0 0 1-3-3 Z" />
+          <g opacity="0.55">
+            <circle cx="15.5" cy="30" r="6" />
+            <path d="M4 51 a11.5 11.5 0 0 1 12-11.4 a19 19 0 0 0-5.6 11.4 Z" />
+            <circle cx="50.5" cy="30" r="6" />
+            <path d="M62 51 a11.5 11.5 0 0 0-12-11.4 a19 19 0 0 1 5.6 11.4 Z" />
+          </g>
+          {/* A tally bar under the group — the module's count-first idea. */}
+          <rect x="24" y="59" width="18" height="3.2" rx="1.6" fill={light} opacity="0.9" />
         </g>
       );
     default:

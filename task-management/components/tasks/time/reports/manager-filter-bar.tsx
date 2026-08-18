@@ -7,6 +7,7 @@ import { SlidersHorizontal, RotateCcw } from "lucide-react";
 import { LookupSelect } from "@/components/ui/lookup-select";
 import { TASK_PRIORITIES, PRIORITY_LABELS, type TaskPriority } from "@/db/enums";
 import type { TimeReportFilters, TimeReportFilterOptions } from "@/lib/queries/time-reports";
+import { DateField } from "@/components/ui/date-field";
 
 const FIELD =
   "w-full rounded-xl border border-hairline bg-white px-3.5 py-2.5 text-[14px] font-semibold text-ink-strong outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/50";
@@ -138,12 +139,12 @@ export function ManagerFilterBar({
 
         <label>
           <Label>From</Label>
-          <input type="date" className={FIELD} value={from} onChange={(e) => setFrom(e.target.value)} />
+          <DateField className={FIELD} value={from} onChange={(e) => setFrom(e.target.value)} />
         </label>
 
         <label>
           <Label>To</Label>
-          <input type="date" className={FIELD} value={to} onChange={(e) => setTo(e.target.value)} />
+          <DateField className={FIELD} value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
       </div>
 

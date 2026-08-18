@@ -14,6 +14,7 @@ import {
   type ExitLetterInput,
   type ExitLetterType,
 } from "@/lib/salary/exit-letters";
+import { DateField } from "@/components/ui/date-field";
 
 const GREEN = "#E10600";
 const GREEN_DEEP = "#A80400";
@@ -240,7 +241,7 @@ export function ExitDocumentsWorkbench({
 
           <div className="grid grid-cols-2 gap-3.5">
             <Field label="Letter date">
-              <input type="date" className="ui-input" value={letterDate} onChange={(e) => setLetterDate(e.target.value)} />
+              <DateField className="ui-input" value={letterDate} onChange={(e) => setLetterDate(e.target.value)} />
             </Field>
             <Field label="Place">
               <input className="ui-input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="e.g. Ahmedabad" />
@@ -248,7 +249,7 @@ export function ExitDocumentsWorkbench({
           </div>
 
           <Field label="Last working day">
-            <input type="date" className="ui-input" value={lastWorkingDay} onChange={(e) => setLastWorkingDay(e.target.value)} />
+            <DateField className="ui-input" value={lastWorkingDay} onChange={(e) => setLastWorkingDay(e.target.value)} />
           </Field>
 
           {type === "full-and-final" && (
@@ -268,7 +269,7 @@ export function ExitDocumentsWorkbench({
                 <textarea className="ui-input" rows={4} value={assets} onChange={(e) => setAssets(e.target.value)} placeholder={"Laptop (Dell, S/N ...)\nAccess card\nCompany SIM"} />
               </Field>
               <Field label="Return by">
-                <input type="date" className="ui-input" value={assetReturnBy} onChange={(e) => setAssetReturnBy(e.target.value)} />
+                <DateField className="ui-input" value={assetReturnBy} onChange={(e) => setAssetReturnBy(e.target.value)} />
               </Field>
             </>
           )}

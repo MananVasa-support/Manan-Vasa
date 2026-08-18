@@ -9,6 +9,7 @@ import { formatInr } from "@/lib/format";
 import { fireToast } from "@/lib/toast";
 import type { IncentiveEntryStatusRow } from "@/lib/queries/incentive-status";
 import { setEntryStatusAmounts } from "@/app/(app)/incentive/status-actions";
+import { DateField } from "@/components/ui/date-field";
 
 const GREEN = "#16a34a";
 const GREEN_DEEP = "#15803d";
@@ -116,8 +117,7 @@ export function IncentiveStatusEditor({
               <label className="block font-semibold text-ink-strong mb-1.5" style={{ fontSize: 13 }}>
                 Paid Date
               </label>
-              <input
-                type="date"
+              <DateField
                 value={paidDate}
                 onChange={(e) => setPaidDate(e.target.value)}
                 className="w-full rounded-chip border border-hairline bg-surface-card px-3.5 h-11 text-ink-strong outline-none transition-all focus:border-[#E10600] focus:ring-2 focus:ring-[#E10600]/25"

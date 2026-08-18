@@ -32,6 +32,8 @@ import {
   Banknote,
   Landmark,
   Users,
+  Users2,
+  FileText,
   CandlestickChart,
   FolderArchive,
   Gauge,
@@ -324,9 +326,24 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
     groups: [],
   },
   billing: {
-    // Billing — the revenue ledger. One surface today (the live billing sheet);
-    // invoices / payments / cycles join here as they ship.
-    top: [{ href: "/billing" as Route, label: "Billing", Icon: ReceiptIndianRupee, exact: true }],
+    // Billing — rail order is set by the team, not derived from anything.
+    top: [
+      { href: "/billing" as Route, label: "Billing Dashboard", Icon: ReceiptIndianRupee, exact: true },
+      { href: "/billing/clients" as Route, label: "Address Book", Icon: Users },
+      { href: "/billing/invoices" as Route, label: "Tax Invoice", Icon: Receipt },
+      // Milestones are NOT a rail entry — they belong to a proposal, so they
+      // live on that proposal's own page (/billing/proposals/<id>).
+      { href: "/billing/proposals" as Route, label: "Proposal", Icon: FileText },
+    ],
+    groups: [],
+  },
+  "people-allocation": {
+    // Its own room — staffing is maintained by team leads, who have no reason
+    // to enter Billing to reach it.
+    top: [
+      { href: "/people-allocation" as Route, label: "Dashboard", Icon: Gauge, exact: true },
+      { href: "/people-allocation/allocations" as Route, label: "Allocations", Icon: Users2 },
+    ],
     groups: [],
   },
   events: {

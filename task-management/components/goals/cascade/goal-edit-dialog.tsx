@@ -18,6 +18,7 @@ import {
   type GoalDTO,
   type RosterMember,
 } from "./util";
+import { DateField } from "@/components/ui/date-field";
 
 /** Accountability hand-off (mig 0171) — each delegate answerable for their %. */
 type DelegRef = { employeeId: string; name?: string; pct: number };
@@ -283,8 +284,7 @@ export function GoalEditDialog({
           {isMonth && (
             <div>
               <label className={labelCls}>Target date</label>
-              <input
-                type="date"
+              <DateField
                 value={f.targetDate}
                 onChange={(e) => upd("targetDate", e.target.value)}
                 className={`${inputCls} mt-1`}

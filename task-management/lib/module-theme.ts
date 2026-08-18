@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Target,
   ReceiptIndianRupee,
+  Users2,
   type LucideIcon,
   Gauge,
 } from "lucide-react";
@@ -168,6 +169,16 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     accentDeep: "#7e22ce",
     image: null,
   },
+  "people-allocation": {
+    id: "people-allocation",
+    label: "People Allocation",
+    tagline: "Who is staffed on which client, product and team.",
+    href: "/people-allocation" as Route,
+    Icon: Users2,
+    accent: "#ea580c",
+    accentDeep: "#c2410c",
+    image: null,
+  },
 };
 
 /** Hub display order. */
@@ -187,4 +198,5 @@ export const MODULE_ORDER: WorkspaceId[] = [
   "sales",
   "training",
   "events",
+  "people-allocation",
 ];

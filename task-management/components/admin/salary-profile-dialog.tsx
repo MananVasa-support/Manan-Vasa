@@ -10,6 +10,7 @@ import { upsertSalaryProfile } from "@/app/(admin)/admin/salary-profiles/actions
 import type { SalaryProfileRow } from "@/lib/queries/salary";
 import { WORKER_TYPES } from "@/db/enums";
 import { WORKER_TYPE_LABELS, payBasisFor, asWorkerType } from "@/lib/attendance/worker-type";
+import { DateField } from "@/components/ui/date-field";
 
 const inr = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
@@ -295,8 +296,7 @@ export function SalaryProfileDialog({
             </Field>
 
             <Field label="Probation End" hint="Leave blank if not on probation.">
-              <input
-                type="date"
+              <DateField
                 value={probationEnd}
                 onChange={(e) => setProbationEnd(e.target.value)}
                 className={INPUT_CLASS}

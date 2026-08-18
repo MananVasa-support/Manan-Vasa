@@ -12,6 +12,7 @@ import {
   type SalaryAdjustment,
 } from "@/lib/salary/adjustments";
 import { buildCtcBreakup } from "@/lib/salary/ctc-breakup";
+import { DateField } from "@/components/ui/date-field";
 
 const GREEN = "#E10600";
 const GREEN_DEEP = "#A80400";
@@ -238,8 +239,7 @@ export function CtcBreakupForm({ emp }: { emp: CtcFormEmployee }) {
             />
           </Field>
           <Field label="Payable date">
-            <input
-              type="date"
+            <DateField
               value={rbPayable}
               onChange={(e) => setRbPayable(e.target.value)}
               className="w-full rounded-lg border border-hairline-strong bg-surface-card px-3 py-1.5 text-[13px]"
@@ -253,8 +253,7 @@ export function CtcBreakupForm({ emp }: { emp: CtcFormEmployee }) {
           </Field>
           {rbPaid && (
             <Field label="Paid date">
-              <input
-                type="date"
+              <DateField
                 value={rbPaidDate}
                 onChange={(e) => setRbPaidDate(e.target.value)}
                 className="w-full rounded-lg border border-hairline-strong bg-surface-card px-3 py-1.5 text-[13px]"

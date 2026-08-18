@@ -59,6 +59,7 @@ import { type SkillSelection } from "@/components/hr/candidate/skill-multiselect
 import type { SkillLookupOptions } from "@/lib/hr/skills";
 import { type Ratings } from "@/lib/hr/candidate/evaluation-checklist";
 import { weightedOverall, type EvaluationWeights } from "@/lib/hr/candidate/evaluation-weights";
+import { DateField } from "@/components/ui/date-field";
 
 const UPLOAD_URL = "/api/hr/management-assessment/upload";
 
@@ -1060,8 +1061,7 @@ function RoleDesignationCard({
           />
         </FieldLabel>
         <FieldLabel label="Date of Joining" icon={<CalendarDays size={13} />}>
-          <input
-            type="date"
+          <DateField
             value={dateOfJoining}
             onChange={(e) => onDoj(e.target.value)}
             className="ma-inp"

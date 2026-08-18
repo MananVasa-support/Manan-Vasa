@@ -4,6 +4,7 @@ import * as React from "react";
 import { ChevronDown, Check, Mic, Search, Pencil } from "lucide-react";
 import { useDictation } from "@/components/hr/candidate/evaluation-v2/use-dictation";
 import type { ExitRosterEmployee } from "@/lib/hr/exit/schema";
+import { DateField } from "@/components/ui/date-field";
 
 /**
  * Self-contained floating-label field kit for the Exit forms. Mirrors the
@@ -260,19 +261,21 @@ export function FloatingInput({
   const [focused, setFocused] = React.useState(false);
   const alwaysFloat = type === "date";
   const float = alwaysFloat || focused || (value ?? "").trim() !== "";
+  // Dates render through DateField so they read dd-MMM-yyyy like the rest of
+  // the app; every other type stays a plain input.
+  const Control = type === "date" ? DateField : "input";
   return (
     <div className={`iwf${float ? " is-float" : ""}`}>
-      <input
+      <Control
         id={id}
-        type={type}
+        {...(type === "date" ? {} : { type, maxLength: 500 })}
         value={value}
         data-autofocus={autoFocus || undefined}
         className="iwf-control"
-        placeholder=" "
-        maxLength={500}
+        placeholder={type === "date" ? undefined : " "}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
       />
       <label htmlFor={id} className="iwf-label">
         {label}

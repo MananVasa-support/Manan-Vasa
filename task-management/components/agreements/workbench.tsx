@@ -11,6 +11,7 @@ import type { AgreementEmployee, AgreementRow } from "@/lib/agreements/types";
 import { TemplatePicker } from "@/components/agreements/template-picker";
 import { StatusTracker, type AgreementSignatures } from "@/components/agreements/status-tracker";
 import { saveAgreement, sendAgreement } from "@/app/(app)/agreements/actions";
+import { DateField } from "@/components/ui/date-field";
 
 const GREEN = "#E10600";
 const GREEN_DEEP = "#A80400";
@@ -274,7 +275,7 @@ export function Workbench({
 
             <div className="grid grid-cols-2 gap-3.5">
               <Field label="Letter date">
-                <input type="date" className="ui-input" value={fv.letterDate ?? ""} onChange={(e) => set("letterDate", e.target.value)} />
+                <DateField className="ui-input" value={fv.letterDate ?? ""} onChange={(e) => set("letterDate", e.target.value)} />
               </Field>
               <Field label="Place">
                 <input className="ui-input" value={fv.place ?? ""} onChange={(e) => set("place", e.target.value)} placeholder="e.g. Ahmedabad" />

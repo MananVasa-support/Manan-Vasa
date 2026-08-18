@@ -19,6 +19,7 @@ import {
 } from "@/lib/monthly-events/types";
 import { EVENT_PALETTE } from "./colors";
 import type { EditorTarget } from "./model";
+import { DateField } from "@/components/ui/date-field";
 
 export interface EditorValues {
   title: string;
@@ -198,8 +199,7 @@ export function EventEditor({ target, categories, obligations, onClose, onSave }
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={label}>Date</label>
-              <input
-                type="date"
+              <DateField
                 value={v.eventDate}
                 onChange={(e) => e.target.value && set("eventDate", e.target.value)}
                 className={cn(field, "mt-1")}

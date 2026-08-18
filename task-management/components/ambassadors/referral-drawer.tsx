@@ -8,6 +8,7 @@ import { LookupSelect } from "@/components/ui/lookup-select";
 import { createReferral, updateReferral } from "@/app/(app)/ambassadors/actions";
 import { STAGE_LABELS, STAGES, type Stage } from "@/lib/ambassadors/stages";
 import type { ReferralRow } from "@/lib/queries/ambassadors";
+import { DateField } from "@/components/ui/date-field";
 
 const FIELD =
   "w-full rounded-lg border border-hairline-strong bg-white px-3.5 py-3 text-[15px] font-medium text-ink-strong outline-none transition-colors placeholder:font-normal placeholder:text-ink-subtle focus:border-[color:var(--color-altus-red)] focus-visible:border-[color:var(--color-altus-red)]";
@@ -330,18 +331,16 @@ export function ReferralDrawer({
 
             <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
               <Field label="Received On" htmlFor="amb-received">
-                <input
+                <DateField
                   id="amb-received"
-                  type="date"
                   className={FIELD}
                   value={receivedOn}
                   onChange={(e) => setReceivedOn(e.target.value)}
                 />
               </Field>
               <Field label="Expected Close" htmlFor="amb-close">
-                <input
+                <DateField
                   id="amb-close"
-                  type="date"
                   className={FIELD}
                   value={expectedClose}
                   onChange={(e) => setExpectedClose(e.target.value)}

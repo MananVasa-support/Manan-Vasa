@@ -8,6 +8,7 @@ import { recordPayout } from "@/app/(app)/ambassadors/actions";
 import { inr, inrCompact } from "@/lib/ambassadors/format";
 import { fireToast } from "@/lib/toast";
 import { Avatar } from "@/components/ui/avatar";
+import { DateField } from "@/components/ui/date-field";
 
 /** Today's date as YYYY-MM-DD (local), for the default "paid on" value. */
 function todayISO(): string {
@@ -468,7 +469,7 @@ function PayoutModal({
           </Field>
           <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <Field label="Paid On">
-              <input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className={INPUT} aria-label="Paid on date" />
+              <DateField value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className={INPUT} aria-label="Paid on date" />
             </Field>
             <Field label="Method">
               <input

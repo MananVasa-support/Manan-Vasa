@@ -9,6 +9,7 @@ import { renderAgreement, type AgreementInput } from "@/lib/agreements/templates
 import { signatoryForEntity } from "@/lib/salary/signatories";
 import { COLORS, SIG_DIR } from "@/lib/salary/pdf-house-style";
 import { formatDate } from "@/lib/format";
+import { formatDMonY } from "@/lib/format";
 
 /**
  * GET /agreements/pdf/[id]
@@ -303,7 +304,7 @@ export async function GET(
     .fontSize(8)
     .fillColor(COLORS.inkFaint)
     .text(
-      `${rendered.title} · ${employeeName} · Generated ${format(new Date(), "EEE, MMM d, yyyy · HH:mm")}`,
+      `${rendered.title} · ${employeeName} · Generated ${formatDMonY(new Date())} · ${format(new Date(), "HH:mm")}`,
       left,
       footerY,
       { width, lineBreak: false },

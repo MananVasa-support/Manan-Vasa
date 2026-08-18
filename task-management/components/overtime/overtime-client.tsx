@@ -25,6 +25,7 @@ import {
 } from "@/app/(app)/overtime/actions";
 import type { OvertimeRow, OvertimeStatus } from "@/lib/queries/overtime";
 import { formatDate } from "@/lib/format";
+import { DateField } from "@/components/ui/date-field";
 
 const GREEN = "#16a34a";
 const GREEN_DEEP = "#15803d";
@@ -322,9 +323,8 @@ export function OvertimeClient({
             <label htmlFor="ot-date" className={LABEL}>
               Work date <span style={{ color: "var(--color-altus-red)" }}>*</span>
             </label>
-            <input
+            <DateField
               id="ot-date"
-              type="date"
               required
               max={todayISO}
               className={FIELD}

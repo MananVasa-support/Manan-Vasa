@@ -45,6 +45,7 @@ import { fireToast } from "@/lib/toast";
 import { formatDate } from "@/lib/format";
 import type { ProjectTreeNode } from "@/lib/queries/projects";
 import type { EmployeeOption } from "@/lib/queries/employees";
+import { DateField } from "@/components/ui/date-field";
 
 type NodeKind = "project" | "milestone" | "result" | "action" | "sub_action";
 
@@ -1986,8 +1987,7 @@ function TargetDateEditor({ node }: { node: ProjectTreeNode }) {
         Target
       </FieldLabel>
       <div className="relative inline-flex items-center">
-        <input
-          type="date"
+        <DateField
           defaultValue={toYmd(node.targetDate)}
           disabled={pending}
           onChange={(e) => save(e.target.value || null)}

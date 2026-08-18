@@ -17,6 +17,7 @@ import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
 import { GoalsBulkUpload } from "@/components/goals/board/goals-bulk-upload";
+import { DateField } from "@/components/ui/date-field";
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
@@ -474,8 +475,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
           {props.level === "month" && (
             <label className="block">
               <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target Date</span>
-              <input
-                type="date"
+              <DateField
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
                 className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}

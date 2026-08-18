@@ -2,13 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
+import { DateField } from "@/components/ui/date-field";
 
 /** Native date input that re-renders the admin team view for the picked day. */
 export function TeamDatePicker({ date }: { date: string }) {
   const router = useRouter();
   return (
-    <input
-      type="date"
+    <DateField
       value={date}
       aria-label="Team attendance date"
       onChange={(e) => {

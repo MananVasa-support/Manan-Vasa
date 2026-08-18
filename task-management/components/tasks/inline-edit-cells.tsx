@@ -19,6 +19,7 @@ import {
   setTaskPriority,
   rescheduleTask,
 } from "@/app/(app)/tasks/actions";
+import { DateField } from "@/components/ui/date-field";
 
 // Shared urgency calc (kept in sync with task-table.tsx). Terminal tasks are
 // never "overdue".
@@ -345,9 +346,8 @@ export function InlineDueCell({
           <label className="block text-[12px] font-bold text-ink-subtle uppercase tracking-[0.06em] mb-1.5">
             Due date
           </label>
-          <input
+          <DateField
             autoFocus
-            type="date"
             defaultValue={toYmd(shown)}
             onChange={(e) => void commit(e.target.value)}
             className="h-10 px-3 rounded-chip border border-hairline bg-surface-soft text-[14px] outline-none focus:border-altus-red"

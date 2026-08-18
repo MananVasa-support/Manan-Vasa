@@ -12,6 +12,7 @@ import {
   addProduct,
   softDeleteProduct,
 } from "@/app/(app)/ambassadors/actions";
+import { DateField } from "@/components/ui/date-field";
 
 const FIELD =
   "w-full rounded-lg border border-hairline-strong bg-white px-3.5 py-3 text-[15px] font-medium text-ink-strong outline-none transition-colors placeholder:font-normal placeholder:text-ink-subtle focus:border-[color:var(--color-altus-red)] focus-visible:border-[color:var(--color-altus-red)]";
@@ -345,9 +346,8 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
             />
           </Field>
           <Field label="Joined On" htmlFor="joinedOn">
-            <input
+            <DateField
               id="joinedOn"
-              type="date"
               className={FIELD}
               value={joinedOn}
               onChange={(e) => setJoinedOn(e.target.value)}

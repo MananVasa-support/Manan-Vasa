@@ -22,6 +22,7 @@ export const WORKSPACE_IDS = [
   "goals",
   "productivity",
   "billing",
+  "people-allocation",
 ] as const;
 
 export type WorkspaceId = (typeof WORKSPACE_IDS)[number];
@@ -42,6 +43,7 @@ export const WORKSPACE_LABEL: Record<WorkspaceId, string> = {
   goals: "Goals",
   productivity: "Productivity Dashboard",
   billing: "Billing",
+  "people-allocation": "People Allocation",
 };
 
 /** Where each card drops you when you enter the workspace. */
@@ -67,6 +69,9 @@ export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
   // Billing — invoices, payments, billing cycles & revenue. Its own room now
   // (it used to be reachable only as a tab inside Employees › Incentive).
   billing: "/billing",
+  // People Allocation is its own room: staffing is read and maintained by team
+  // leads who have no reason to enter Billing.
+  "people-allocation": "/people-allocation",
 };
 
 export const ACTIVE_WORKSPACE_COOKIE = "aw";
@@ -246,6 +251,9 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
 
   // Billing — invoices, payments, billing cycles & revenue.
   if (p.startsWith("/billing")) return "billing";
+
+  // People Allocation — its own room since it moved out of Billing.
+  if (p.startsWith("/people-allocation")) return "people-allocation";
 
   // Shared / unknown — keep the caller's current workspace.
   return null;

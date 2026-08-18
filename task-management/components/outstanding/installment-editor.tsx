@@ -13,6 +13,7 @@ import {
   deleteInstallment,
 } from "@/app/(app)/outstanding/actions";
 import type { AdminInstallmentRow } from "@/lib/queries/outstanding";
+import { DateField } from "@/components/ui/date-field";
 
 const INPUT_CLASS =
   "w-full rounded-md border border-[#CBD5E1] px-2.5 py-1.5 text-[14px] bg-white";
@@ -206,8 +207,7 @@ function InstallmentRow({
       </td>
       <td className="px-3 py-2.5">
         {editing ? (
-          <input
-            type="date"
+          <DateField
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             className={INPUT_CLASS}
@@ -326,8 +326,7 @@ function AddAdhocRow({
           <label className="block text-[12px] font-semibold text-[#0F172A] mb-1">
             Due Date
           </label>
-          <input
-            type="date"
+          <DateField
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             className={INPUT_CLASS}

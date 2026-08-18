@@ -43,6 +43,75 @@ export function formatDate(input: Date | string | number | null | undefined): st
 }
 
 /**
+ * Parse the date shapes Billing actually receives into calendar parts. Returns
+ * null for anything that is not a date, so callers can fall back to the raw
+ * text rather than printing a mangled result.
+ *
+ * Handles:
+ *   2026-08-13[…]            ISO / Postgres `date`
+ *   13-Aug-2026              already formatted (idempotent)
+ *   04/14/2026 7:05 AM       US: slashes + 12-hour clock  → MONTH first
+ *   02-12-2026 9:21          non-US: hyphens + 24-hour    → DAY first
+ *
+ * The slash/hyphen split is not a guess: across the whole billing sheet every
+ * slash value carries AM/PM and every hyphen value uses a 24-hour clock, with
+ * zero exceptions — the two locales that produce those formats disagree about
+ * day/month order, and the clock style is what tells them apart.
+ */
+function parseLooseDate(raw: string): { y: number; m: number; d: number } | null {
+  const v = raw.trim();
+  if (!v) return null;
+
+  let m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); // ISO
+  if (m) return { y: +m[1]!, m: +m[2]!, d: +m[3]! };
+
+  m = v.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/); // 13-Aug-2026
+  if (m) {
+    const idx = MONTHS_TITLE.findIndex((x) => x.toLowerCase() === m![2]!.toLowerCase());
+    return idx >= 0 ? { y: +m[3]!, m: idx + 1, d: +m[1]! } : null;
+  }
+
+  m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); // slashes → month first
+  if (m) return { y: +m[3]!, m: +m[1]!, d: +m[2]! };
+
+  m = v.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/); // hyphens → day first
+  if (m) return { y: +m[3]!, m: +m[2]!, d: +m[1]! };
+
+  return null;
+}
+
+/**
+ * dd-Mon-yyyy (e.g. "02-Dec-2026") — the ONE date format used across Billing.
+ * Any time component is dropped: the UI shows calendar days, never clock times.
+ *
+ * Hyphens and a named month rather than all digits: "02/12/2026" reads as
+ * 2 December to an Indian reader and 12 February to an American one, and a
+ * payment schedule is exactly where that ambiguity costs money.
+ *
+ * Reformatted TEXTUALLY, never via `new Date()`: `new Date("2026-08-13")` is
+ * UTC midnight, which renders as the 12th west of Greenwich — a calendar date
+ * must not shift by timezone.
+ */
+export function formatDMonY(input: Date | string | null | undefined): string {
+  if (input == null || input === "") return "";
+  if (input instanceof Date) {
+    if (Number.isNaN(input.getTime())) return "";
+    return `${String(input.getDate()).padStart(2, "0")}-${MONTHS_TITLE[input.getMonth()]}-${input.getFullYear()}`;
+  }
+  const p = parseLooseDate(input);
+  if (!p) return input;
+  const mon = MONTHS_TITLE[p.m - 1];
+  if (!mon || p.d < 1 || p.d > 31) return input;
+  return `${String(p.d).padStart(2, "0")}-${mon}-${p.y}`;
+}
+
+/** True when the value is a date we can render — lets a caller decide whether
+ *  a field holds a date at all before formatting it. */
+export function isDateLike(input: string | null | undefined): boolean {
+  return input != null && input !== "" && parseLooseDate(input) !== null;
+}
+
+/**
  * Calendar day (YYYY-MM-DD) of `d` in the given IANA timezone. Used by
  * attendance to pin a punch to the employee's own "today" regardless of
  * the server's timezone (Vercel runs UTC).

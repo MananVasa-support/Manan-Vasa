@@ -51,6 +51,7 @@ import {
 } from "@/lib/hr/letters/templates/ctc-breakup";
 import { formatINR, num } from "@/lib/hr/ctc/model";
 import { fireToast } from "@/lib/toast";
+import { DateField } from "@/components/ui/date-field";
 
 const RED = "#E10600";
 const RED_DEEP = "#A80400";
@@ -1401,8 +1402,7 @@ function Field({
   // 2026"); the picker shows/edits it via an ISO shadow.
   if (spec.date) {
     return (
-      <input
-        type="date"
+      <DateField
         autoFocus={autoFocus}
         aria-label={spec.label}
         data-filled={filled || undefined}

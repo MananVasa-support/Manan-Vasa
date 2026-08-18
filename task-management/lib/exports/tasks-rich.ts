@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { STATUS_LABELS_FALLBACK } from "@/lib/format";
 import { PRIORITY_LABELS, type ApprovalStatus } from "@/db/enums";
 import type { TaskExportRow } from "@/lib/queries/tasks";
+import { formatDMonY } from "@/lib/format";
 
 /**
  * Rich-export columns shared between XLSX and PDF task exports.
@@ -34,8 +35,7 @@ const APPROVAL_LABEL: Record<ApprovalStatus, string> = {
   transferred: "Transferred",
 };
 
-const fmtDate = (d: Date | null | undefined): string =>
-  d ? format(d, "MMM d, yyyy") : "";
+const fmtDate = (d: Date | null | undefined): string => (d ? formatDMonY(d) : "");
 
 export interface RichRow {
   clientName: string;

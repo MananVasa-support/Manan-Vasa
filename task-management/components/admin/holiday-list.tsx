@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DataTable } from "@/components/admin/ui/data-table";
 import { addHoliday, updateHoliday, removeHoliday } from "@/app/(admin)/admin/holidays/actions";
+import { DateField } from "@/components/ui/date-field";
 
 export interface HolidayItem {
   id: string;
@@ -289,9 +290,8 @@ function CreateHolidayDialog({
           </Dialog.Description>
           <form onSubmit={onSubmit} className="space-y-4">
             <HolidayField label="Date">
-              <input
+              <DateField
                 required
-                type="date"
                 value={holidayDate}
                 onChange={(e) => setHolidayDate(e.target.value)}
                 className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px] tabular-nums"

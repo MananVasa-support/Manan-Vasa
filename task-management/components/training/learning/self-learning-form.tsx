@@ -7,6 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { logSelfLearning, deleteSelfLearning } from "@/app/(app)/training/self-learning/actions";
 import { formatDate } from "@/lib/format";
+import { DateField } from "@/components/ui/date-field";
 
 const ACCENT = "#E10600";
 const ACCENT_DEEP = "#A80400";
@@ -124,8 +125,7 @@ export function SelfLearningForm() {
         </div>
         <div>
           <label className={LABEL}>Date</label>
-          <input
-            type="date"
+          <DateField
             className={FIELD}
             value={learnDate}
             max={todayIst()}

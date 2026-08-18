@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { DateField } from "@/components/ui/date-field";
 
 const KIND_OPTIONS: { value: string; label: string }[] = [
   { value: "task_assigned", label: "Task assigned" },
@@ -165,8 +166,7 @@ export function NotificationFilterBar({ employees, initial }: Props) {
           <span className="text-[12px] uppercase tracking-wide text-ink-subtle">
             From
           </span>
-          <input
-            type="date"
+          <DateField
             value={from}
             onChange={(e) => setFrom(e.target.value)}
             className="bg-transparent outline-none text-chip text-ink-strong tabular-nums"
@@ -178,8 +178,7 @@ export function NotificationFilterBar({ employees, initial }: Props) {
           <span className="text-[11px] uppercase tracking-wide text-ink-subtle">
             To
           </span>
-          <input
-            type="date"
+          <DateField
             value={to}
             onChange={(e) => setTo(e.target.value)}
             className="bg-transparent outline-none text-chip text-ink-strong tabular-nums"

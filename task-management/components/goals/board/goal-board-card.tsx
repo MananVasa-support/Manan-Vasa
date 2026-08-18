@@ -87,6 +87,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { DateField } from "@/components/ui/date-field";
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
@@ -846,8 +847,7 @@ function GoalBoardCardImpl({
               {goal.period === "month" && (
                 <Field label="Target Date">
                   <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="date"
+                    <DateField
                       defaultValue={goal.targetDate ?? ""}
                       disabled={ro}
                       aria-label="Target date"
@@ -1735,8 +1735,7 @@ function MoveGoalDrawer({
         <div>
           <span className="mb-1.5 block text-[12.5px] font-bold text-ink-soft">Bucket</span>
           {level === "day" ? (
-            <input
-              type="date"
+            <DateField
               value={key}
               onChange={(e) => setKey(e.target.value)}
               aria-label="Target day"

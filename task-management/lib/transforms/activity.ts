@@ -1,6 +1,7 @@
 import { format, isToday, isYesterday } from "date-fns";
 import { TASK_EVENT_TYPES, type TaskEventType } from "@/lib/events";
 import type { TaskStatus } from "@/db/enums";
+import { formatDMonY } from "@/lib/format";
 
 /**
  * Source of an activity event.  `task` events come from `task_events`,
@@ -128,7 +129,7 @@ export function groupByDay(events: ActivityRow[]): DayGroup[] {
 function dayLabel(d: Date): string {
   if (isToday(d)) return "Today";
   if (isYesterday(d)) return "Yesterday";
-  return format(d, "MMM d, yyyy");
+  return formatDMonY(d);
 }
 
 /**

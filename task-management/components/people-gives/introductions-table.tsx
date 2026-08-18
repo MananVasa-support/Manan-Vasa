@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowUpDown, ArrowUp, ArrowDown, Plus, Search, X } from "lucide-react";
 import type { PgIntroductionRow } from "@/lib/queries/people-gives";
+import { DateField } from "@/components/ui/date-field";
 
 type SortKey =
   | "receivedOn"
@@ -138,8 +139,8 @@ export function IntroductionsTable({ rows }: { rows: PgIntroductionRow[] }) {
           <option value="">All Salespeople</option>
           {salesPeople.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
-        <input type="date" className={CHIP} value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Received from" title="Received on — from" />
-        <input type="date" className={CHIP} value={to} onChange={(e) => setTo(e.target.value)} aria-label="Received to" title="Received on — to" />
+        <DateField className={CHIP} value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Received from" title="Received on — from" />
+        <DateField className={CHIP} value={to} onChange={(e) => setTo(e.target.value)} aria-label="Received to" title="Received on — to" />
         {hasFilters && (
           <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
             <X size={15} strokeWidth={2.4} /> Clear

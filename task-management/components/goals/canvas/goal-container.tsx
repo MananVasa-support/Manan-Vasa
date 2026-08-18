@@ -71,6 +71,7 @@ import { useCanvasShell } from "./shell-context";
 import { mondayKeyOf, weekNoOf, weekRangeLabel } from "./stage";
 import type { GoalPatch } from "./optimistic";
 import type { WeeklyDTO, ZoomLevel } from "./types";
+import { DateField } from "@/components/ui/date-field";
 
 /* ------------------------------------------------------------------ */
 /* Constants + tiny atoms                                              */
@@ -701,8 +702,7 @@ function MoveGoalControl(props: { g: GoalDTO }): React.JSX.Element {
       {level === "day" ? (
         // Day — a full year of buckets doesn't fit a select; a date input is
         // the keyboard-first answer (defaults to today).
-        <input
-          type="date"
+        <DateField
           value={key}
           disabled={busy}
           onChange={(e) => setKey(e.target.value)}
