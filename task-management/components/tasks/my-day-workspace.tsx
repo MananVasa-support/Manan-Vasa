@@ -4,6 +4,7 @@ import * as React from "react";
 import { AlertTriangle, CalendarCheck2, CalendarRange, Layers, Rows3 } from "lucide-react";
 import { AgendaBoard, type AgendaTask } from "./agenda-board";
 import { TaskTable, NoResults } from "./task-table";
+import { SectionErrorBoundary } from "@/components/ui/section-error-boundary";
 import {
   useSectionSearch,
   matchesSearch,
@@ -225,13 +226,15 @@ export function MyDayWorkspace({
           </p>
         </div>
       ) : (
-        <TaskTable
-          rows={rows}
-          employees={employees}
-          me={me}
-          statusLabels={statusLabels}
-          statusTones={statusTones}
-        />
+        <SectionErrorBoundary label="today's tasks">
+          <TaskTable
+            rows={rows}
+            employees={employees}
+            me={me}
+            statusLabels={statusLabels}
+            statusTones={statusTones}
+          />
+        </SectionErrorBoundary>
       )}
     </main>
   );
