@@ -43,32 +43,53 @@ const AGE_FROZEN_STATUSES = new Set<TaskStatus>([
 ]);
 
 /**
- * Age in whole calendar days.
+ * Age in whole calendar days, measured against the DUE DATE.
  *
- * Open tasks count to TODAY, so the number climbs while the work is live.
- * Finished ones freeze at the day they finished — previously every row measured
- * to `now`, so a task closed last March kept ageing forever and "oldest open
- * work" could be beaten by something that had been done for a year.
+ *   age = endDay − dueDay
  *
- * The freeze point is `completed_at` where there is one. Only `status = "done"`
- * stamps that column (tasks/actions.ts + the time engine), so cancelled,
- * approved and transferred rows fall back to `updated_at` — the last time the
- * row was touched, which for a terminal task is when it was terminated. It is a
- * proxy, not a true closure timestamp; a later edit to a cancelled task would
- * nudge its age.
+ * Positive = late by that many days. 0 = due today (or delivered on the day it
+ * was due). NEGATIVE = still has that many days left before it is due.
  *
- * Whole days, not elapsed 24h periods: the Due column uses
- * `differenceInCalendarDays`, and two adjacent columns measuring in different
- * units is the drift `dayIndex` exists to remove.
+ * This replaced a created-relative age (`today − createdAt`, floored at 0).
+ * That answered "how long has this existed", which on a triage list is the
+ * wrong question and is why every recent row read the same tiny number — the
+ * list is ordered createdAt DESC, so the top rows were all a day or two old
+ * regardless of whether they were weeks overdue. Due-relative answers "how far
+ * past its deadline is this", which is what the column is read for.
+ *
+ * `dueAt` here is the EFFECTIVE due date (revised ?? original, see
+ * effectiveDueAtSql), so moving a deadline moves the age with it.
+ *
+ * The floor at 0 is gone — clamping would erase the entire upcoming half of the
+ * range and make every future task look due today.
+ *
+ * FINISHED TASKS STILL FREEZE. An open task measures to today so the number
+ * climbs while it slips; a finished one measures from the day it closed, so it
+ * records how late it was DELIVERED and stops. Without this a task delivered
+ * one day late two years ago would read 730d forever. Only status = "done"
+ * stamps completed_at, so cancelled/approved/transferred fall back to
+ * updated_at — the last touch, which for a terminal task is when it was
+ * terminated. A proxy, not a true closure timestamp.
+ *
+ * Whole calendar days, not elapsed hours: the Due column renders with
+ * `differenceInCalendarDays`, and two adjacent columns measuring the same two
+ * dates in different units is the drift `dayIndex` exists to remove.
  */
 function ageInDays(
-  row: { createdAt: Date; completedAt: Date | null; status: TaskStatus; updatedAt: Date },
+  row: {
+    dueAt: Date | null;
+    completedAt: Date | null;
+    status: TaskStatus;
+    updatedAt: Date;
+  },
   nowDay: number,
 ): number {
+  // No deadline means nothing to be late against. 0 rather than a guess.
+  if (!row.dueAt) return 0;
   const frozenAt =
     row.completedAt ?? (AGE_FROZEN_STATUSES.has(row.status) ? row.updatedAt : null);
   const endDay = frozenAt ? dayIndex(frozenAt) : nowDay;
-  return Math.max(0, endDay - dayIndex(row.createdAt));
+  return endDay - dayIndex(row.dueAt);
 }
 
 // A task's "effective" status spans two columns: the working `status` and the

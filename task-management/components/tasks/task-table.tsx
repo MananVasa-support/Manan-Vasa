@@ -434,19 +434,24 @@ function buildColumns(
       accessorKey: "ageDays",
       header: "Age",
       meta: { mobileHide: true, align: "center" },
-      // `ageDays` is computed server-side in lib/queries/tasks.ts from
-      // createdAt (+ the completion stamp for finished tasks). It does NOT
-      // depend on the Created column being rendered — hiding that column via
-      // the Columns menu changes nothing here, because `createdAt` stays in the
-      // row payload either way and only its CELL is suppressed.
+      // `ageDays` is computed server-side in lib/queries/tasks.ts as
+      // (today | day it closed) − effective due date. Positive = days late,
+      // 0 = due today, negative = days still remaining.
       cell: (info) => {
         const d = info.getValue<number>();
         return (
-          <span className="text-body-lg text-ink tabular-nums">
-            {/* 0 means created and (if finished) closed on the same calendar
-                day — under a day of life. "0d" read as "no age recorded"; the
-                "<" says the clock has started but not turned over. */}
-            {d === 0 ? "< 1d" : `${d}d`}
+          <span
+            className={`text-body-lg tabular-nums ${
+              // Late is the only state worth colouring. Everything else is
+              // either on schedule or ahead of it, and tinting those competes
+              // with the Due column's own urgency treatment right beside it.
+              d > 0 ? "font-semibold text-red-600" : "text-ink"
+            }`}
+          >
+            {/* Plain signed integer days. The old "< 1d" is gone: it existed
+                for a created-relative age where 0 meant "less than a day old",
+                and under this formula 0 means exactly "due today". */}
+            {d}d
           </span>
         );
       },
@@ -1652,7 +1657,15 @@ function TaskCard({
         <span aria-hidden>·</span>
         <span className="tabular-nums">Created {safeFormat(row.createdAt)}</span>
         <span aria-hidden>·</span>
-        <span className="tabular-nums">{row.ageDays}d old</span>
+        {/* Wording tracks the sign: the number is due-relative now, so "old"
+            would be wrong for anything not yet due. */}
+        <span className="tabular-nums">
+          {row.ageDays > 0
+            ? `${row.ageDays}d late`
+            : row.ageDays === 0
+              ? "due today"
+              : `${Math.abs(row.ageDays)}d left`}
+        </span>
       </div>
     </div>
   );
