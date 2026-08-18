@@ -6,7 +6,6 @@ import { Users } from "lucide-react";
 
 import { OnTimeGauge } from "@/components/dashboard/exec/on-time-gauge";
 import { ManagerInitiatorTable } from "@/components/dashboard/exec/manager-initiator-table";
-import { NotApprovedSidebar } from "@/components/dashboard/exec/not-approved-sidebar";
 import { PerformanceByPersonTable } from "@/components/dashboard/exec/performance-by-person-table";
 import { ManagerDrilldown } from "@/components/dashboard/exec/manager-drilldown";
 import { DashboardSectionHeader } from "@/components/dashboard/section-header";
@@ -20,7 +19,6 @@ import {
 import type {
   DoneOnTime,
   InitiatorBoard,
-  NotApprovedAging,
 } from "@/lib/types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -46,7 +44,6 @@ type WindowKey = "d3" | "d7";
 export interface ExecDashboardProps {
   doneOnTime: DoneOnTime;
   initiator: { d3: InitiatorBoard; d7: InitiatorBoard };
-  notApprovedAging: NotApprovedAging;
   avatarById: Record<string, string | null>;
   isAdmin: boolean;
   meId: string | null;
@@ -75,7 +72,6 @@ type ExecCtxValue = {
   board: InitiatorBoard;
   managers: InitiatorBoard["managers"];
   doneOnTimeView: DoneOnTime;
-  notApprovedAgingView: NotApprovedAging;
   peopleRows: DoneOnTime["revised"]["byPerson"];
   nothingAtAll: boolean;
   isAdmin: boolean;
@@ -105,7 +101,6 @@ function useExec(): ExecCtxValue {
 export function ExecDashboard({
   doneOnTime,
   initiator,
-  notApprovedAging,
   avatarById,
   isAdmin,
   meId,
@@ -167,29 +162,22 @@ export function ExecDashboard({
     return { original: narrow(doneOnTime.original), revised: narrow(doneOnTime.revised) };
   }, [doneOnTime, sectionQuery]);
 
-  const notApprovedAgingView = React.useMemo(() => {
-    if (!sectionQuery) return notApprovedAging;
-    return {
-      ...notApprovedAging,
-      byPerson: notApprovedAging.byPerson.filter((p) =>
-        matchesSearch(sectionQuery, p.employeeName),
-      ),
-    };
-  }, [notApprovedAging, sectionQuery]);
-
   const windowDays: 3 | 7 = windowKey === "d3" ? 3 : 7;
 
   // Global empty state: nothing to show anywhere on the surface. Reads the
   // FILTERED views, so a search matching nobody collapses to the same calm
   // empty state instead of a page of zeroed-out panels.
+  //
+  // The declined/not-approved term that used to sit in both branches went with
+  // the "Attention Required" widget. Delivery + delegation are what the surface
+  // still shows, so they are what "nothing at all" now means.
   const peopleRows = doneOnTimeView.revised.byPerson;
   const nothingAtAll =
     managers.length === 0 &&
     (sectionQuery
-      ? peopleRows.length === 0 && notApprovedAgingView.byPerson.length === 0
+      ? peopleRows.length === 0
       : doneOnTime.revised.dated === 0 &&
         doneOnTime.original.dated === 0 &&
-        notApprovedAging.total === 0 &&
         peopleRows.length === 0);
 
   // Staggered entrance helper (reduced-motion-gated → final state, no anim).
@@ -210,7 +198,6 @@ export function ExecDashboard({
     board,
     managers,
     doneOnTimeView,
-    notApprovedAgingView,
     peopleRows,
     nothingAtAll,
     isAdmin,
@@ -299,36 +286,19 @@ export function ExecDelegationSection() {
 }
 
 /**
- * DELIVERED ON TIME — the on-time gauge.
+ * DELIVERED ON TIME — the 2-column gauge + task-breakdown widget. Leads the
+ * Attention tab.
  *
- * This and `ExecAttentionSection` below were one `ExecSummarySection` that
- * rendered both, stacked. They answer opposite questions — "how are we doing?"
- * versus "what is stuck?" — so they are separate placeable sections, and the
- * dashboard puts them at opposite ends of the stack (Delivered On Time 7th,
- * Attention Required last). Both still read the same context, so nothing about
- * the data changed. (They were briefly split across Overview/Attention tabs;
- * those are gone.)
+ * `ExecAttentionSection` ("Attention Required" — declined / not-approved work)
+ * used to sit beside this one and is GONE: the widget, its component, and the
+ * `notApprovedAging` plumbing were removed outright rather than hidden, because
+ * re-work chasing is not what this surface is for.
  */
 export function ExecOnTimeSection() {
   const { rise, doneOnTimeView } = useExec();
   return (
     <motion.div {...rise(0)}>
       <OnTimeGauge data={doneOnTimeView} />
-    </motion.div>
-  );
-}
-
-/** ATTENTION REQUIRED — declined / not-approved work, oldest waiting first. */
-export function ExecAttentionSection() {
-  const { rise, notApprovedAgingView, isAdmin, meId, resolveAvatar } = useExec();
-  return (
-    <motion.div {...rise(0)}>
-      <NotApprovedSidebar
-        data={notApprovedAgingView}
-        isAdmin={isAdmin}
-        meId={meId}
-        resolveAvatar={resolveAvatar}
-      />
     </motion.div>
   );
 }

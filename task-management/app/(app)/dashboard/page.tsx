@@ -12,8 +12,8 @@ import {
   ExecOverdueSection,
   ExecDelegationSection,
   ExecOnTimeSection,
-  ExecAttentionSection,
 } from "@/components/dashboard/exec/exec-dashboard";
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
@@ -223,90 +223,76 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 </div>
               )}
               </KpiStrip>
-              {/* Everything below the Task Report banner runs down ONE column
-                  again, in the founder-specified order. The three-tab split
-                  (Overview / Performance / Attention) is gone: it grouped the
-                  sections by the question each answers, but that put the order
-                  behind a click and hid two thirds of the surface at any time.
+              {/* Everything below the Task Report banner is dealt into three
+                  tabs — Attention (default) · Overview · Performance — grouped
+                  by the question each answers:
 
-                  <ExecDashboard> stays a PROVIDER around the whole stack — it
-                  owns the 3/7-day window, the privacy filter, the section
-                  search and the drill-down modal, and hands them to its four
-                  sections through context, wherever they sit in the order. */}
+                    Attention   — Delivered On Time · Overdue by Person ·
+                                  Aging Heatmap
+                    Overview    — Status Distribution · Status by Doer ·
+                                  Who is Delegating
+                    Performance — Top Performers
+
+                  Attention leads because the dashboard is opened to find out
+                  what is on fire. Only the selected tab is MOUNTED, so each is
+                  its own short scroll rather than one long one.
+
+                  The "Attention Required" (declined / re-work) widget is gone
+                  entirely — component, section and query plumbing.
+
+                  <ExecDashboard> wraps the WHOLE tab container, not each panel:
+                  it is a context provider (3/7-day window, privacy filter,
+                  section search, drill-down modal) and its sections throw if
+                  rendered outside it. Panels are built in this render but only
+                  the active one mounts, so the provider must sit above them. */}
               <ExecDashboard
                 doneOnTime={data.doneOnTime}
                 initiator={data.initiator}
-                notApprovedAging={data.notApprovedAging}
                 avatarById={avatarById}
                 isAdmin={Boolean(me?.isAdmin)}
                 meId={me?.id ?? null}
               >
-                {/* ONE flex column owns the vertical rhythm. Each section used
-                    to carry its own mt-10/mt-12, which is why the gap under the
-                    Task Report banner was double-counted (the banner's own
-                    bottom margin plus the next section's top margin) and left a
-                    band of empty white. `gap-6` is now the only thing between
-                    any two widgets. */}
-                {/* `mt-6` is NOT redundant with `gap-6`: gap only spaces
-                    siblings INSIDE this column, so with no top margin the first
-                    widget butts straight against the Task Report banner above —
-                    which is what removing the old mt-10 caused. The column needs
-                    its own clearance from the element it follows. */}
-                <div className="mt-6 flex flex-col gap-6">
-                {/* 1 — Overdue Tasks by Person. Also carries the surface's
-                    global empty state, so it has to lead. */}
-                <PageShell as="div" width="full" py={false}>
-                  <ExecOverdueSection />
-                </PageShell>
-
-                {/* 2 — Status by Employee */}
-                <StatusTable
-                  rows={data.statusTable}
-                  view={filters.view}
-                  avatarById={avatarById}
+                <DashboardTabs
+                  attention={
+                    <div className="flex flex-col gap-6">
+                      <ExecOnTimeSection />
+                      {/* Also carries the surface's global empty state, so it
+                          must live in the DEFAULT tab or that state can never
+                          be seen. */}
+                      <ExecOverdueSection />
+                      <AgingHeatmap
+                        rows={data.agingTable}
+                        cellTasks={data.agingHeatmapData.byCell}
+                        avatarById={avatarById}
+                        me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
+                      />
+                    </div>
+                  }
+                  overview={
+                    <div className="flex flex-col gap-6">
+                      <StatusDistributionChart
+                        data={data.statusDistribution}
+                        labels={statusLabels}
+                        tones={statusTones}
+                        isAdmin={Boolean(me?.isAdmin)}
+                      />
+                      <StatusTable
+                        rows={data.statusTable}
+                        view={filters.view}
+                        avatarById={avatarById}
+                      />
+                      <ExecDelegationSection />
+                    </div>
+                  }
+                  performance={
+                    <div className="flex flex-col gap-6">
+                      <TopPerformersSection
+                        performers={data.topPerformers}
+                        avatarById={avatarById}
+                      />
+                    </div>
+                  }
                 />
-
-                {/* 3 — Aging Heatmap */}
-                <AgingHeatmap
-                  rows={data.agingTable}
-                  cellTasks={data.agingHeatmapData.byCell}
-                  avatarById={avatarById}
-                  me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
-                />
-
-                {/* 4 — Delegation Dashboard */}
-                <PageShell as="div" width="full" py={false}>
-                  <ExecDelegationSection />
-                </PageShell>
-
-                {/* 5 — Rank of Employees */}
-                <PageShell as="div" width="full" py={false}>
-                  <TopPerformersSection
-                    performers={data.topPerformers}
-                    avatarById={avatarById}
-                  />
-                </PageShell>
-
-                {/* 6 — Status Distribution */}
-                <PageShell as="div" width="full" py={false}>
-                  <StatusDistributionChart
-                    data={data.statusDistribution}
-                    labels={statusLabels}
-                    tones={statusTones}
-                    isAdmin={Boolean(me?.isAdmin)}
-                  />
-                </PageShell>
-
-                {/* 7 — Delivered On Time */}
-                <PageShell as="div" width="full" py={false}>
-                  <ExecOnTimeSection />
-                </PageShell>
-
-                {/* 8 — Attention Required, last on the page. */}
-                <PageShell as="div" width="full" py={false}>
-                  <ExecAttentionSection />
-                </PageShell>
-                </div>
               </ExecDashboard>
             </div>
           </>

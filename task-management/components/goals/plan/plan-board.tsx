@@ -512,6 +512,8 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
           onClosed={() => setPhase("closed")}
           onReopened={() => setPhase("plan")}
           onTransfer={onTransfer}
+          onRemove={onRemove}
+          employeeName={target.name}
         />
       </>
     );

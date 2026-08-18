@@ -6,8 +6,15 @@ import { employeeIdsInDepartments } from "@/lib/queries/departments";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-/** Which half of the gauge the drill-down is showing. */
-export type PunctualityBucket = "onTime" | "late";
+/**
+ * Which half of the gauge the drill-down is showing — or `all`, both halves at
+ * once, which is what the "Total Completed" KPI card selects.
+ *
+ * `all` costs NO extra database work: the query below already fetches every
+ * dated done task in scope and splits them in JS, so this only skips that
+ * in-memory filter.
+ */
+export type PunctualityBucket = "onTime" | "late" | "all";
 export type PunctualityBasisId = "original" | "revised";
 
 /** One delivered task in the drill-down list. */
@@ -112,7 +119,7 @@ export async function loadPunctualityDrilldown(
     if (!r.completedAt || !due) continue;
     const signed = dayNumber(due as Date | string) - dayNumber(r.completedAt);
     const isOnTime = signed >= 0;
-    if ((bucket === "onTime") !== isOnTime) continue;
+    if (bucket !== "all" && (bucket === "onTime") !== isOnTime) continue;
     out.push({
       id: r.id,
       taskNo: r.taskNo,
@@ -128,7 +135,12 @@ export async function loadPunctualityDrilldown(
   }
 
   // Worst offenders first when late; the earliest deliveries first when on time.
-  out.sort((a, b) => (bucket === "late" ? b.daysLate - a.daysLate : b.daysEarly - a.daysEarly));
+  // `all` mixes both, so it sorts by lateness descending — the late rows lead
+  // (most overdue first), then the on-time ones. That keeps the thing you need
+  // to act on at the top of an unfiltered list.
+  out.sort((a, b) =>
+    bucket === "onTime" ? b.daysEarly - a.daysEarly : b.daysLate - a.daysLate,
+  );
 
   return {
     bucket,

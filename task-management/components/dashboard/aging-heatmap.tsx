@@ -93,6 +93,10 @@ export function AgingHeatmap({
 }) {
   const [open, setOpen] = React.useState(true);
   const [sortMode, setSortMode] = React.useState<SortMode>("risk");
+  // "Critical Only" — keep just the people carrying 31d+ work. Reuses
+  // CRITICAL_BUCKETS, the same definition the risk score and the red banner
+  // already use, so "critical" means one thing across the widget.
+  const [criticalOnly, setCriticalOnly] = React.useState(false);
 
   // Drill-down target. `employeeId: null` = "this bracket, everyone" (an age
   // badge); `bucketId: null` = "this person, every bracket" (a lane); both set
@@ -148,9 +152,23 @@ export function AgingHeatmap({
     [rows, sectionQuery],
   );
 
-  const enriched = React.useMemo(
+  const enrichedAll = React.useMemo(
     () => searched.map((r) => ({ ...r, risk: riskScore(r) })),
     [searched],
+  );
+
+  // Applied BEFORE the counts below, so the header describes what is actually
+  // on screen — the same reason the section search is applied before enrichment.
+  // A lane's BARS keep their full age split: the toggle picks which PEOPLE are
+  // listed, and hiding their under-31d work would misstate each person's load.
+  const enriched = React.useMemo(
+    () =>
+      criticalOnly
+        ? enrichedAll.filter(
+            (r) => CRITICAL_BUCKETS.reduce((s, k) => s + r.buckets[k], 0) > 0,
+          )
+        : enrichedAll,
+    [enrichedAll, criticalOnly],
   );
 
   const sorted = React.useMemo(() => {
@@ -215,6 +233,7 @@ export function AgingHeatmap({
         }
         actions={
           <>
+            <CriticalToggle value={criticalOnly} onChange={setCriticalOnly} />
             <SortControl value={sortMode} onChange={setSortMode} />
             <CollapseToggle
               expanded={open}
@@ -243,7 +262,11 @@ export function AgingHeatmap({
 
           {top12.length === 0 ? (
             <p className="mt-6 font-semibold" style={{ fontSize: 17, color: "var(--color-ink-muted)" }}>
-              No pending tasks for the current filter.
+              {/* "Critical only" makes this reachable on healthy data, where a
+                  bare "no tasks" would read as a loading failure. */}
+              {criticalOnly
+                ? "Nobody is carrying work aged 31 days or more."
+                : "No pending tasks for the current filter."}
             </p>
           ) : (
             /* No gap between lanes and no card per lane: the rows are separated
@@ -277,6 +300,56 @@ export function AgingHeatmap({
         onClose={() => setDrill(null)}
       />
     </PageShell>
+  );
+}
+
+/**
+ * "All / Critical" quick filter. Built as a two-option segmented control
+ * matching `SortControl` beside it rather than a checkbox or a switch — the two
+ * sit in the same header slot, and a third control shape there would read as
+ * three unrelated widgets.
+ */
+function CriticalToggle({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const options: { id: boolean; label: string; hint: string }[] = [
+    { id: false, label: "All", hint: "Every person with pending work." },
+    {
+      id: true,
+      label: "Critical only",
+      hint: "Only people carrying tasks aged 31 days or more.",
+    },
+  ];
+  return (
+    <div
+      className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1"
+      role="tablist"
+      aria-label="Filter aging lanes"
+    >
+      {options.map((o) => {
+        const active = value === o.id;
+        return (
+          <button
+            key={String(o.id)}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(o.id)}
+            title={o.hint}
+            className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+              active ? "bg-white shadow-sm" : "text-gray-500 hover:text-gray-900"
+            }`}
+            style={active && o.id ? { color: "var(--color-altus-red-deep)" } : undefined}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

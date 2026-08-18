@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { StatPill, type StatTone } from "@/components/admin/ui/stat-pill";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import { cn } from "@/lib/utils";
 
 export interface AdminSectionStat {
@@ -10,15 +11,29 @@ export interface AdminSectionStat {
 }
 
 export interface AdminSectionProps {
-  /** Breadcrumb eyebrow, e.g. "ADMIN · PEOPLE". Rendered uppercased. */
+  /**
+   * DEPRECATED — no longer rendered.
+   *
+   * This was the red uppercase breadcrumb pill ("ADMIN · PEOPLE") above every
+   * title. The admin sidebar already says which section you are in and the
+   * title says which page, so the pill restated both in the loudest type on the
+   * screen. The prop is KEPT (not removed) so the seventeen admin pages that
+   * pass it need no edit; it is simply ignored.
+   */
   eyebrow?: string;
   /** The big display title, e.g. "The team". */
   title: string;
-  /** Optional supporting line under the title. */
+  /**
+   * Supporting line. Now rendered INLINE to the right of the title as quiet
+   * helper text, never underneath it — it costs no vertical space there.
+   */
   subtitle?: string;
-  /** Optional lucide icon rendered in the brand-red tile beside the title. */
+  /**
+   * DEPRECATED — no longer rendered. The 52px brand-red icon tile beside the
+   * title. Kept for call-site compatibility, same as `eyebrow`.
+   */
   icon?: LucideIcon;
-  /** Premium stat pills rendered in a row under the title. */
+  /** Premium stat pills — the KPI row. Rendered in the bar's second row. */
   stats?: AdminSectionStat[];
   /** Right-aligned actions slot (buttons, export links, primary dialogs). */
   actions?: ReactNode;
@@ -28,100 +43,79 @@ export interface AdminSectionProps {
 }
 
 /**
- * The shared premium header + body frame for every admin section page.
+ * The shared header + body frame for EVERY admin section page.
  *
- * Server-safe (no hooks, no "use client") — drop it straight into an
- * admin section page.tsx (a server component). It renders a glassy
- * brand-red-tinted, frosted header band (breadcrumb eyebrow, big display
- * title, optional subtitle + icon, a right-aligned `actions` slot, and a row
- * of premium `StatPill`s), then the `children` below in a comfortable
- * max-width container with a staggered `wg-rise` entrance.
+ * Because all seventeen admin pages already route through this one component,
+ * restyling it is what standardises the whole module — there are no per-page
+ * CSS overrides to chase, and no page file needs to change.
  *
- * Usage:
+ * It now delegates its header to `PageCommandBar`
+ * (components/layout/page-command-bar.tsx), the same component the Goals,
+ * Accounts and Employees rooms use, so "the Yearly Goals header" is literally
+ * one object rather than a look reproduced in several places.
+ *
+ * What that changed, versus the old glassy `admin-section-band`:
+ *   · the red uppercase eyebrow pill is gone (see `eyebrow`)
+ *   · the 52px red icon tile is gone (see `icon`)
+ *   · the 44px display title drops to the shared clamp(22px, 2vw, 32px)
+ *   · the subtitle moves INLINE, right of the title, instead of a 15px line
+ *     beneath it
+ *   · header padding drops from px-6 py-6 to the bar's 56px row
+ *
+ * KPI SAFETY: `stats` still renders the SAME `StatPill` component, in the same
+ * order, with the same tones. It moves into the bar's second row — which is
+ * where it already sat relative to the title (inside the header block), so the
+ * pills stay directly under the title rather than being re-homed.
+ *
+ * Server-safe (no hooks, no "use client") — drop it straight into an admin
+ * section page.tsx.
+ *
+ * Usage is UNCHANGED; `eyebrow` and `icon` are accepted and ignored:
  *   <AdminSection
- *     eyebrow="Admin · Employees"
  *     title="The team"
- *     subtitle="12 total · 9 active · 3 pending invite"
- *     icon={Users}
- *     stats={[
- *       { label: "Total", value: 12 },
- *       { label: "Active", value: 9, tone: "green" },
- *       { label: "Pending", value: 3, tone: "amber" },
- *     ]}
+ *     subtitle="12 total · 9 active"
+ *     stats={[{ label: "Total", value: 12 }, { label: "Active", value: 9, tone: "green" }]}
  *     actions={<InviteEmployeeDialog … />}
  *   >
  *     <EmployeeList … />
  *   </AdminSection>
  */
 export function AdminSection({
-  eyebrow,
   title,
   subtitle,
-  icon: Icon,
   stats,
   actions,
   children,
   className,
 }: AdminSectionProps) {
+  const hasStats = Boolean(stats && stats.length > 0);
+
   return (
     <div className={cn("wg-rise", className)}>
-      <header className="admin-section-band px-6 py-6 max-md:px-4 max-md:py-5">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0 flex items-start gap-4">
-            {Icon ? (
-              <span
-                className="admin-section-icon shrink-0 mt-0.5"
-                style={{ width: 52, height: 52 }}
-                aria-hidden
-              >
-                <Icon size={26} strokeWidth={2.1} />
-              </span>
-            ) : null}
-            <div className="min-w-0">
-              {eyebrow ? (
-                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-altus-red-deep/90">
-                  {eyebrow}
-                </div>
-              ) : null}
-              <h1
-                className="mt-1 text-ink-strong"
-                style={{
-                  fontFamily: "var(--font-display), var(--font-serif), system-ui, sans-serif",
-                  fontWeight: 900,
-                  fontSize: 44,
-                  lineHeight: 1.02,
-                  letterSpacing: "-0.03em",
-                }}
-              >
-                {title}
-              </h1>
-              {subtitle ? (
-                <p className="mt-2 max-w-2xl text-[15px] font-medium text-ink-muted tabular-nums">
-                  {subtitle}
-                </p>
-              ) : null}
+      <PageCommandBar
+        title={title}
+        hint={subtitle}
+        actions={actions}
+        toolbar={
+          hasStats ? (
+            <div className="flex flex-wrap gap-2">
+              {stats!.map((s, i) => (
+                <StatPill
+                  key={`${s.label}-${i}`}
+                  label={s.label}
+                  value={s.value}
+                  tone={s.tone}
+                />
+              ))}
             </div>
-          </div>
-          {actions ? (
-            <div className="flex items-center gap-2.5 shrink-0 mt-1">{actions}</div>
-          ) : null}
-        </div>
+          ) : undefined
+        }
+      />
 
-        {stats && stats.length > 0 ? (
-          <div className="mt-5 flex flex-wrap gap-2.5">
-            {stats.map((s, i) => (
-              <StatPill
-                key={`${s.label}-${i}`}
-                label={s.label}
-                value={s.value}
-                tone={s.tone}
-              />
-            ))}
-          </div>
-        ) : null}
-      </header>
-
-      <div className="mt-6">{children}</div>
+      {/* No top margin of its own — `PageCommandBar` already carries `mb-4`,
+          and the old `mt-6` on top of that was 40px of dead space between the
+          header and the table it heads. */}
+      <div>{children}</div>
     </div>
   );
 }

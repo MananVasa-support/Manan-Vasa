@@ -26,10 +26,15 @@ import { PageShell } from "@/components/layout/page-shell";
 
 export type DashboardTabId = "overview" | "performance" | "attention";
 
+/**
+ * Attention LEADS and is the default. The dashboard is opened to find out what
+ * is on fire, not to admire the totals — so the risk triage view is what you
+ * land on, and Overview/Performance are the deliberate second look.
+ */
 const TABS: { id: DashboardTabId; label: string; hint: string }[] = [
-  { id: "overview", label: "Overview", hint: "Team health at a glance" },
+  { id: "attention", label: "Attention", hint: "Overdue, late and long-pending work" },
+  { id: "overview", label: "Overview", hint: "Today's status and workload spread" },
   { id: "performance", label: "Performance", hint: "Who is delivering — best to worst" },
-  { id: "attention", label: "Attention", hint: "What needs action now" },
 ];
 
 export function DashboardTabs({
@@ -41,7 +46,7 @@ export function DashboardTabs({
   performance: React.ReactNode;
   attention: React.ReactNode;
 }) {
-  const [active, setActive] = React.useState<DashboardTabId>("overview");
+  const [active, setActive] = React.useState<DashboardTabId>("attention");
   const [stickyTop, setStickyTop] = React.useState(0);
   const anchorRef = React.useRef<HTMLDivElement>(null);
 

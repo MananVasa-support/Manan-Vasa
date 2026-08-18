@@ -8,6 +8,8 @@ import { ScoreRing } from "@/components/weekly-goals/score-ring";
 import type { PlanItem, PlanPhase } from "./types";
 import { setItemProgress, closeMyDay, reopenPlan } from "@/app/(app)/goals/plan/actions";
 import { TransferControl } from "./item-detail";
+import { PlanTaskTable } from "./plan-task-table";
+import { PlanItemDrawer } from "./plan-item-drawer";
 
 const GOALS_ACCENT = "#E10600";
 const GOALS_ACCENT_DEEP = "#A80400";
@@ -28,6 +30,11 @@ interface Props {
   onReopened: () => void;
   /** Carry an unfinished commitment forward to tomorrow (1) / day-after (2). */
   onTransfer?: (id: string, off: number) => void;
+  /** Take a commitment off this day entirely (does NOT touch the task). */
+  onRemove?: (id: string) => void;
+  /** Whose day this is — shown on the detail drawer's metadata row. */
+  employeeName: string;
+  avatarUrl?: string | null;
 }
 
 /**
@@ -36,18 +43,39 @@ interface Props {
  *   closeout — the SAME commitments (no pull panels), each marked done / 0-100%.
  *   closed   — a read-only summary of how the day went.
  */
-export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, onClosed, onReopened, onTransfer }: Props) {
+export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, onClosed, onReopened, onTransfer, onRemove, employeeName, avatarUrl }: Props) {
   const [items, setItems] = React.useState<PlanItem[]>(initial);
   const [busy, setBusy] = React.useState<string | null>(null);
+  /** The row whose detail slide-over is open; null = closed. */
+  const [openItem, setOpenItem] = React.useState<PlanItem | null>(null);
   React.useEffect(() => setItems(initial), [initial]);
+
+  // Keep the open drawer in step with its row: ticking "Mark as Done" inside
+  // the drawer updates `items`, and without this the drawer would keep showing
+  // the pre-click snapshot it was opened with.
+  const openLive = openItem ? (items.find((i) => i.id === openItem.id) ?? null) : null;
 
   /** Carry an item forward — drop it from today's review, hand off to the parent. */
   const transfer = React.useCallback(
     (id: string, off: number) => {
       setItems((p) => p.filter((x) => x.id !== id));
+      setOpenItem((cur) => (cur?.id === id ? null : cur));
       onTransfer?.(id, off);
     },
     [onTransfer],
+  );
+
+  /** Take a commitment OFF this day. Same optimistic shape as `transfer` — it
+   *  leaves this view at once and the parent owns the write and any toast. The
+   *  drawer closes too if it happened to be showing this row, which would
+   *  otherwise be left open on something no longer in the list. */
+  const remove = React.useCallback(
+    (id: string) => {
+      setItems((p) => p.filter((x) => x.id !== id));
+      setOpenItem((cur) => (cur?.id === id ? null : cur));
+      onRemove?.(id);
+    },
+    [onRemove],
   );
 
   const total = items.length;
@@ -102,7 +130,10 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
   // ── ACTIVE — day planned, before close-out ──────────────────────────────
   if (phase === "active") {
     return (
-      <section className="mx-auto max-w-[720px] wg-rise">
+      // Was `max-w-[720px]` — a narrow centred card sized for a bullet list.
+      // The commitment list is now a full data table, so the card widens to let
+      // its eight columns breathe.
+      <section className="mx-auto max-w-[1200px] wg-rise">
         <div
           className="rounded-3xl border p-8 text-center max-md:p-6"
           style={{
@@ -127,18 +158,17 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
             come back at the end of the day to mark what you delivered.
           </p>
 
-          <ul className="mx-auto mt-6 flex max-w-[520px] flex-col gap-2 text-left">
-            {items.map((it) => (
-              <li
-                key={it.id}
-                className="group flex items-center gap-2.5 rounded-chip border border-hairline bg-surface-card px-3.5 py-2.5"
-              >
-                <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: GOALS_ACCENT }} />
-                <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-strong">{it.title}</span>
-                {onTransfer ? <TransferControl onTransfer={(off) => transfer(it.id, off)} /> : null}
-              </li>
-            ))}
-          </ul>
+          {/* The commitment list. Hover a row for the full title + description;
+              click one to open the detail slide-over. */}
+          <div className="mt-6 text-left">
+            <PlanTaskTable
+              items={items}
+              onOpen={setOpenItem}
+              onTransfer={onTransfer ? transfer : undefined}
+              onRemove={onRemove ? remove : undefined}
+              busyId={busy}
+            />
+          </div>
 
           <div className="mt-7 flex items-center justify-center gap-3 max-md:flex-col">
             <button
@@ -159,6 +189,15 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
             </button>
           </div>
         </div>
+
+        <PlanItemDrawer
+          item={openLive}
+          employeeName={employeeName}
+          avatarUrl={avatarUrl}
+          busy={openLive ? busy === openLive.id : false}
+          onToggleDone={(it) => onToggle(it)}
+          onClose={() => setOpenItem(null)}
+        />
       </section>
     );
   }
