@@ -116,9 +116,14 @@ export function PunctualityTaskList({
 
       {state.kind === "ok" && state.data.tasks.length > 0 && (
         <>
-          {/* Scrolls INSIDE its own box so the row count can't push the page
-              down and the panel keeps the left column's height. */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* Scrolls INSIDE its own box, capped at 360px.
+              `flex-1` alone was not enough: it only resolves to a fixed height
+              when an ancestor is itself height-constrained, and on this
+              dashboard nothing above it is — so the box sized to its content and
+              every "Load more" press grew the card and shoved the widgets below
+              it down the page. The explicit max-h is what makes the cap real, so
+              appending rows fills the scroller instead of the layout. */}
+          <div className="min-h-0 max-h-[360px] flex-1 overflow-y-auto overscroll-contain">
             <table className="min-w-full border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">
@@ -173,27 +178,31 @@ export function PunctualityTaskList({
             </table>
           </div>
 
-          {shown < state.data.tasks.length && (
-            <button
-              type="button"
-              onClick={() => setShown((n) => n + PAGE)}
-              className="shrink-0 border-t border-gray-100 bg-gray-50 px-3.5 py-2.5 text-[12.5px] font-bold text-gray-700 transition-colors hover:bg-gray-100"
-            >
-              <span className="inline-flex items-center gap-1.5">
+          {/* ONE status bar, always present — it used to be two mutually
+              exclusive strips (a Load-more button, then a truncation note that
+              only appeared once everything was expanded), so the count vanished
+              at exactly the moment the list got long enough to need it. Pinned
+              with `sticky bottom-0` so it stays legible while the rows scroll
+              behind it. */}
+          <div className="sticky bottom-0 z-10 flex shrink-0 items-center justify-between gap-3 border-t border-gray-200 bg-slate-50 px-3.5 py-2">
+            <span className="min-w-0 truncate text-[12px] font-semibold text-gray-500">
+              Showing {Math.min(shown, state.data.tasks.length).toLocaleString("en-IN")}{" "}
+              of {state.data.total.toLocaleString("en-IN")}
+              {state.data.truncated && shown >= state.data.tasks.length
+                ? " — narrow the dashboard filters to see the rest."
+                : ""}
+            </span>
+            {shown < state.data.tasks.length && (
+              <button
+                type="button"
+                onClick={() => setShown((n) => n + PAGE)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12.5px] font-bold text-gray-700 transition-colors hover:bg-gray-200"
+              >
                 <ChevronDown size={14} strokeWidth={2.6} />
-                Load more · showing {shown} of{" "}
-                {state.data.tasks.length.toLocaleString("en-IN")}
-              </span>
-            </button>
-          )}
-
-          {state.data.truncated && shown >= state.data.tasks.length && (
-            <p className="shrink-0 border-t border-gray-100 bg-gray-50 px-3.5 py-2 text-[12px] font-semibold text-gray-500">
-              Showing {state.data.tasks.length.toLocaleString("en-IN")} of{" "}
-              {state.data.total.toLocaleString("en-IN")} — narrow the dashboard
-              filters to see the rest.
-            </p>
-          )}
+                Load more
+              </button>
+            )}
+          </div>
         </>
       )}
     </div>

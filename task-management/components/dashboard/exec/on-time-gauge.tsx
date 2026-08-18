@@ -32,11 +32,27 @@ import type { PunctualityBucket } from "@/lib/queries/punctuality-drilldown";
  */
 type Basis = "original" | "revised";
 
+/**
+ * The one basis this widget measures against, no longer switchable.
+ *
+ * "revised" is the EFFECTIVE due date — `effectiveDueAtSql()` resolves it as
+ * `revised ?? original`, so a task that was never moved is still judged on the
+ * date it was given. That is the same date the tasks table's Due column, the
+ * overdue flags and the aging heatmap all use, so the gauge now agrees with
+ * every other surface instead of being the one place a second definition of
+ * "late" could be selected.
+ *
+ * It was also the toggle's default, so locking it changes nothing about what
+ * the widget reported on load — only that the reading can no longer be switched
+ * out from under whoever reads it next. `data.original` is still computed
+ * upstream; nothing here consumes it.
+ */
+const BASIS: Basis = "revised";
+
 export function OnTimeGauge({ data }: { data: DoneOnTime }) {
   const [sectionOpen, setSectionOpen] = React.useState(true);
-  const [basis, setBasis] = React.useState<Basis>("revised");
   const [bucket, setBucket] = React.useState<PunctualityBucket>("late");
-  const active = data[basis];
+  const active = data[BASIS];
   const hasData = active.dated > 0 && active.onTime + active.late > 0;
 
   return (
@@ -58,15 +74,14 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
         }
         title="Delivered on time"
         subtitle="Completed tasks delivered on or before the due date — pick a card to break it down."
+        /* Collapse only. The Original/Revised segmented toggle that used to sit
+           to its left is gone — see BASIS above. */
         actions={
-          <>
-            <BasisToggle value={basis} onChange={setBasis} />
-            <CollapseToggle
-              expanded={sectionOpen}
-              onToggle={() => setSectionOpen((v) => !v)}
-              label="the On-time rate"
-            />
-          </>
+          <CollapseToggle
+            expanded={sectionOpen}
+            onToggle={() => setSectionOpen((v) => !v)}
+            label="the On-time rate"
+          />
         }
       />
       <CollapsibleBody expanded={sectionOpen}>
@@ -88,7 +103,6 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
               <div className="flex min-w-0 flex-col gap-3">
                 <div className="flex items-center justify-center">
                   <Gauge
-                    key={basis}
                     pct={active.onTimeRate}
                     onTime={active.onTime}
                     late={active.late}
@@ -127,7 +141,7 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
 
               {/* ── RIGHT — the breakdown for the selected card ────────── */}
               <div className="flex min-h-[420px] min-w-0 flex-col">
-                <PunctualityTaskList basis={basis} bucket={bucket} />
+                <PunctualityTaskList basis={BASIS} bucket={bucket} />
               </div>
             </div>
           )}
@@ -197,47 +211,6 @@ function KpiCard({
   );
 }
 
-function BasisToggle({
-  value,
-  onChange,
-}: {
-  value: Basis;
-  onChange: (b: Basis) => void;
-}) {
-  const options: { id: Basis; label: string }[] = [
-    { id: "original", label: "Original" },
-    { id: "revised", label: "Revised" },
-  ];
-  return (
-    <div
-      className="inline-flex items-center gap-1 rounded-chip border border-hairline bg-surface-card p-1"
-      role="tablist"
-      aria-label="On-time measuring basis"
-    >
-      {options.map((o) => {
-        const isActive = value === o.id;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onClick={() => onChange(o.id)}
-            className="rounded-pill px-4 py-2 font-bold transition-all duration-200"
-            style={{
-              fontSize: 13.5,
-              background: isActive ? "var(--color-ink-strong)" : "transparent",
-              color: isActive ? "#ffffff" : "var(--color-ink-muted)",
-              boxShadow: isActive ? "0 4px 10px rgba(15,23,42,0.18)" : "none",
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function EmptyState() {
   return (
