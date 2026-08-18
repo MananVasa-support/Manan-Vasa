@@ -24,13 +24,24 @@ export function FineBucketBars({
   buckets,
   earlyLabel = "Before Due Date",
   lateLabel = "Overdue",
+  heading,
+  showLegend = true,
+  scaleMax,
 }: {
   buckets: FineBucketCount[];
   earlyLabel?: string;
   lateLabel?: string;
+  /** Replaces the two-sided legend when this list is ONE side of a split. */
+  heading?: string;
+  showLegend?: boolean;
+  /** Shared bar scale. When two lists sit side by side they must divide by the
+   *  SAME denominator, or a 2-count bar on one side renders as long as a
+   *  40-count bar on the other and the comparison the split exists for is a
+   *  lie. Falls back to this list's own max when standalone. */
+  scaleMax?: number;
 }) {
   const total = buckets.reduce((s, b) => s + b.count, 0);
-  const max = Math.max(...buckets.map((b) => b.count), 1);
+  const max = Math.max(scaleMax ?? 0, ...buckets.map((b) => b.count), 1);
 
   if (total === 0) {
     return (
@@ -42,11 +53,17 @@ export function FineBucketBars({
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">
-        <span>{lateLabel}</span>
-        <span aria-hidden className="text-gray-300">↓</span>
-        <span>{earlyLabel}</span>
-      </div>
+      {heading ? (
+        <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+          {heading}
+        </div>
+      ) : showLegend ? (
+        <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+          <span>{lateLabel}</span>
+          <span aria-hidden className="text-gray-300">↓</span>
+          <span>{earlyLabel}</span>
+        </div>
+      ) : null}
 
       <ul className="flex flex-col gap-2">
         {buckets.map((b) => {

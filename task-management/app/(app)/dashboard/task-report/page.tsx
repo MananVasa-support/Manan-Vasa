@@ -92,9 +92,15 @@ export default async function TaskReportPage() {
               </h1>
             </div>
           </div>
-          <p className="mt-3 max-w-[860px] text-[14.5px] font-semibold text-ink-subtle">
-            Delivery punctuality, sent-back work, and delegation throughput —
-            measured the way Manan tracks them, in twelve early/late buckets.
+          {/* One line on md+: the max-w-[860px] cap is gone (it was what forced
+              the old two-clause copy to wrap) and `whitespace-nowrap` holds it.
+              Phones keep normal wrapping — a nowrap line there would either
+              overflow the viewport or need truncating, and a half-sentence is
+              worse than two rows.
+              The old copy said "twelve early/late buckets"; there are NINE
+              (FINE_AGING_BUCKETS), so that count went with it. */}
+          <p className="mt-3 text-[14.5px] font-semibold text-ink-subtle max-md:whitespace-normal md:whitespace-nowrap">
+            Delivery punctuality, sent-back work, and delegation throughput across early/late buckets.
           </p>
         </PageShell>
 

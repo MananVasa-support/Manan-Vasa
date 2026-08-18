@@ -60,12 +60,14 @@ export function TaskReportView({ data, avatarById, isAdmin, meId }: TaskReportVi
           icon={<CalendarCheck2 size={22} strokeWidth={2.4} />}
           kicker="Done on time"
           title="Delivery vs due date — the 12-bucket spread"
-          subtitle="Each completed task placed by how many days early (+) or late (−) it finished. Left: against the ORIGINAL committed date · Right: against the REVISED (effective) date."
+          subtitle="Completed tasks categorized by delivery timing relative to their committed due dates."
         />
-        <div className="grid grid-cols-2 gap-6 max-lg:grid-cols-1">
-          <DoneCard dist={data.doneByOriginal} label="By ORIGINAL due date" />
-          <DoneCard dist={data.doneByRevised} label="By REVISED due date" />
-        </div>
+        {/* ONE distribution now. The "By REVISED due date" panel is removed —
+            the split below reuses the width it occupied to separate late from
+            on-time/early, which is the comparison people actually read this
+            chart for. `data.doneByRevised` is still computed upstream; nothing
+            renders it. */}
+        <DoneCard dist={data.doneByOriginal} label="By ORIGINAL due date" />
       </motion.section>
 
       {/* ── Section 3: Not Approved ── */}
@@ -151,7 +153,16 @@ function SectionHeader({
       >
         {title}
       </h2>
-      <p className="mt-1.5 max-w-[820px] text-[14px] font-semibold text-ink-subtle">
+      {/* Single line from lg up. The max-w-[820px] cap is what wrapped these;
+          with it gone `whitespace-nowrap` keeps each subtitle on one row.
+
+          lg, not md, because this rule is shared by all three sections and the
+          longest subtitle here is 134 characters ≈ 870px at 14px. That clears
+          the ~970px of content width at lg, but not the ~710px at md — and a
+          nowrap line wider than its container does not truncate, it pushes the
+          whole page into horizontal scroll. Below lg they wrap, which is the
+          lesser evil. */}
+      <p className="mt-1.5 text-[14px] font-semibold text-ink-subtle max-lg:whitespace-normal lg:whitespace-nowrap">
         {subtitle}
       </p>
     </header>
@@ -181,6 +192,9 @@ function GlassCard({ children, className }: { children: React.ReactNode; classNa
 
 function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }) {
   const rate = dist.dated > 0 ? Math.round((dist.onTime / dist.dated) * 100) : 0;
+  // One denominator across BOTH halves, taken from the full distribution, so a
+  // bar's length means the same thing on either side of the split.
+  const barScale = Math.max(...dist.buckets.map((b) => b.count), 1);
   return (
     <GlassCard>
       <div className="flex items-end justify-between gap-4">
@@ -214,8 +228,23 @@ function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }
         </div>
       </div>
 
-      <div className="mt-5">
-        <FineBucketBars buckets={dist.buckets} />
+      {/* Side-by-side split. The buckets are already ordered most-overdue first
+          through earliest-delivery last, so `fineBucketIsLate` cuts the list
+          cleanly in two at the "On Due Date" boundary — no re-ordering and no
+          second source of truth for which band is which.
+          On Due Date sits on the RIGHT: delivering exactly on the committed day
+          is hitting the deadline, not missing it. */}
+      <div className="mt-5 grid grid-cols-2 gap-6 max-lg:grid-cols-1">
+        <FineBucketBars
+          buckets={dist.buckets.filter((b) => b.late)}
+          heading="Overdue"
+          scaleMax={barScale}
+        />
+        <FineBucketBars
+          buckets={dist.buckets.filter((b) => !b.late)}
+          heading="On time & early"
+          scaleMax={barScale}
+        />
       </div>
 
       {dist.undated > 0 && (
