@@ -145,10 +145,42 @@ export function computeEmployeeStatusTable(
         addTo(rowKey, "pendingTotal", t);
         break;
       case "not_started":
+      // "I haven't assessed this yet" — open work nobody has picked up, which
+      // is what not_started means operationally.
+      case "dont_know":
         row.notStarted += 1;
         row.pendingTotal += 1;
         addTo(rowKey, "pendingTotal", t);
         break;
+      // Retired 2026-06-10 in favour of need_info, but historical rows still
+      // carry it, so it has to keep counting or those tasks vanish.
+      case "need_help":
+        row.needHelp += 1;
+        row.pendingTotal += 1;
+        addTo(rowKey, "pendingTotal", t);
+        break;
+      // Paused, but still this person's open work. No dedicated sub-bucket —
+      // it lands in the Pending aggregate only, which is the column the table
+      // actually renders.
+      case "on_hold":
+        row.pendingTotal += 1;
+        addTo(rowKey, "pendingTotal", t);
+        break;
+      default: {
+        // THE BUG THIS REPLACES: the switch had no case for dont_know,
+        // need_help or on_hold, so those tasks incremented `total` and then
+        // landed in NO status bucket. Every column summed short of the total —
+        // a doer whose queue was mostly on_hold showed 2 across the columns
+        // against a total of 41.
+        //
+        // This assignment is the guard against it happening again: `t.status`
+        // only narrows to `never` once every member of TASK_STATUSES is
+        // handled above, so adding a status to the enum breaks the BUILD here
+        // instead of silently dropping rows out of the table.
+        const unhandled: never = t.status;
+        void unhandled;
+        break;
+      }
     }
   }
 

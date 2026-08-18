@@ -115,8 +115,14 @@ function buildColumns(
         );
       },
     },
+    // Done COUNTS APPROVED TOO. `approved` was tallied by the transform and
+    // then never rendered, so those tasks were invisible in every column while
+    // still counting toward Total — one of the two reasons the row did not add
+    // up. Folding them here matches the Task Summary's DONE card, which already
+    // links to `?status=done,approved`.
     {
-      accessorKey: "done",
+      id: "done",
+      accessorFn: (r) => r.done + r.approved,
       header: "Done",
       cell: (info) =>
         withPreview(info.row.original, "done", info.getValue<number>(), view,
@@ -143,6 +149,33 @@ function buildColumns(
         withPreview(info.row.original, "cancelled", info.getValue<number>(), view,
           <Pill value={info.getValue<number>()} tone="rose" />),
     },
+    // Transferred was the other invisible bucket. Small, but without it the
+    // columns cannot partition Total for anyone who has handed work on.
+    {
+      accessorKey: "transferred",
+      header: "Transferred",
+      // Plain count, no hover preview and no Pill: the transform never calls
+      // addTo() for transferred, so there are no preview tasks to show, and
+      // Pill's tones resolve to --color-<tone> tokens that have no slate
+      // member. A fake-empty popover would be worse than none.
+      cell: (info) => {
+        const n = info.getValue<number>();
+        return n === 0 ? (
+          <span className="text-ink-subtle text-mono">0</span>
+        ) : (
+          <span className="text-[15px] font-bold tabular-nums text-ink-soft">{n}</span>
+        );
+      },
+    },
+    // TOTAL = every task in the filter for this person. It now equals
+    //   Done(+Approved) + Pending + Not Approved + Cancelled + Transferred
+    // because those five buckets are a partition of the lifecycle: the
+    // transform's exhaustiveness guard makes the compiler prove every status
+    // lands in exactly one of them.
+    //
+    // CRITICAL IS NOT IN THAT SUM and must not be added to it. It counts
+    // `priority = imp_urgent`, which cuts ACROSS the lifecycle — an urgent task
+    // is also Done or Pending — so adding it would double-count the same rows.
     {
       accessorKey: "total",
       header: "Total",
