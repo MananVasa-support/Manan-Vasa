@@ -2,89 +2,29 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { formatDistanceToNow } from "date-fns";
 import type { Route } from "next";
-import {
-  UserPlus,
-  Sparkles,
-  RefreshCw,
-  CheckCircle2,
-  XCircle,
-  Users,
-  ArrowRightLeft,
-  Ban,
-  MessageSquare,
-  AlarmClock,
-  ArrowRight,
-  Bell,
-  Smartphone,
-  Target,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, LifeBuoy } from "lucide-react";
 import type { InboxNotificationRow as NotificationRowData } from "@/lib/queries/notifications";
-import type { NotificationKind } from "@/db/schema";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
-import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import {
+  CATEGORY_LABELS,
+  categoryOfKind,
+  formatDaysAgo,
+  formatPeriod,
+  formatShortDate,
+  notificationPeriod,
+} from "@/lib/notifications/categories";
 import { markNotificationRead } from "./actions";
 
 interface Props {
   row: NotificationRowData;
   statusLabels: Record<TaskStatus, string>;
   statusTones: Record<TaskStatus, StatusColorToken>;
+  selected: boolean;
+  onSelect: (id: string, next: boolean) => void;
+  /** Raise an HR ticket about just this row. */
+  onRaiseTicket: (id: string) => void;
 }
-
-// Per-kind icon + accent colour for the little badge that sits on the actor's
-// avatar — gives each event type an at-a-glance identity.
-const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = {
-  task_assigned: { icon: UserPlus, tone: "blue" },
-  task_initiated: { icon: Sparkles, tone: "blue" },
-  status_changed: { icon: RefreshCw, tone: "amber" },
-  approved: { icon: CheckCircle2, tone: "green" },
-  declined: { icon: XCircle, tone: "red" },
-  reassigned: { icon: Users, tone: "purple" },
-  transferred: { icon: ArrowRightLeft, tone: "purple" },
-  cancelled: { icon: Ban, tone: "red" },
-  commented: { icon: MessageSquare, tone: "blue" },
-  nudged: { icon: Zap, tone: "amber" },
-  overdue_digest: { icon: AlarmClock, tone: "amber" },
-  // Weekly Goals reminder cron.
-  weekly_goals_assigned: { icon: Target, tone: "blue" },
-  weekly_goals_fill_reminder: { icon: AlarmClock, tone: "amber" },
-  weekly_goals_incomplete: { icon: AlarmClock, tone: "red" },
-  // Attendance Phase A — inbox-only kinds.
-  attendance_late: { icon: AlarmClock, tone: "amber" },
-  attendance_late_waived: { icon: CheckCircle2, tone: "green" },
-  attendance_half_day: { icon: AlarmClock, tone: "amber" },
-  attendance_device: { icon: Smartphone, tone: "blue" },
-  attendance_late_deduction: { icon: AlarmClock, tone: "rose" },
-  training_test_failed: { icon: XCircle, tone: "red" },
-  // Employees DCC end-of-day reminder.
-  dcc_fill_reminder: { icon: AlarmClock, tone: "amber" },
-  // Ambassadors — partner follow-up / stalled referral nudge.
-  ambassador_reminder: { icon: AlarmClock, tone: "amber" },
-  // Goals Cascade — commit / approve reminders + committed / approved acks.
-  goals_commit_reminder: { icon: Target, tone: "amber" },
-  goals_approval_reminder: { icon: AlarmClock, tone: "amber" },
-  goals_committed: { icon: CheckCircle2, tone: "green" },
-  goals_approved: { icon: CheckCircle2, tone: "green" },
-  hr_confirmation_due: { icon: CheckCircle2, tone: "amber" },
-  // HR Support / Ticketing (mig 0145).
-  hr_ticket_created: { icon: MessageSquare, tone: "blue" },
-  hr_ticket_assigned: { icon: UserPlus, tone: "blue" },
-  hr_ticket_replied: { icon: MessageSquare, tone: "blue" },
-  hr_ticket_status_changed: { icon: RefreshCw, tone: "amber" },
-  hr_ticket_sla_breach: { icon: AlarmClock, tone: "red" },
-  hr_ticket_csat_request: { icon: Sparkles, tone: "amber" },
-  // Appraisal (mig 0146) — in-app only.
-  appraisal_cycle_opened: { icon: Target, tone: "blue" },
-  appraisal_self_reminder: { icon: AlarmClock, tone: "amber" },
-  appraisal_manager_pending: { icon: Users, tone: "amber" },
-  appraisal_management_pending: { icon: Users, tone: "amber" },
-  appraisal_finalized: { icon: CheckCircle2, tone: "green" },
-  // Enterprise Communications (mig 0179) — official broadcast.
-  broadcast: { icon: Bell, tone: "blue" },
-};
 
 // Kinds that deep-link somewhere other than the related task / inbox.
 const KIND_HREF: Partial<Record<string, string>> = {
@@ -123,7 +63,7 @@ const KIND_HREF: Partial<Record<string, string>> = {
  * transition when present, treat genuine free text (a comment) as text, and
  * otherwise show nothing.
  */
-function parseBody(
+export function parseBody(
   body: string | null,
 ): { from: TaskStatus | null; to: TaskStatus | null } | { text: string } | null {
   if (!body) return null;
@@ -156,7 +96,7 @@ function StatusPill({
   const tone = tones[status] ?? "blue";
   return (
     <span
-      className="inline-flex items-center rounded-pill px-2.5 py-0.5 text-[12.5px] font-bold whitespace-nowrap"
+      className="inline-flex items-center rounded-pill px-2 py-0.5 text-[11.5px] font-bold whitespace-nowrap"
       style={{
         color: `var(--color-${tone}-deep)`,
         background: `color-mix(in srgb, var(--color-${tone}) 14%, transparent)`,
@@ -169,23 +109,50 @@ function StatusPill({
 }
 
 /**
- * One inbox row, MNC-style: actor avatar + kind badge on the left, a clean
- * one-line headline, a coloured status transition (no raw JSON), and a muted
- * timestamp. Unread rows get a tinted background + left accent + dot.
+ * COLUMN TEMPLATE, shared with the header strip in `inbox-list.tsx` so the two
+ * can never drift:
  *
- * Click anywhere → mark read (if unread) and deep-link to the task in one
- * gesture. A <button> owns the navigation so we avoid nested anchors.
+ *   [tick] Date · Category/Source · Notification · Period · Days ago · Actions
+ *
+ * The old row was a Gmail-style "sender — subject … when" line. It read fine but
+ * it could not answer the two questions this list is actually for: WHEN was this
+ * sent (as a date, not "3 days ago") and WHAT PERIOD does it cover. Those are
+ * now their own columns, and the coloured per-kind icon is gone — the category
+ * name says the same thing in words that match the filter bar above.
  */
-export function NotificationRow({ row, statusLabels, statusTones }: Props) {
+export const ROW_GRID =
+  "grid items-center gap-x-3 grid-cols-[20px_74px_150px_minmax(0,1fr)_186px_92px_40px] max-xl:grid-cols-[20px_74px_128px_minmax(0,1fr)_150px_84px_40px] max-lg:grid-cols-[20px_74px_minmax(0,1fr)_92px_40px] max-md:grid-cols-[20px_74px_minmax(0,1fr)_40px]";
+
+/**
+ * One inbox row.
+ *
+ * Read / unread stays deliberately quiet: a small red dot in the leading slot
+ * and a heavier title weight. No tinted row background, no left accent bar —
+ * this is a dense list you scan, and a stripe on every second row turned it into
+ * a barcode.
+ *
+ * Clicking the row marks it read and deep-links, exactly as before. The tick box
+ * and the Raise-a-Ticket button sit OUTSIDE that click target so selecting a row
+ * never navigates you away from the list you are selecting in.
+ */
+export function NotificationRow({
+  row,
+  statusLabels,
+  statusTones,
+  selected,
+  onSelect,
+  onRaiseTicket,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const unread = row.readAt === null;
   const href = (KIND_HREF[row.kind] ?? (row.taskId ? `/tasks/${row.taskId}` : "/inbox")) as Route;
-  const when = formatDistanceToNow(row.createdAt, { addSuffix: true });
   const who = row.actorName ?? "System";
   const meta = parseBody(row.body);
-  const kindMeta = KIND_META[row.kind] ?? { icon: Bell, tone: "blue" };
-  const KindIcon = kindMeta.icon;
+  const category = CATEGORY_LABELS[categoryOfKind(row.kind)];
+  const sharedOn = formatShortDate(row.createdAt);
+  const period = formatPeriod(notificationPeriod(row));
+  const ago = formatDaysAgo(row.createdAt);
 
   // When we render the status pills, strip a redundant trailing "to <Label>"
   // off the title so it doesn't repeat what the pills already say.
@@ -205,112 +172,147 @@ export function NotificationRow({ row, statusLabels, statusTones }: Props) {
   }
 
   return (
-    <li className="relative border-b border-hairline last:border-b-0">
-      {/* Unread accent bar */}
-      {unread && (
-        <span
-          aria-hidden
-          className="absolute left-0 top-0 bottom-0 w-[3px]"
-          style={{ background: "var(--color-altus-red)" }}
+    <li
+      className={`${ROW_GRID} border-b border-hairline px-4 transition-colors hover:bg-[rgba(15,23,42,0.03)] max-md:px-3`}
+      style={{ opacity: isPending ? 0.6 : 1 }}
+    >
+      {/* Tick — the entry point to Raise a Ticket. Its own control, outside the
+          navigating button, so selecting never triggers a page change. */}
+      <span className="flex items-center justify-center py-2">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(e) => onSelect(row.id, e.target.checked)}
+          aria-label={`Select notification: ${title}`}
+          className="size-[15px] cursor-pointer accent-[var(--color-altus-red)]"
         />
-      )}
+      </span>
+
+      {/* Date shared — DD-MM-YY, ahead of the source, per spec. */}
       <button
         type="button"
         onClick={onActivate}
         disabled={isPending}
-        className="flex w-full items-start gap-4 px-7 py-5 max-md:px-4 text-left transition-colors hover:bg-[rgba(15,23,42,0.025)] disabled:opacity-70"
-        style={{
-          background: unread
-            ? "color-mix(in srgb, var(--color-altus-red) 4%, transparent)"
-            : undefined,
-        }}
+        className="flex items-center gap-1.5 py-2 text-left"
+        title={`Open — sent ${sharedOn}`}
       >
-        {/* Avatar + kind badge */}
-        <span className="relative shrink-0">
-          {row.actorName ? (
-            <EmployeeAvatar name={row.actorName} size="md" />
-          ) : (
+        <span aria-hidden className="flex w-2 shrink-0 justify-center">
+          {unread && (
             <span
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-white"
-              style={{ background: "linear-gradient(135deg, #475569, #1f2937)" }}
-            >
-              <Bell size={16} strokeWidth={2.4} />
-            </span>
+              className="inline-flex size-[6px] rounded-full"
+              style={{ background: "var(--color-altus-red)" }}
+            />
           )}
-          <span
-            aria-hidden
-            className="absolute -bottom-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full"
-            style={{
-              background: `var(--color-${kindMeta.tone})`,
-              border: "2px solid var(--color-surface-card)",
-              color: "#fff",
-            }}
-          >
-            <KindIcon size={11} strokeWidth={2.6} />
-          </span>
+        </span>
+        <span
+          className="whitespace-nowrap text-[12.5px] tabular-nums"
+          style={{
+            fontWeight: unread ? 700 : 500,
+            color: unread ? "var(--color-ink-strong)" : "var(--color-ink-soft)",
+          }}
+        >
+          {sharedOn}
+        </span>
+      </button>
+
+      {/* Category · source. Replaces the coloured per-kind glyph: the category
+          is the same vocabulary the filter bar uses, spelled out. */}
+      <button
+        type="button"
+        onClick={onActivate}
+        disabled={isPending}
+        className="min-w-0 py-2 text-left max-lg:hidden"
+      >
+        <span className="block truncate text-[12.5px] font-semibold text-ink-strong">
+          {category}
+        </span>
+        <span className="block truncate text-[11.5px] text-ink-muted">{who}</span>
+      </button>
+
+      {/* The notification itself. */}
+      <button
+        type="button"
+        onClick={onActivate}
+        disabled={isPending}
+        className="flex min-w-0 items-baseline gap-1.5 py-2 text-left"
+      >
+        <span
+          className="min-w-0 truncate text-[13.5px] leading-snug"
+          style={{
+            fontWeight: unread ? 700 : 500,
+            color: unread ? "var(--color-ink-strong)" : "var(--color-ink-soft)",
+          }}
+        >
+          {title}
         </span>
 
-        {/* Content */}
-        <div className="min-w-0 flex-1">
-          <p
-            className="text-[16.5px] leading-snug text-ink-strong"
-            style={{ fontWeight: unread ? 700 : 500 }}
-          >
-            {title}
-          </p>
-
-          {/* Status transition pills (replaces the old raw-JSON body) */}
-          {meta && "to" in meta && (meta.from || meta.to) && (
-            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-              {meta.from && (
-                <>
-                  <StatusPill status={meta.from} labels={statusLabels} tones={statusTones} />
-                  <ArrowRight size={13} strokeWidth={2.4} className="text-ink-subtle shrink-0" />
-                </>
-              )}
-              {meta.to && (
-                <StatusPill status={meta.to} labels={statusLabels} tones={statusTones} />
-              )}
-            </div>
-          )}
-
-          {/* Genuine free-text body (e.g. a comment) */}
-          {meta && "text" in meta && (
-            <p
-              className="mt-1.5 text-[14px] text-ink-soft line-clamp-2 border-l-2 border-hairline-strong pl-2.5 italic"
-            >
-              {meta.text}
-            </p>
-          )}
-
-          {/* Meta line */}
-          <div className="mt-2 flex items-center gap-2 text-[13px] text-ink-subtle">
-            <span className="font-semibold text-ink-soft">{who}</span>
-            <span aria-hidden>·</span>
-            <span className="tabular-nums">{when}</span>
-            {unread && (
-              <span
-                className="ml-1 inline-flex items-center rounded-pill px-2 py-0.5 text-[10.5px] font-black uppercase tracking-[0.06em]"
-                style={{
-                  color: "var(--color-altus-red-deep)",
-                  background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)",
-                }}
-              >
-                New
-              </span>
+        {meta && "to" in meta && (meta.from || meta.to) && (
+          <span className="hidden shrink-0 items-center gap-1 xl:inline-flex">
+            {meta.from && (
+              <>
+                <StatusPill status={meta.from} labels={statusLabels} tones={statusTones} />
+                <ArrowRight size={11} strokeWidth={2.4} className="shrink-0 text-ink-subtle" />
+              </>
             )}
-          </div>
-        </div>
-
-        {/* Unread dot on the far right */}
-        {unread && (
-          <span
-            aria-hidden
-            className="mt-1.5 inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
-            style={{ background: "var(--color-altus-red)" }}
-          />
+            {meta.to && <StatusPill status={meta.to} labels={statusLabels} tones={statusTones} />}
+          </span>
         )}
+
+        {meta && "text" in meta && (
+          <span className="min-w-0 truncate text-[12.5px] font-normal text-ink-subtle max-lg:hidden">
+            — {meta.text}
+          </span>
+        )}
+
+        {/* Small screens lose the Category column — fold it back in here so the
+            row never loses the one label that ties it to the filter bar. */}
+        <span className="hidden shrink-0 text-[11px] font-semibold text-ink-subtle max-lg:inline">
+          · {category}
+        </span>
       </button>
+
+      {/* Period the notification covers — a quiet dash when there isn't one. */}
+      <button
+        type="button"
+        onClick={onActivate}
+        disabled={isPending}
+        className="py-2 text-left max-lg:hidden"
+      >
+        <span className="block truncate whitespace-nowrap text-[12px] tabular-nums text-ink-soft">
+          {period ?? <span className="text-ink-subtle">—</span>}
+        </span>
+      </button>
+
+      {/* Days ago — the final time column. */}
+      <button
+        type="button"
+        onClick={onActivate}
+        disabled={isPending}
+        className="py-2 text-right max-md:hidden"
+      >
+        <span
+          className="whitespace-nowrap text-[12px] tabular-nums"
+          style={{
+            fontWeight: unread ? 700 : 400,
+            color: unread ? "var(--color-altus-red-deep)" : "var(--color-ink-subtle)",
+          }}
+        >
+          {ago}
+        </span>
+      </button>
+
+      {/* Actions. */}
+      <span className="flex items-center justify-end py-2">
+        <button
+          type="button"
+          onClick={() => onRaiseTicket(row.id)}
+          title="Raise a ticket to HR about this notification"
+          aria-label={`Raise a ticket about: ${title}`}
+          className="inline-flex size-7 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_10%,transparent)] hover:text-[var(--color-altus-red)]"
+        >
+          <LifeBuoy size={15} />
+        </button>
+      </span>
     </li>
   );
 }

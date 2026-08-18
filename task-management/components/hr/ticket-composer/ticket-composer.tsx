@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Paperclip, X, ShieldAlert, Send } from "lucide-react";
+import { Loader2, Paperclip, X, ShieldAlert, Send, Inbox } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import {
   HR_TICKET_CATEGORIES,
@@ -21,21 +21,46 @@ const RED_DEEP = "var(--color-altus-red-deep)";
  * Raise a ticket. `mode="support"` shows the full form (category cards +
  * priority + attachments); `mode="query"` is the casual Ask-HR composer (a
  * lighter shell, still the SAME hr_tickets table with source="query").
+ *
+ * PREFILL: the Inbox can hand a notification straight into this form
+ * (`/support/new?n=<id>`). The page resolves those ids server-side and passes
+ * the resulting subject / details / best-guess category down here as INITIAL
+ * values only — they seed the fields and the user can edit every one of them
+ * before submitting. Nothing about `raiseTicket` or the hr_tickets table
+ * changes; this is the same form with its boxes already typed in.
  */
-export function TicketComposer({ mode = "support" }: { mode?: "support" | "query" }) {
+export function TicketComposer({
+  mode = "support",
+  initialSubject,
+  initialDescription,
+  initialCategory,
+  contextNote,
+}: {
+  mode?: "support" | "query";
+  initialSubject?: string;
+  initialDescription?: string;
+  initialCategory?: HrTicketCategory;
+  /** One line naming what was carried in, shown above the fields. */
+  contextNote?: string;
+}) {
   const router = useRouter();
   const isQuery = mode === "query";
   const [busy, setBusy] = React.useState(false);
-  const [category, setCategory] = React.useState<HrTicketCategory>(isQuery ? "policy_question" : "payroll");
+  const [category, setCategory] = React.useState<HrTicketCategory>(
+    initialCategory ?? (isQuery ? "policy_question" : "payroll"),
+  );
   const [priority, setPriority] = React.useState("normal");
   const [files, setFiles] = React.useState<File[]>([]);
   const [dragOver, setDragOver] = React.useState(false);
   const subjectRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
+    // A prefilled subject is already the right words — put the cursor in the
+    // Details box instead, which is where the user still has something to say.
+    if (initialSubject) return;
     const t = setTimeout(() => subjectRef.current?.focus(), 60);
     return () => clearTimeout(t);
-  }, []);
+  }, [initialSubject]);
 
   const confidential = category === "grievance";
 
@@ -71,6 +96,16 @@ export function TicketComposer({ mode = "support" }: { mode?: "support" | "query
 
   return (
     <form onSubmit={submit} className="wg-rise space-y-6">
+      {contextNote && (
+        <div
+          className="flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[13px] font-medium"
+          style={{ borderColor: `${RED}33`, background: `${RED}08`, color: RED_DEEP }}
+        >
+          <Inbox size={16} className="mt-0.5 shrink-0" />
+          <span>{contextNote}</span>
+        </div>
+      )}
+
       {!isQuery && (
         <div>
           <label className="mb-2 block text-[12px] font-bold uppercase tracking-[0.14em] text-ink-muted">
@@ -145,6 +180,7 @@ export function TicketComposer({ mode = "support" }: { mode?: "support" | "query
           ref={subjectRef}
           required
           maxLength={200}
+          defaultValue={initialSubject}
           placeholder={isQuery ? "e.g. How many casual leaves do I have left?" : "Short summary of your request"}
           className="w-full rounded-xl border border-hairline bg-surface-card px-3.5 py-2.5 text-[15px] font-medium text-ink-strong outline-none focus:border-[var(--color-altus-red)]"
         />
@@ -160,6 +196,7 @@ export function TicketComposer({ mode = "support" }: { mode?: "support" | "query
           required={!isQuery}
           rows={isQuery ? 3 : 6}
           maxLength={8000}
+          defaultValue={initialDescription}
           placeholder={isQuery ? "Add any details that help HR answer you faster." : "Describe your request — dates, amounts, people, anything relevant."}
           className="w-full resize-y rounded-xl border border-hairline bg-surface-card px-3.5 py-3 text-[14.5px] leading-relaxed text-ink-strong outline-none focus:border-[var(--color-altus-red)]"
         />
