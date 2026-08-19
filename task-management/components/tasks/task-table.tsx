@@ -234,11 +234,35 @@ function buildColumns(
   onOpenTask?: (id: string) => void,
 ): TaskCol[] {
   return [
-    // TIMER — takes the slot the Start Time / End Time columns held. Those two
-    // showed WHEN work happened; this lets you act on it, which is what the
-    // leading column of a work queue is for. Both timestamps are still on the
-    // row payload (and still stamped by the engine) — only their columns are
-    // gone.
+    {
+      id: "select",
+      enableSorting: false,
+      enableHiding: false,
+      meta: { narrow: true, align: "center" },
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          indeterminate={table.getIsSomePageRowsSelected()}
+          onChange={(v) => table.toggleAllPageRowsSelected(v)}
+          ariaLabel="Select all tasks on this page"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onChange={(v) => row.toggleSelected(v)}
+          ariaLabel="Select task"
+        />
+      ),
+    },
+    // TIMER — index 1, directly behind the batch checkbox and ahead of Client.
+    // It took the slot the Start Time / End Time columns held: those showed WHEN
+    // work happened, this lets you act on it, which is what the leading columns
+    // of a work queue are for. Both timestamps are still on the row payload (and
+    // still stamped by the engine) — only their columns are gone.
+    //
+    // It sits BEHIND the checkbox rather than ahead of it so the two frozen
+    // columns read in the order you use them: pick rows, then act on one.
     {
       id: "timer",
       header: "Action",
@@ -262,27 +286,6 @@ function buildColumns(
           canOperate={me.isAdmin || me.id === row.original.doerId}
         />
         </div>
-      ),
-    },
-    {
-      id: "select",
-      enableSorting: false,
-      enableHiding: false,
-      meta: { narrow: true, align: "center" },
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          indeterminate={table.getIsSomePageRowsSelected()}
-          onChange={(v) => table.toggleAllPageRowsSelected(v)}
-          ariaLabel="Select all tasks on this page"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onChange={(v) => row.toggleSelected(v)}
-          ariaLabel="Select task"
-        />
       ),
     },
     {
@@ -903,6 +906,7 @@ export function TaskTable({
                 const hide = col.meta?.mobileHide;
                 const isActions = h.column.id === "actions";
                 const isTimer = h.column.id === "timer";
+                const isSelect = h.column.id === "select";
                 const canSort = h.column.getCanSort();
                 const sorted = h.column.getIsSorted(); // false | "asc" | "desc"
                 const headerNode = flexRender(h.column.columnDef.header, h.getContext());
@@ -958,7 +962,7 @@ export function TaskTable({
                     // z-30 for BOTH frozen columns: they must paint above the
                     // z-20 of the ordinary sticky headers, or a header scrolling
                     // under them shows through.
-                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${isTimer ? "task-timer-cell left-0 w-24 min-w-[90px]" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : isTimer ? "z-30" : "z-20"}`}
+                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${isSelect ? "task-select-cell left-0 w-12 min-w-[48px] !px-2" : ""} ${isTimer ? "task-timer-cell left-12 w-24 min-w-[90px] border-r border-gray-200" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : isTimer || isSelect ? "z-30" : "z-20"}`}
                     style={{
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
@@ -1155,6 +1159,7 @@ export function TaskTable({
                 const hide = col.meta?.mobileHide;
                 const isActions = cell.column.id === "actions";
                 const isTimer = cell.column.id === "timer";
+                const isSelect = cell.column.id === "select";
                 // Columns now size to their CONTENT and the table scrolls
                 // sideways, rather than every value being squeezed to ~32ch and
                 // truncated. The ONE exception is the free-text Task title: a
@@ -1179,13 +1184,16 @@ export function TaskTable({
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""} ${isTimer ? "task-timer-cell sticky left-0 z-10 w-24 min-w-[90px]" : ""}`}
+                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""} ${isSelect ? "task-select-cell sticky left-0 z-10 w-12 min-w-[48px] !px-2" : ""} ${isTimer ? "task-timer-cell sticky left-12 z-10 w-24 min-w-[90px] border-r border-gray-200" : ""}`}
                     style={
                       isActions
                         ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" }
                         : isTimer
-                          ? // Mirrored: the edge shadow falls to the RIGHT, so the
-                            // columns sliding under it read as being behind it.
+                          ? // Mirrored against the Manage column: the shadow falls
+                            // to the RIGHT so columns sliding under the frozen
+                            // PAIR read as being behind it. It sits on the timer,
+                            // not the checkbox, because the timer is the outer
+                            // edge of that pair.
                             { boxShadow: "10px 0 14px -10px rgba(15,23,42,0.14)" }
                           : undefined
                     }
