@@ -252,21 +252,37 @@ export function PerformerTaskDrawer({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((t) => (
+                {rows.map((t) => {
+                  // description -> subject -> title, same ladder as the
+                  // punctuality list. Each rung is a real field, so a task with
+                  // no body still labels itself with something actionable.
+                  const taskLabel = t.description?.trim() || t.subject?.trim() || t.title;
+                  // The hover carries what truncation ate plus the identifiers
+                  // stripped from the label — nothing is lost, they just stop
+                  // occupying the one line the eye scans.
+                  const taskHover = [
+                    taskLabel,
+                    t.taskNo !== null ? `Task #${t.taskNo}` : null,
+                    t.client ? `Client: ${t.client}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join("\n");
+                  return (
                   <tr key={t.id} className="h-11 border-b border-gray-100 transition-colors hover:bg-gray-50/80">
-                    <td className="max-w-[40ch] px-3 py-1.5">
+                    {/* `title` on the <td> as well as the link, so the hover
+                        target is the whole cell rather than just the text run.
+                        The label led with "#{taskNo} {t.title}" — and `title`
+                        in this schema is the CLIENT NAME, which the Client
+                        column two cells over already prints. So the row opened
+                        with a number nobody quotes and then repeated the
+                        client, saying nothing about the work itself. */}
+                    <td className="max-w-[40ch] px-3 py-1.5" title={taskHover}>
                       <Link
                         href={`/tasks/${t.id}` as Route}
-                        className="flex min-w-0 items-baseline gap-2 hover:underline"
+                        className="block truncate text-[13px] font-semibold text-gray-900 hover:underline"
+                        title={taskHover}
                       >
-                        {t.taskNo !== null && (
-                          <span className="shrink-0 text-[11px] font-bold tabular-nums text-gray-400">
-                            #{t.taskNo}
-                          </span>
-                        )}
-                        <span className="truncate text-[13px] font-semibold text-gray-900" title={t.title}>
-                          {t.title}
-                        </span>
+                        {taskLabel}
                       </Link>
                     </td>
                     <td className="whitespace-nowrap px-3 py-1.5 text-[12.5px] text-gray-600">
@@ -307,7 +323,8 @@ export function PerformerTaskDrawer({
                       </span>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

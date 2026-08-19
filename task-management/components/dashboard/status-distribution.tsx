@@ -57,17 +57,17 @@ interface StatusPaint {
 const STATUS_PAINT: Record<TaskStatus, StatusPaint> = {
   done:         { fill: "#059669", ink: "#ffffff" },  // emerald-600
   not_approved: { fill: "#dc2626", ink: "#ffffff" },  // red-600 — bright red
-  need_info:    { fill: "#9f1239", ink: "#ffffff" },  // rose-800 — dark crimson
-  need_help:    { fill: "#9f1239", ink: "#ffffff" },  // retired alias of need_info
-  not_started:  { fill: "#475569", ink: "#ffffff" },  // slate-600
+  need_info:    { fill: "#881337", ink: "#ffffff" },  // rose-900 — dark crimson
+  need_help:    { fill: "#881337", ink: "#ffffff" },  // retired alias of need_info
+  not_started:  { fill: "#334155", ink: "#ffffff" },  // slate-700
   // "Not Read". One step darker than not_started rather than the same
-  // slate-600: they are different statuses and sit adjacent in the grid, where
+  // slate-700: they are different statuses and sit adjacent in the grid, where
   // two identical fills read as a rendering fault rather than a shared family.
-  dont_know:    { fill: "#334155", ink: "#ffffff" },  // slate-700
+  dont_know:    { fill: "#1e293b", ink: "#ffffff" },  // slate-800
   initiated:    { fill: "#1d4ed8", ink: "#ffffff" },  // blue-700 — pending family,
                                                       // a step off the Pending tile
   approved:     { fill: "#7c3aed", ink: "#ffffff" },  // violet-600
-  on_hold:      { fill: "#ea580c", ink: "#ffffff" },  // orange-600
+  on_hold:      { fill: "#d97706", ink: "#ffffff" },  // amber-600
   follow_up:    { fill: "#0891b2", ink: "#ffffff" },  // cyan-600
   follow_up_1:  { fill: "#0891b2", ink: "#ffffff" },
   follow_up_2:  { fill: "#0891b2", ink: "#ffffff" },
@@ -303,7 +303,7 @@ function SummaryTile({
       >
         <div className="flex items-center gap-2">
           <span
-            className="truncate font-bold uppercase tracking-[0.06em] text-white/85"
+            className="truncate font-bold uppercase tracking-[0.06em] text-white"
             style={{ fontSize: 12 }}
           >
             {label}
@@ -321,18 +321,18 @@ function SummaryTile({
             {animated}
           </span>
           <span
-            className="ml-auto font-semibold tabular-nums text-white/80"
+            className="ml-auto font-semibold tabular-nums text-white"
             style={{ fontSize: 14 }}
           >
             {denom > 0 ? `${pct.toFixed(1)}%` : "—"}
           </span>
         </div>
 
-        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/25">
+        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/40">
           <span
-            className="block h-full rounded-full bg-white/90"
+            className="block h-full rounded-full bg-white"
             style={{
-              // NO `background` here: an inline value beats the bg-white/90
+              // NO `background` here: an inline value beats the bg-white
               // class, and painting the bar in the card's own colour makes it
               // invisible against the card.
               width: `${Math.max(Math.min(pct, 100), pct > 0 ? 3 : 0)}%`,
@@ -432,7 +432,7 @@ function StatTile({
         {/* Label row */}
         <div className="flex items-center gap-2">
           <span
-            className="truncate font-bold uppercase tracking-[0.06em] text-white/85"
+            className="truncate font-bold uppercase tracking-[0.06em] text-white"
             style={{ fontSize: 12 }}
           >
             {label}
@@ -442,7 +442,7 @@ function StatTile({
         {/* Count + share — single baseline row, % pinned right */}
         <div className="mt-3 flex items-baseline gap-2">
           <span
-            className="font-black leading-none tabular-nums text-gray-900"
+            className="font-black leading-none tabular-nums text-white"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontSize: 34,
@@ -451,7 +451,7 @@ function StatTile({
             {animated}
           </span>
           <span
-            className="ml-auto font-semibold tabular-nums text-gray-500"
+            className="ml-auto font-semibold tabular-nums text-white"
             style={{ fontSize: 14 }}
           >
             {denom > 0 ? `${pct.toFixed(1)}%` : "—"}
@@ -460,12 +460,14 @@ function StatTile({
 
         {/* Share bar — the fill grows on hover, so the card confirms the
             pointer without moving any layout. */}
-        {/* Track and fill are translucent WHITE rather than the status colour:
-            one recipe that keeps its contrast on all fifteen fills, and a bar
-            painted in the card's own colour would be invisible. */}
-        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/25">
+        {/* Track and fill are WHITE rather than the status colour: one recipe
+            that keeps its contrast on all fifteen fills, and a bar painted in
+            the card's own colour would be invisible. The track sits at 40%
+            (was 25%) so the bar's full extent reads against the dark card, not
+            just the filled part; the fill is solid white for maximum step. */}
+        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/40">
           <span
-            className="block h-full rounded-full bg-white/90 transition-transform duration-150"
+            className="block h-full rounded-full bg-white transition-transform duration-150"
             style={{
               width: `${Math.max(Math.min(pct, 100), pct > 0 ? 3 : 0)}%`,
               animation: `barGrow 900ms cubic-bezier(.2,.8,.2,1) ${400 + index * 70}ms backwards`,
