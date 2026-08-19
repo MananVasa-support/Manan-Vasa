@@ -1,4 +1,5 @@
 "use client";
+import { MultiSelect } from "@/components/ui/multi-select";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
@@ -10,7 +11,7 @@ import {
   type ColumnDef,
 } from "@tanstack/react-table";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { Search, X, Users, ChevronRight } from "lucide-react";
+import { Search, X, Users, ChevronRight, ChevronDown } from "lucide-react";
 import type { EmployeeStatusRow, StatusCellBucket, ViewMode } from "@/lib/types";
 import { StatusCellPopover } from "./status-cell-popover";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
@@ -88,12 +89,11 @@ function buildColumns(
         </span>
       ),
     },
-    {
-      accessorKey: "departments",
-      header: "Department",
-      enableSorting: false,
-      cell: (info) => <DepartmentTags names={departmentNames(info.row.original)} />,
-    },
+    // NO Department column. A person can belong to several departments, so
+    // this cell rendered a wrapping stack of chips that set the row height for
+    // the whole table and pushed the count columns into a horizontal squeeze.
+    // Department is now a FILTER in the header, which is what it was actually
+    // being used as — nobody reads a department column, they narrow by it.
     {
       accessorKey: "criticalCount",
       header: "Critical",
@@ -188,20 +188,6 @@ function buildColumns(
   ];
 }
 
-const DEPT_TONES = [
-  "blue",
-  "green",
-  "amber",
-  "purple",
-  "rose",
-] as const;
-
-function deptTone(name: string): (typeof DEPT_TONES)[number] {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  return DEPT_TONES[Math.abs(hash) % DEPT_TONES.length]!;
-}
-
 export function StatusTable({
   rows,
   view,
@@ -214,7 +200,7 @@ export function StatusTable({
   const router = useRouter();
   const [open, setOpen] = React.useState(true);
   const [query, setQuery] = React.useState("");
-  const [selectedDept, setSelectedDept] = React.useState<string | null>(null);
+  const [selectedDepts, setSelectedDepts] = React.useState<string[]>([]);
   // Paged 10 people at a time, with the shared top-right pager (was a
   // "Show more" expander that grew the section without bound).
   const PAGE = 10;
@@ -244,12 +230,19 @@ export function StatusTable({
     return rows.filter((r) => {
       // A person now carries every department they belong to, so the chip
       // filter matches if ANY of them is the selected one.
-      if (selectedDept && !departmentNames(r).includes(selectedDept)) return false;
+      // ANY-of, not all-of: the picks are alternatives ("Sales or Apps"), and
+      // since a person can hold several departments an all-of rule would still
+      // be wrong — it would demand membership in every ticked one.
+      if (
+        selectedDepts.length > 0 &&
+        !departmentNames(r).some((d) => selectedDepts.includes(d))
+      )
+        return false;
       if (q && !r.employeeName.toLowerCase().includes(q)) return false;
       if (!matchesSearch(sectionQuery, r.employeeName)) return false;
       return true;
     });
-  }, [rows, query, selectedDept, sectionQuery]);
+  }, [rows, query, selectedDepts, sectionQuery]);
 
   const columns = React.useMemo(() => buildColumns(avatarById, view), [avatarById, view]);
 
@@ -261,7 +254,7 @@ export function StatusTable({
   });
 
   const hasActiveFilter =
-    query.trim().length > 0 || selectedDept !== null || sectionQuery.length > 0;
+    query.trim().length > 0 || selectedDepts.length > 0 || sectionQuery.length > 0;
 
   // Page the already-sorted TanStack rows. Keyed off the row model (not
   // `filtered`) so paging follows the table's own sort order.
@@ -305,8 +298,35 @@ export function StatusTable({
             "Tasks broken down per person"
           )
         }
+        /* Search and Department moved UP here from a strip beneath the header.
+           They are filters on this table, and sitting them in the same row as
+           the pager means the whole control surface is one line instead of two
+           bands with a table sandwiched between them. `items-center gap-3` and
+           a shared h-9 keep the input, the dropdown and the pager on one
+           baseline. */
         actions={
-          <>
+          <div className="flex items-center gap-3 max-md:flex-wrap">
+            <SectionSearchBox query={query} onQuery={setQuery} />
+            {departments.length > 0 && (
+              <DepartmentSelect
+                departments={departments}
+                selected={selectedDepts}
+                onChange={setSelectedDepts}
+              />
+            )}
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setSelectedDepts([]);
+                }}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] font-bold text-ink-muted transition-colors hover:text-altus-red"
+              >
+                <X className="size-3.5" />
+                Clear
+              </button>
+            )}
             <SectionPagination
               page={pagedRows.page}
               pageCount={pagedRows.pageCount}
@@ -320,24 +340,12 @@ export function StatusTable({
               onToggle={() => setOpen((v) => !v)}
               label="Status by doer"
             />
-          </>
+          </div>
         }
       />
 
-      {/* Header stays visible; the search bar and the table below it fold. */}
+      {/* Header (with its controls) stays visible; the table folds. */}
       <CollapsibleBody expanded={open}>
-      <FilterBar
-        query={query}
-        onQuery={setQuery}
-        departments={departments}
-        selectedDept={selectedDept}
-        onDept={setSelectedDept}
-        hasActiveFilter={hasActiveFilter}
-        onClear={() => {
-          setQuery("");
-          setSelectedDept(null);
-        }}
-      />
 
       {filtered.length === 0 ? (
         <div
@@ -354,7 +362,7 @@ export function StatusTable({
               type="button"
               onClick={() => {
                 setQuery("");
-                setSelectedDept(null);
+                setSelectedDepts([]);
               }}
               className="bg-surface-card mt-3 text-cta text-altus-red hover:underline"
             >
@@ -371,7 +379,12 @@ export function StatusTable({
               the <thead> stick to THIS box instead of the viewport (the header
               floated mid-table). Without it, the sticky <thead> pins correctly
               under the filter bar as the page scrolls. */}
-          <table className="w-full min-w-[720px]">
+          {/* min-w drops 720 -> 640 with the Department column. `w-full` already
+              spreads the remaining eight across the container; the floor only
+              exists to stop the count columns collapsing, and leaving it at the
+              nine-column figure would force a horizontal squeeze that no longer
+              has a reason to exist. */}
+          <table className="w-full min-w-[640px]">
             {/* WMS uses the vertical left rail now (no horizontal top header), so
                 the column labels pin just below the sticky filter bar (~64px) —
                 NOT the old 96px-header + filter-bar (160px), which floated the
@@ -478,128 +491,22 @@ function departmentNames(row: EmployeeStatusRow): string[] {
 }
 
 /**
- * Department column cell — comma-separated tags, capped at two.
+ * The table's own search box. Extracted from the old FilterBar so it can sit in
+ * the section header beside the pager; the debounce behaviour is unchanged.
  *
- * Anything beyond the second collapses into a "+N more" badge that opens a
- * popover listing the remainder.
- *
- * Radix Tooltip covers hover + keyboard focus; a `pinned` flag layers click on
- * top (`open = pinned || hovered`). Tooltip alone wouldn't respond to a click,
- * and on touch devices — where hover doesn't exist — tapping is the only way
- * in. Uses Tooltip rather than HoverCard because that package isn't a
- * dependency here and this doesn't warrant adding one.
+ * h-9 matches the Department trigger and the pager buttons next to it — the
+ * three controls have to agree on height or the header row reads as ragged.
  */
-function DepartmentTags({ names }: { names: string[] }) {
-  const [pinned, setPinned] = React.useState(false);
-  const [hovered, setHovered] = React.useState(false);
-
-  if (names.length === 0) return <span className="text-ink-subtle">—</span>;
-
-  const visible = names.slice(0, DEPT_VISIBLE);
-  const rest = names.slice(DEPT_VISIBLE);
-
-  const tag =
-    "inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-semibold whitespace-nowrap";
-  const tagStyle = {
-    background: "#F1F5F9",
-    color: "#334155",
-    boxShadow: "inset 0 0 0 1px #CBD5E1",
-  } as const;
-
-  return (
-    <span className="inline-flex flex-wrap items-center gap-1">
-      {visible.map((d, i) => (
-        <span key={d} className={tag} style={tagStyle}>
-          {d}
-          {/* Comma sits OUTSIDE the badge so the tags still read as a list. */}
-          {i < visible.length - 1 || rest.length > 0 ? (
-            <span aria-hidden className="ml-0.5 text-ink-subtle">
-              ,
-            </span>
-          ) : null}
-        </span>
-      ))}
-
-      {rest.length > 0 && (
-        <Tooltip.Provider delayDuration={120}>
-        <Tooltip.Root open={pinned || hovered} onOpenChange={setHovered}>
-          <Tooltip.Trigger asChild>
-            <button
-              type="button"
-              // The row is a click-to-navigate target; keep the reveal local.
-              onClick={(ev) => {
-                ev.stopPropagation();
-                setPinned((v) => !v);
-              }}
-              aria-expanded={pinned || hovered}
-              aria-label={`Show ${rest.length} more departments: ${rest.join(", ")}`}
-              className={`${tag} cursor-pointer font-bold transition-colors hover:brightness-95 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60`}
-              style={{
-                background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)",
-                color: "var(--color-altus-red-deep, #A80400)",
-                boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--color-altus-red) 26%, transparent)",
-              }}
-            >
-              +{rest.length} more
-            </button>
-          </Tooltip.Trigger>
-          <Tooltip.Portal>
-            <Tooltip.Content
-              side="top"
-              align="start"
-              sideOffset={6}
-              collisionPadding={12}
-              className="z-[90]"
-              style={{
-                maxWidth: 260,
-                background: "var(--color-surface-card)",
-                border: "1px solid var(--color-hairline-strong)",
-                borderRadius: 12,
-                boxShadow: "0 16px 40px rgba(15,23,42,0.18)",
-                padding: 12,
-              }}
-            >
-              <p className="mb-2 text-[10.5px] font-black uppercase tracking-[0.1em] text-ink-subtle">
-                Also in {rest.length} {rest.length === 1 ? "department" : "departments"}
-              </p>
-              <span className="flex flex-wrap gap-1">
-                {rest.map((d) => (
-                  <span key={d} className={tag} style={tagStyle}>
-                    {d}
-                  </span>
-                ))}
-              </span>
-              <Tooltip.Arrow style={{ fill: "var(--color-surface-card)" }} />
-            </Tooltip.Content>
-          </Tooltip.Portal>
-        </Tooltip.Root>
-        </Tooltip.Provider>
-      )}
-    </span>
-  );
-}
-
-function FilterBar({
+function SectionSearchBox({
   query,
   onQuery,
-  departments,
-  selectedDept,
-  onDept,
-  hasActiveFilter,
-  onClear,
 }: {
   query: string;
   onQuery: (v: string) => void;
-  departments: string[];
-  selectedDept: string | null;
-  onDept: (d: string | null) => void;
-  hasActiveFilter: boolean;
-  onClear: () => void;
 }) {
   // Live text is local; the parent (which re-filters the rows and rebuilds the
   // TanStack row model) hears about it on a 300ms debounce. `query` is still
-  // the committed value, so it doubles as the external reset signal for the
-  // "Clear all" button below.
+  // the committed value, so it doubles as the external reset signal.
   const [text, setText] = React.useState(query);
   const commit = useDebouncedCallback(onQuery, DEFAULT_DEBOUNCE_MS);
   const lastSent = React.useRef(query);
@@ -623,122 +530,91 @@ function FilterBar({
   }
 
   return (
-    <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-      {/* Search */}
-      <div
-        className="relative flex items-center bg-surface-card border border-hairline rounded-chip pl-3 pr-2 h-10 min-w-[260px] max-md:min-w-full max-md:w-full transition-shadow focus-within:border-hairline-strong"
-        style={{
-          boxShadow: text
-            ? "0 0 0 3px color-mix(in srgb, var(--color-altus-red) 12%, transparent), 0 1px 2px rgba(15,23,42,0.04)"
-            : "0 1px 2px rgba(15,23,42,0.04)",
+    <div
+      className="relative flex h-9 w-[220px] shrink-0 items-center rounded-lg border border-hairline bg-surface-card pl-2.5 pr-1.5 transition-shadow focus-within:border-hairline-strong max-md:w-full"
+      style={{
+        boxShadow: text
+          ? "0 0 0 3px color-mix(in srgb, var(--color-altus-red) 12%, transparent), 0 1px 2px rgba(15,23,42,0.04)"
+          : "0 1px 2px rgba(15,23,42,0.04)",
+      }}
+    >
+      <Search className="size-3.5 shrink-0 text-ink-subtle" />
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => type(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && text) clearNow();
         }}
-      >
-        <Search className="size-4 text-ink-subtle shrink-0" />
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => type(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" && text) clearNow();
-          }}
-          placeholder="Local search — employees" title="Local search — filters only the list on this page" aria-label="Local search — employees — this page only"
-          className="flex-1 bg-transparent border-0 outline-none px-2.5 text-body-lg text-ink placeholder:text-ink-subtle"
-        />
-        {text && (
-          <button
-            type="button"
-            onClick={clearNow}
-            className="size-6 inline-flex items-center justify-center rounded-full hover:bg-surface-soft transition-colors text-ink-subtle hover:text-ink"
-            aria-label="Clear search"
-          >
-            <X className="size-3.5" />
-          </button>
-        )}
-      </div>
-
-      {/* Department chips */}
-      {departments.length > 0 && (
-        <div className="inline-flex items-center gap-1.5 flex-wrap">
-          <DeptChip
-            label="All"
-            tone="ink"
-            active={selectedDept === null}
-            onClick={() => onDept(null)}
-            icon={<Users className="size-3.5" />}
-          />
-          {departments.map((d) => (
-            <DeptChip
-              key={d}
-              label={d}
-              tone={deptTone(d)}
-              active={selectedDept === d}
-              onClick={() => onDept(selectedDept === d ? null : d)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Clear all */}
-      {hasActiveFilter && (
+        placeholder="Search employees"
+        title="Local search — filters only the list on this page"
+        aria-label="Local search — employees — this page only"
+        className="min-w-0 flex-1 border-0 bg-transparent px-2 text-[13px] text-ink outline-none placeholder:text-ink-subtle"
+      />
+      {text && (
         <button
           type="button"
-          onClick={onClear}
-          className="bg-surface-card ml-auto inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-muted hover:text-altus-red transition-colors"
+          onClick={clearNow}
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink"
+          aria-label="Clear search"
         >
-          <X className="size-3.5" />
-          Clear Filters
+          <X className="size-3" />
         </button>
       )}
     </div>
   );
 }
 
-function DeptChip({
-  label,
-  tone,
-  active,
-  onClick,
-  icon,
+/**
+ * Department as a multi-select dropdown, replacing a wrapping strip of pills.
+ *
+ * The strip grew one chip per department and wrapped onto a second and third
+ * line on a real roster, which is what pushed the table down the page. A
+ * dropdown is fixed-width whatever the count, and multi-select is the honest
+ * shape: a person can hold several departments, so picking two should mean
+ * "either", not "swap the one selected".
+ *
+ * Built on the same MultiSelect + checkbox list every other filter in the app
+ * uses, so the interaction is already familiar.
+ */
+function DepartmentSelect({
+  departments,
+  selected,
+  onChange,
 }: {
-  label: string;
-  tone: (typeof DEPT_TONES)[number] | "ink";
-  active: boolean;
-  onClick: () => void;
-  icon?: React.ReactNode;
+  departments: string[];
+  selected: string[];
+  onChange: (v: string[]) => void;
 }) {
-  const base =
-    tone === "ink"
-      ? {
-          bg: "color-mix(in srgb, #0f172a 6%, transparent)",
-          activeBg:
-            "linear-gradient(135deg, #1f2937, #0f172a)",
-          fg: "var(--color-ink-strong)",
-          activeFg: "#ffffff",
-        }
-      : {
-          bg: `color-mix(in srgb, var(--color-${tone}) 10%, transparent)`,
-          activeBg: `linear-gradient(135deg, var(--color-${tone}), var(--color-${tone}-deep))`,
-          fg: `var(--color-${tone}-deep)`,
-          activeFg: "#ffffff",
-        };
+  const options = React.useMemo(
+    () => departments.map((d) => ({ value: d, label: d })),
+    [departments],
+  );
+  const summary =
+    selected.length === 0
+      ? "All"
+      : selected.length === 1
+        ? (selected[0] ?? "")
+        : `${selected.length} Selected`;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-pill text-[13px] font-bold transition-all duration-200"
-      style={{
-        background: active ? base.activeBg : base.bg,
-        color: active ? base.activeFg : base.fg,
-        boxShadow: active
-          ? "0 4px 12px rgba(15, 23, 42, 0.12)"
-          : "none",
-        transform: active ? "translateY(-1px)" : "translateY(0)",
-      }}
-    >
-      {icon}
-      {label}
-    </button>
+    <MultiSelect
+      options={options}
+      selected={selected}
+      onChange={onChange}
+      renderTrigger={() => (
+        <span
+          className={`inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border bg-surface-card px-2.5 text-[13px] font-semibold transition-colors ${
+            selected.length > 0
+              ? "border-altus-red/40 text-altus-red-deep"
+              : "border-hairline text-ink-soft hover:border-hairline-strong"
+          }`}
+        >
+          <Users className="size-3.5 shrink-0" />
+          <span className="max-w-[130px] truncate">Department ({summary})</span>
+          <ChevronDown className="size-3.5 shrink-0 opacity-60" />
+        </span>
+      )}
+    />
   );
 }
