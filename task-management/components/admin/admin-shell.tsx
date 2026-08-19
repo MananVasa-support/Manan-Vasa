@@ -24,8 +24,9 @@ export async function AdminShell({
   avatarUrl,
   canSeeAccounts,
 }: Props) {
-  // Consistent with every other module: the back button returns to the Hub
-  // (the workspace switchboard). The logo still goes to the WMS home.
+  // Consistent with every other module: the Hub (the workspace switchboard)
+  // is where the brand mark leads. On desktop the sidebar LOGO is that link;
+  // on phones AdminMobileBar still renders it as its own labelled button.
   const backHref = "/hub";
 
   return (
