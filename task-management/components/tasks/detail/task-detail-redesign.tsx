@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar as SharedAvatar } from "@/components/ui/avatar";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -80,16 +81,10 @@ const PRIORITY_TONE: Record<string, { bg: string; fg: string }> = {
 type Tab = "overview" | "comments" | "attachments" | "history" | "timelog" | "related";
 
 function Avatar({ name, url, size = 28 }: { name: string | null; url?: string | null; size?: number }) {
-  const initials = ((name ?? "?").trim().split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join("") || "?").toUpperCase();
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={name ?? ""} className="rounded-full object-cover" style={{ width: size, height: size }} />;
-  }
-  return (
-    <span className="grid place-items-center rounded-full bg-[color-mix(in_srgb,var(--color-altus-red)_12%,white)] font-black text-altus-red-deep" style={{ width: size, height: size, fontSize: size * 0.38 }}>
-      {initials}
-    </span>
-  );
+  // Shared <Avatar>: the local version returned a bare <img> with no onError,
+  // so a dead URL showed the broken-image glyph instead of falling through to
+  // the initials branch right below it.
+  return <SharedAvatar name={name} avatarUrl={url} size={size} />;
 }
 
 export function TaskDetailRedesign(props: Props) {

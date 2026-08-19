@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar } from "@/components/ui/avatar";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
@@ -51,13 +52,6 @@ export function UserMenu({
     window.location.replace("/login");
   }
 
-  const initials = name
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
   // Outer container provides the gradient ring (for admins) and pulse-on-mount.
   // Inner avatar sits on a dark spacer so the gradient reads as a 2px halo.
   const ringStyle: React.CSSProperties = isAdmin
@@ -72,16 +66,12 @@ export function UserMenu({
         padding: 1.5,
       };
 
-  const avatarNode = avatarUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={avatarUrl} alt={name} className="h-8 w-8 rounded-full object-cover block" />
-  ) : (
-    <span
-      className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold text-white"
-      style={{ background: "linear-gradient(135deg, #475569, #1f2937)" }}
-    >
-      {initials}
-    </span>
+  // Shared <Avatar>, not a local img/initials pair: this one had no onError, so
+  // a dead URL rendered the browser's broken-image glyph in the header on every
+  // page. The shared component layers the img over the initials and drops it on
+  // error, and it is the same badge the tables use.
+  const avatarNode = (
+    <Avatar name={name} avatarUrl={avatarUrl} size={32} title={name} />
   );
 
   const ringedAvatar = (
@@ -153,24 +143,7 @@ export function UserMenu({
                     : { background: "rgba(15, 23, 42, 0.08)", padding: 1.5 }
                 }
               >
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatarUrl}
-                    alt={name}
-                    className="h-9 w-9 rounded-full object-cover block"
-                  />
-                ) : (
-                  <span
-                    className="h-9 w-9 rounded-full flex items-center justify-center text-[13px] font-semibold text-white"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #475569, #1f2937)",
-                    }}
-                  >
-                    {initials}
-                  </span>
-                )}
+                <Avatar name={name} avatarUrl={avatarUrl} size={36} title={name} />
               </span>
               <div className="min-w-0">
                 <div className="font-semibold text-[#0F172A] truncate">
