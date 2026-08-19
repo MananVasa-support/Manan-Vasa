@@ -83,9 +83,17 @@ export function DashboardWidgets({ w }: { w: TimeDashboardWidgets }) {
                     href={`/tasks/${t.taskId}` as Route}
                     className="min-w-0 flex-1 truncate font-semibold text-ink-strong hover:text-[var(--color-altus-red-deep)] transition-colors"
                     style={{ fontSize: 13.5 }}
-                    title={t.title}
+                    title={[t.taskNo ? `#${t.taskNo}` : null, t.title, t.subject]
+                      .filter(Boolean)
+                      .join(" · ")}
                   >
+                    {/* Several tasks legitimately share a client-style title
+                        ("Altus Corp" x4), so the SUBJECT is what tells them
+                        apart — without it the list reads as a duplicate. */}
                     {t.title}
+                    {t.subject ? (
+                      <span className="font-medium text-ink-subtle"> · {t.subject}</span>
+                    ) : null}
                   </Link>
                   <span
                     className="shrink-0 tabular-nums font-bold text-ink-strong"

@@ -7,6 +7,7 @@ import { MobileMenuServer } from "./mobile-menu-server";
 import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskQuickAction } from "@/components/header/new-task-quick-action";
 import { GlobalSearch } from "@/components/header/global-search";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { workspaceForPath, WORKSPACE_LANDING } from "@/lib/workspaces";
 
@@ -97,11 +98,10 @@ export async function DashboardHeader({
                 bails for every workspace), and ChromeShell deliberately passes
                 no topBar there — so without this the hub would be the one
                 surface with no + at all. Sits between search and the avatar,
-                the same slot it occupies in AppTopBar.
-
-                The `ws === "wms" && <NewTaskTrigger />` this replaces was dead
-                code: `ws` is always undefined by the time we reach here. */}
+                the same slot it occupies in AppTopBar. */}
             <NewTaskQuickAction />
+            {/* Notifications — far right, on EVERY screen in EVERY module. */}
+            <NotificationBell />
             <UserMenuServer />
           </div>
         </div>

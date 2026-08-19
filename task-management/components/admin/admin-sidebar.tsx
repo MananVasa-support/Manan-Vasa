@@ -5,16 +5,19 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
-import { LayoutGrid, LogOut, ShieldCheck, type LucideIcon } from "lucide-react";
+import { LogOut, ShieldCheck, type LucideIcon } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { ADMIN_TOP_LEVEL, ADMIN_GROUPS, isAdminNavActive } from "./admin-nav-config";
 
 /**
- * Admin panel LEFT SIDEBAR — matches the vertical rail every other module uses
- * (logo + module identity · Back to Hub · grouped vertical nav pills · user
- * footer). Replaces the old frosted top header. Desktop only; `AdminMobileBar`
- * still owns the phone layout. Nav items come from `admin-nav-config` so the
- * sidebar and the (legacy) top nav can never drift apart.
+ * Admin panel LEFT SIDEBAR, matching the vertical rail every other module
+ * uses: a centred brand block (logo + Admin badge), grouped vertical nav
+ * pills, and a user footer. The logo doubles as the link back to the Hub,
+ * which is why there is no separate back button up here.
+ *
+ * Desktop only; `AdminMobileBar` still owns the phone layout. Nav items come
+ * from `admin-nav-config` so the sidebar and the (legacy) top nav can never
+ * drift apart.
  */
 export function AdminSidebar({
   adminName,
@@ -58,27 +61,36 @@ export function AdminSidebar({
       className="sticky top-0 z-30 flex h-screen w-[248px] shrink-0 flex-col bg-surface-card max-md:hidden"
       style={{ borderRight: "1px solid var(--color-hairline)" }}
     >
-      {/* ── Brand: logo + Admin identity ── */}
-      <div className="flex flex-col gap-3 px-4 pt-4 pb-3">
-        <Link href={"/dashboard" as Route} className="flex items-center" aria-label="Back to WMS home">
+      {/* Brand block: centred logo + Admin identity. The logo IS the Hub
+          link now, so the standalone black "Back to Hub" pill that used to sit
+          directly below it is gone -- the rail was carrying the same
+          navigation twice. Same move the module rail already made; see the
+          note in layout/dashboard-sidebar.tsx. */}
+      <div className="flex flex-col items-center justify-center gap-1.5 py-4">
+        <a
+          href={backHref}
+          aria-label="Return to Hub"
+          // `title` as well as `aria-label`: aria-label names the link for a
+          // screen reader but browsers never surface it on hover, so this is
+          // what actually shows the tooltip to a mouse user.
+          title="Return to Hub"
+          // Space does not activate an <a> natively -- it scrolls the page --
+          // so it is wired up explicitly. Tab focus and Enter are already
+          // native to the anchor and need nothing.
+          onKeyDown={(e) => {
+            if (e.key === " ") {
+              e.preventDefault();
+              window.location.assign(backHref);
+            }
+          }}
+          className="flex cursor-pointer items-center justify-center rounded-lg outline-none transition-all hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="Altus Corp" className="h-11 w-auto" style={{ display: "block" }} />
-        </Link>
+        </a>
         <span className="inline-flex items-center gap-1.5 text-[16px] font-black" style={{ color: "var(--color-altus-red)", fontFamily: "var(--font-display), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
           <ShieldCheck size={17} strokeWidth={2.6} /> Admin
         </span>
-      </div>
-
-      {/* ── Back to Hub — full-width black pill (same as the module rail) ── */}
-      <div className="px-4 pb-3">
-        <a
-          href={backHref}
-          aria-label="Back to Hub"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[14px] font-bold text-white transition-transform active:scale-[0.98] hover:brightness-125"
-          style={{ background: "#000", boxShadow: "0 6px 16px -8px rgba(0,0,0,0.45)" }}
-        >
-          <LayoutGrid size={17} strokeWidth={2.4} /> Back to Hub
-        </a>
       </div>
 
       <div className="mx-4 mb-1 border-t" style={{ borderColor: "var(--color-hairline)" }} />

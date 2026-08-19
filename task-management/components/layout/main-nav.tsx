@@ -48,6 +48,7 @@ import {
   BellRing,
   LifeBuoy,
   Home,
+  CheckCircle2,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -223,6 +224,11 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       },
       { href: "/tasks/kanban" as Route, label: "Kanban", Icon: SquareKanban, adminOnly: true },
       { href: "/tasks/time" as Route, label: "Time Intelligence", Icon: Timer },
+      // Completed-work analytics. Sits next to Time Intelligence rather than
+      // under Dashboard: both answer "how did the work go", and the dashboard
+      // entry is the live board. Admin/manager only, matching the page's own
+      // gate — a doer following this link would be redirected straight back.
+      { href: "/dashboard/done" as Route, label: "Done Dashboard", Icon: CheckCircle2, adminOnly: true },
       { href: "/projects" as Route, label: "Projects", Icon: FolderKanban },
       // Important Links — the curated directory (was the Marketing room's only
       // surface; Marketing retired as a workspace 2026-07).

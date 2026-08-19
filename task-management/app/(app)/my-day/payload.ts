@@ -1,9 +1,15 @@
 import "server-only";
 
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, lte, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dailyChecklist, dailyPlanDay, tasks } from "@/db/schema";
-import { todayYmd, ymdForOffset, cascadeGoalLevels, PLAN_HORIZON_DAYS } from "@/lib/queries/daily-checklist";
+import { dailyChecklist, dailyPlanDay, tasks, weeklyGoals } from "@/db/schema";
+import {
+  todayYmd,
+  ymdForOffset,
+  cascadeGoalLevels,
+  listOpenTasksForChecklist,
+  PLAN_HORIZON_DAYS,
+} from "@/lib/queries/daily-checklist";
 import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import { istYmd } from "@/lib/weekly-goals/week";
 import type { PlanKind } from "@/components/goals/plan/types";
@@ -51,6 +57,13 @@ export interface MyDayPayload {
   /** IST today ("YYYY-MM-DD") — what the due marks compare against. */
   ymd: string;
   items: MyDayItem[];
+  /**
+   * Everything ELSE that is due today (or already overdue) and is NOT on the
+   * plan — goals and WMS tasks together (Sir: "just to see my today … all goals
+   * + tasks clubbed together"). The plan only shows what you committed to; this
+   * is what the day is actually asking of you.
+   */
+  alsoDue: MyDayItem[];
   /** Has the user pressed "Start My Day"? Has the day been closed out? */
   started: boolean;
   closed: boolean;
@@ -118,8 +131,84 @@ export async function getMyDayPayload(employeeId: string, now: Date = new Date()
     };
   });
 
+  // ── Also due today, but not planned ──────────────────────────────────────
+  // Best-effort: this is a "nice to see" list, so a failure here must never take
+  // the day view down with it.
+  let alsoDue: MyDayItem[] = [];
+  try {
+    const plannedTaskIds = new Set(rows.map((r) => r.taskId).filter(Boolean) as string[]);
+    const plannedGoalIds = new Set(rows.map((r) => r.goalId).filter(Boolean) as string[]);
+
+    const [openTasks, dueGoals] = await Promise.all([
+      listOpenTasksForChecklist(employeeId, now, { horizonDays: 0, limit: 100 }),
+      db
+        .select({
+          id: weeklyGoals.id,
+          subject: weeklyGoals.subject,
+          client: weeklyGoals.client,
+          targetDone: weeklyGoals.targetDone,
+        })
+        .from(weeklyGoals)
+        .where(
+          and(
+            eq(weeklyGoals.employeeId, employeeId),
+            eq(weeklyGoals.archived, false),
+            lte(weeklyGoals.targetDate, ymd),
+            ne(weeklyGoals.pctDone, 100),
+          ),
+        ),
+    ]);
+
+    const taskItems: MyDayItem[] = openTasks
+      .filter((t) => !plannedTaskIds.has(t.id))
+      .map((t) => ({
+        id: `due-task:${t.id}`,
+        title: t.title,
+        subtitle: t.client ?? null,
+        kind: "task" as PlanKind,
+        done: false,
+        donePct: null,
+        doneNote: null,
+        taskId: t.id,
+        taskNo: t.taskNo ?? null,
+        status: (t.status ?? null) as TaskStatus | null,
+        priority: (t.priority ?? null) as TaskPriority | null,
+        dueYmd: t.dueAt ?? null,
+        client: t.client ?? null,
+        taskUpdatedAt: null,
+        overdue: t.overdue,
+      }));
+
+    const goalItems: MyDayItem[] = dueGoals
+      .filter((g) => !plannedGoalIds.has(g.id))
+      .map((g) => ({
+        id: `due-goal:${g.id}`,
+        title: g.targetDone?.trim() || g.subject?.trim() || "Weekly goal",
+        subtitle: g.client ?? null,
+        kind: "weekly" as PlanKind,
+        done: false,
+        donePct: null,
+        doneNote: null,
+        taskId: null,
+        taskNo: null,
+        status: null,
+        priority: null,
+        dueYmd: ymd,
+        client: g.client ?? null,
+        taskUpdatedAt: null,
+        overdue: false,
+      }));
+
+    // Goals first, then tasks — one clubbed list, overdue at the top of each.
+    alsoDue = [...goalItems, ...taskItems].sort(
+      (a, b) => Number(b.overdue) - Number(a.overdue),
+    );
+  } catch {
+    alsoDue = [];
+  }
+
   const day = dayRow[0];
-  return { ymd, items, started: !!day?.startedAt, closed: !!day?.closedAt };
+  return { ymd, items, alsoDue, started: !!day?.startedAt, closed: !!day?.closedAt };
 }
 
 

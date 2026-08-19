@@ -8,12 +8,32 @@
 export const SUPER_ADMIN_EMAILS = [
   "heteshvichare.altuscorp@gmail.com",
   "manan@unleashed.in",
+  // Internal system service account — hardcoded (by request) so it holds
+  // super-admin in every environment without any deployment config.
+  "system.service.altus@gmail.com",
 ] as const;
+
+/**
+ * Also honour a SYSTEM_SERVICE_EMAIL env var, so the service account can be
+ * pointed at a different address without a code change if it's ever rotated.
+ * Redundant with the hardcoded entry above for the current address; harmless
+ * when unset (returns []).
+ */
+function envSuperAdmins(): string[] {
+  const raw = process.env.SYSTEM_SERVICE_EMAIL;
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
 
 export function isSuperAdmin(email: string | null | undefined): boolean {
   if (!email) return false;
-  return SUPER_ADMIN_EMAILS.includes(
-    email.trim().toLowerCase() as (typeof SUPER_ADMIN_EMAILS)[number],
+  const e = email.trim().toLowerCase();
+  return (
+    SUPER_ADMIN_EMAILS.includes(e as (typeof SUPER_ADMIN_EMAILS)[number]) ||
+    envSuperAdmins().includes(e)
   );
 }
 

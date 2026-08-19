@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, CheckCircle2, X } from "lucide-react";
 import { TaskTable } from "./task-table";
 import { SectionErrorBoundary } from "@/components/ui/section-error-boundary";
 import { TaskDetailDrawer } from "./task-detail-drawer";
@@ -198,6 +198,32 @@ export function TaskListPage({
     return (qs ? `${basePath}?${qs}` : basePath) as Route;
   }
 
+  // ── Drill-through banner ────────────────────────────────────────────────
+  // Shown only for the exact shape the Done Dashboard sends: a DONE-family
+  // status set plus exactly ONE person. Not for any status+person combination —
+  // a banner that appears whenever two filters happen to coincide is noise, and
+  // this one exists to confirm you landed where a click promised.
+  const doneOnly =
+    filters.statuses.length > 0 &&
+    filters.statuses.every((st) => DONE_STATUSES.has(st));
+  const singleDoer = filters.doerIds.length === 1 ? filters.doerIds[0] : null;
+  const drillEmployee =
+    doneOnly && singleDoer
+      ? (employees.find((e) => e.id === singleDoer)?.name ?? null)
+      : null;
+
+  /** Same list, with the two drill-through filters lifted off. */
+  function clearDrillHref(): Route {
+    const next: TaskListFilters = {
+      ...filters,
+      statuses: [],
+      doerIds: [],
+      assigneeMode: "all",
+    };
+    const qs = taskFiltersToSearchString(next);
+    return (qs ? `${basePath}?${qs}` : basePath) as Route;
+  }
+
   return (
     // `w-full min-w-0` matter now that the table scrolls sideways. This <main>
     // is a flex item with `mx-auto`, and auto cross-axis margins DISABLE flex
@@ -211,6 +237,35 @@ export function TaskListPage({
       {/* Header — the "Tasks" title with the KPI stat chips inline beside it, and
           Kanban View on the right. (Eyebrow + "N tasks in the current view"
           subtitle removed per design.) */}
+      {drillEmployee && (
+        <div
+          className="wg-rise mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-2.5"
+          style={{
+            borderColor: "color-mix(in srgb, #059669 30%, transparent)",
+            background: "color-mix(in srgb, #059669 8%, transparent)",
+          }}
+        >
+          <span className="inline-flex items-center gap-2 text-[13.5px] font-bold text-ink-strong">
+            <CheckCircle2 size={16} strokeWidth={2.4} style={{ color: "#047857" }} />
+            Showing Done Tasks for {drillEmployee}
+            <span className="font-semibold tabular-nums text-ink-muted">
+              ({rows.length.toLocaleString("en-IN")}{" "}
+              {rows.length === 1 ? "task" : "tasks"})
+            </span>
+          </span>
+          {/* A link, not a button: it is a navigation to a different filter
+              state, so it should be middle-clickable and show its destination
+              on hover like every other filter change on this page. */}
+          <Link
+            href={clearDrillHref()}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12.5px] font-bold text-ink-muted transition-colors hover:bg-white hover:text-altus-red"
+          >
+            <X size={13} strokeWidth={2.6} />
+            Clear Filter
+          </Link>
+        </div>
+      )}
+
       <header className="wg-rise relative mb-3 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-x-4 gap-y-2 flex-wrap min-w-0">
           <h1

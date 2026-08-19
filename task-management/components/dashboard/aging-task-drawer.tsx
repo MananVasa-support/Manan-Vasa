@@ -206,7 +206,11 @@ export function AgingTaskDrawer({
                   // The hover carries what truncation ate: the FULL task text,
                   // plus the client on its own line so the tooltip still
                   // answers "whose?" even when the row is clipped short.
-                  const taskHover = [t.description?.trim(), `Client: ${t.title}`]
+                  const taskHover = [
+                    t.description?.trim(),
+                    t.taskNo != null ? `Task #${t.taskNo}` : null,
+                    `Client: ${t.title}`,
+                  ]
                     .filter(Boolean)
                     .join("\n\n");
                   return (
@@ -214,18 +218,21 @@ export function AgingTaskDrawer({
                       key={t.id}
                       className="aging-drawer-row group h-11 border-b border-gray-100 transition-colors hover:bg-gray-50/80"
                     >
-                      {/* Task ID + what the task IS, then the client.
+                      {/* What the task IS, and nothing else.
                           HEADS UP on the field names: in this schema `title` is
                           the CLIENT NAME — the New Task form's "Client Name"
                           field writes straight to tasks.title — and the work
                           itself lives in `description`. So leading with `title`
                           meant every row in a triage list read "Altus Corp",
                           which is the same for whole runs of rows and tells you
-                          nothing about what is aging. `description` leads now;
-                          the client stays as muted context rather than being
-                          dropped, since knowing whose work is stuck is half of
-                          why you opened the cell. */}
-                      <td className="max-w-[280px] px-3 py-1.5">
+                          nothing about what is aging. `description` is the whole
+                          label now; the client and the task number live in the
+                          hover, so knowing whose work is stuck is still one
+                          pointer away without costing the row a line. */}
+                      {/* `title` on the <td> as well as the link so the hover
+                          target is the whole cell, including the empty space
+                          to the right of a short description. */}
+                      <td className="max-w-[280px] px-3 py-1.5" title={taskHover}>
                         <Link
                           href={`/tasks/${t.id}` as Route}
                           // Native title, not a rich tooltip: this sits inside a
@@ -235,23 +242,16 @@ export function AgingTaskDrawer({
                           // whole point of the hover, and the browser already
                           // wraps and positions it for free.
                           title={taskHover}
-                          className="flex items-baseline gap-2 hover:underline"
+                          // One line, description only. The #id gutter and
+                          // the trailing client both moved into the hover:
+                          // they spent the row's scarce width on an
+                          // identifier nobody quotes and a client the
+                          // tooltip still reports. `block truncate` replaces
+                          // the old flex row now that there is one child, so
+                          // the min-w-0 dance is gone with it.
+                          className="block truncate text-[13px] font-semibold text-gray-900 hover:underline"
                         >
-                          <span className="shrink-0 text-[11px] font-black tabular-nums text-gray-400">
-                            {t.taskNo != null ? `#${t.taskNo}` : "—"}
-                          </span>
-                          {/* min-w-0 is what actually lets `truncate` bite: a
-                              flex child's default min-width is auto, so without
-                              it the span refuses to shrink below its text and
-                              overflows the 280px cap instead of ellipsing. */}
-                          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-gray-900">
-                            {taskText}
-                          </span>
-                          {t.description && (
-                            <span className="max-w-[14ch] shrink-0 truncate text-[12px] font-normal text-gray-500">
-                              · {t.title}
-                            </span>
-                          )}
+                          {taskText}
                         </Link>
                       </td>
 

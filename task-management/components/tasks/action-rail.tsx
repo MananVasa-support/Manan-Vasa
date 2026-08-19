@@ -12,7 +12,7 @@ import {
   Pencil,
   ChevronRight,
 } from "lucide-react";
-import { approveTask } from "@/app/(app)/tasks/actions";
+import { approveTask, decideTaskApproval } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 import { ReassignDialog } from "./reassign-dialog";
 
@@ -23,6 +23,10 @@ interface Props {
   employees: { id: string; name: string }[];
   canEdit: boolean;
   canApproveTask: boolean;
+  /** Two-stage approval (mig 0185). Computed SERVER-side and passed in purely to
+   *  decide which buttons to render — decideTaskApproval re-checks both. */
+  canManagerApproveTask?: boolean;
+  canAdminApproveTask?: boolean;
   canReassignTask: boolean;
   /** When the user clicks Edit (left column). */
   onStartEdit: () => void;
@@ -54,6 +58,8 @@ export function ActionRail({
   employees,
   canEdit,
   canApproveTask,
+  canManagerApproveTask = false,
+  canAdminApproveTask = false,
   canReassignTask,
   onStartEdit,
   approveOpen,
@@ -67,6 +73,45 @@ export function ActionRail({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [declineNote, setDeclineNote] = useState("");
+
+  /**
+   * Two-stage approval. The button only says WHICH stage it is acting at; the
+   * server re-derives whether that is allowed from the session actor, so a
+   * crafted call cannot promote a task the user may not promote.
+   */
+  function decide(level: "manager" | "admin", decision: "approved" | "send_back") {
+    setError(null);
+    startTransition(async () => {
+      const result = await decideTaskApproval(
+        taskId,
+        { level, decision, note: decision === "send_back" ? declineNote || undefined : undefined },
+        expectedUpdatedAt,
+      );
+      if (!result.ok) {
+        setError(
+          result.error === "stale"
+            ? "Task changed by someone else. Reload to see the latest."
+            : result.error === "forbidden"
+              ? "You don't have permission to do that."
+              : (result.message ?? "Action failed."),
+        );
+        return;
+      }
+      fireToast({
+        message:
+          decision === "send_back"
+            ? "Sent back."
+            : level === "admin"
+              ? "Admin approved."
+              : "Manager approved.",
+      });
+      if (decision === "send_back") {
+        setApproveOpen(false);
+        setDeclineNote("");
+      }
+      router.refresh();
+    });
+  }
 
   function approve() {
     setError(null);
@@ -122,8 +167,44 @@ export function ActionRail({
     node: React.ReactNode;
   }> = [
     {
+      // MANAGER APPROVAL — accepting a report's work. Shown to the doer's
+      // manager (and to admins, who sit above them).
+      key: "manager-approve",
+      visible: canManagerApproveTask,
+      node: (
+        <ActionCard
+          icon={<Check size={16} strokeWidth={2.6} />}
+          label="Manager Approve"
+          subtext="Accept the work. It then waits for final sign-off."
+          tone="green"
+          onClick={() => decide("manager", "approved")}
+          disabled={pending}
+          primary
+        />
+      ),
+    },
+    {
+      // ADMIN APPROVAL — final sign-off. Only ever visible to the founder; the
+      // server enforces the same rule regardless of what is rendered.
+      key: "admin-approve",
+      visible: canAdminApproveTask,
+      node: (
+        <ActionCard
+          icon={<Check size={16} strokeWidth={2.6} />}
+          label="Admin Approve"
+          subtext="Final sign-off. This closes the task for good."
+          tone="green"
+          onClick={() => decide("admin", "approved")}
+          disabled={pending}
+          primary
+        />
+      ),
+    },
+    {
+      // The legacy single-stage Approve stays for any surface not yet migrated,
+      // but is hidden the moment either staged button is available.
       key: "approve",
-      visible: canApproveTask,
+      visible: canApproveTask && !canManagerApproveTask && !canAdminApproveTask,
       node: (
         <ActionCard
           icon={<Check size={16} strokeWidth={2.6} />}
@@ -138,7 +219,7 @@ export function ActionRail({
     },
     {
       key: "decline",
-      visible: canApproveTask,
+      visible: canApproveTask || canManagerApproveTask || canAdminApproveTask,
       node: (
         <ActionCard
           icon={<X size={16} strokeWidth={2.6} />}

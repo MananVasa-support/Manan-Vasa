@@ -180,6 +180,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
                 taskId={selectedTaskId}
                 me={{
                   id: me.id,
+                  email: me.email,
                   name: me.name,
                   avatarUrl: me.avatarUrl,
                   department: me.department,

@@ -1324,11 +1324,14 @@ html[data-density="dense"] body {
   font-family: var(--font-sans);
   color: var(--color-ink);
 }
+/* Month caption reads as a plain UI label — the serif ITALIC it used to carry
+   looked like a typo in date pickers (Sir). Same weight/size, upright sans. */
 .rdp-root .rdp-caption_label,
 .rdp-root .rdp-month_caption {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 18px;
+  font-family: var(--font-sans);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 16px;
   color: var(--color-ink-strong);
   letter-spacing: -0.01em;
 }
@@ -1896,7 +1899,8 @@ html[data-density="dense"] body {
    background lives here and repeats each row state, rather than being a fixed
    `bg-surface-card` utility on the cell.
    ────────────────────────────────────────────────────────────────────────── */
-/* BOTH frozen columns, not just Manage. The timer column is `sticky left-0`
+/* ALL THREE frozen columns, not just Manage. The checkbox and the timer are
+   `sticky left-0` / `left-12` as a pair, and Manage is `sticky right-0`
    for the same reason Manage is `sticky right-0`, and it has the same
    requirement: the other columns slide UNDERNEATH it, so it has to paint an
    opaque background of its own or they show straight through. Sharing the
@@ -1922,7 +1926,8 @@ html[data-density="dense"] body {
 
 .task-row > .task-actions-cell,
 .task-row > .task-timer-cell,
-.task-row > .task-frozen-cell {
+.task-row > .task-frozen-cell,
+.task-row > .task-select-cell {
   background: var(--color-surface-card);
 }
 
@@ -1933,7 +1938,8 @@ html[data-density="dense"] body {
    — visually identical to the row, but with no transparency. */
 .task-row:hover > .task-actions-cell,
 .task-row:hover > .task-timer-cell,
-.task-row:hover > .task-frozen-cell {
+.task-row:hover > .task-frozen-cell,
+.task-row:hover > .task-select-cell {
   background:
     linear-gradient(var(--task-row-hover-tint), var(--task-row-hover-tint)),
     var(--color-surface-card);
@@ -1943,7 +1949,8 @@ html[data-density="dense"] body {
    composited over the card surface so the cell stays fully opaque. */
 .task-row.is-focused > .task-actions-cell,
 .task-row.is-focused > .task-timer-cell,
-.task-row.is-focused > .task-frozen-cell {
+.task-row.is-focused > .task-frozen-cell,
+.task-row.is-focused > .task-select-cell {
   background: color-mix(
     in srgb,
     var(--color-altus-red) 6%,

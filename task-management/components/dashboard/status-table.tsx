@@ -9,9 +9,19 @@ import {
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type SortingState,
 } from "@tanstack/react-table";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { Search, X, Users, ChevronRight, ChevronDown } from "lucide-react";
+import {
+  Search,
+  X,
+  Users,
+  ChevronRight,
+  ChevronDown,
+  ChevronsUpDown,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import type { EmployeeStatusRow, StatusCellBucket, ViewMode } from "@/lib/types";
 import { StatusCellPopover } from "./status-cell-popover";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
@@ -73,6 +83,11 @@ function buildColumns(
     {
       accessorKey: "employeeName",
       header: "Employee",
+      // Sortable A–Z / Z–A. `text` is TanStack's case-insensitive string
+      // compare, so "aisha" does not sort below "Zane" the way a raw
+      // codepoint comparison would.
+      enableSorting: true,
+      sortingFn: "text",
       cell: (info) => (
         <span className="inline-flex items-center gap-3">
           <Avatar
@@ -97,6 +112,12 @@ function buildColumns(
     {
       accessorKey: "criticalCount",
       header: "Critical",
+      // Sortable by volume. `sortDescFirst` because the first question anyone
+      // asks of this column is "who has the most critical work" — the first
+      // click should answer it (16 → 0), not bury it on the last page.
+      enableSorting: true,
+      sortingFn: "basic",
+      sortDescFirst: true,
       cell: (info) => {
         const n = info.getValue<number>();
         return n > 0 ? (
@@ -246,9 +267,18 @@ export function StatusTable({
 
   const columns = React.useMemo(() => buildColumns(avatarById, view), [avatarById, view]);
 
+  // Sorting was already wired to a row model but never given state, so it
+  // could not actually change. Only Employee and Critical opt in (see
+  // buildColumns) — `defaultColumn` closes the rest so the count columns do
+  // not sprout affordances nobody asked for.
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+
   const table = useReactTable({
     data: filtered,
     columns,
+    defaultColumn: { enableSorting: false },
+    state: { sorting },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
@@ -259,6 +289,14 @@ export function StatusTable({
   // Page the already-sorted TanStack rows. Keyed off the row model (not
   // `filtered`) so paging follows the table's own sort order.
   const pagedRows = usePagedRows(table.getRowModel().rows, PAGE);
+
+  // Re-sorting reshuffles who lands on which page, so a stale page 3 would
+  // show an arbitrary middle slice of the new order. Send the reader back to
+  // the top, where the answer to "who's highest/lowest" now lives.
+  const setPage = pagedRows.setPage;
+  React.useEffect(() => {
+    setPage(1);
+  }, [sorting, setPage]);
 
   return (
     <PageShell
@@ -393,19 +431,65 @@ export function StatusTable({
             <thead className="sticky top-[64px] max-md:top-[116px] z-20">
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id} className="border-b border-hairline">
-                  {hg.headers.map((h, i) => (
-                    <th
-                      key={h.id}
-                      className={`px-5 py-4 text-table-head whitespace-nowrap bg-surface-card ${
-                        i <= 1 ? "text-left" : "text-right"
-                      } ${i === 0 ? "sticky left-0 z-10" : ""}`}
-                      style={{
-                        boxShadow: "inset 0 -1px 0 var(--color-hairline)",
-                      }}
-                    >
-                      {flexRender(h.column.columnDef.header, h.getContext())}
-                    </th>
-                  ))}
+                  {hg.headers.map((h, i) => {
+                    const canSort = h.column.getCanSort();
+                    const sorted = h.column.getIsSorted(); // false | "asc" | "desc"
+                    const headerNode = flexRender(
+                      h.column.columnDef.header,
+                      h.getContext(),
+                    );
+                    return (
+                      <th
+                        key={h.id}
+                        aria-sort={
+                          sorted === "asc"
+                            ? "ascending"
+                            : sorted === "desc"
+                              ? "descending"
+                              : canSort
+                                ? "none"
+                                : undefined
+                        }
+                        className={`px-5 py-4 text-table-head whitespace-nowrap bg-surface-card ${
+                          i <= 1 ? "text-left" : "text-right"
+                        } ${i === 0 ? "sticky left-0 z-10" : ""}`}
+                        style={{
+                          boxShadow: "inset 0 -1px 0 var(--color-hairline)",
+                        }}
+                      >
+                        {canSort ? (
+                          <button
+                            type="button"
+                            onClick={h.column.getToggleSortingHandler()}
+                            title={`Sort by ${
+                              typeof headerNode === "string" ? headerNode : h.column.id
+                            }`}
+                            className={`group/sort inline-flex cursor-pointer items-center gap-1.5 select-none transition-colors hover:text-ink-strong ${
+                              sorted ? "text-ink-strong" : ""
+                            }`}
+                          >
+                            {headerNode}
+                            {sorted === "asc" ? (
+                              <ArrowUp size={13} strokeWidth={2.6} />
+                            ) : sorted === "desc" ? (
+                              <ArrowDown size={13} strokeWidth={2.6} />
+                            ) : (
+                              // Dim ⇅ in the neutral state: the affordance has
+                              // to be visible before the hover, or nobody
+                              // discovers the column is clickable at all.
+                              <ChevronsUpDown
+                                size={13}
+                                strokeWidth={2.4}
+                                className="text-ink-subtle opacity-45 transition-opacity group-hover/sort:opacity-100"
+                              />
+                            )}
+                          </button>
+                        ) : (
+                          headerNode
+                        )}
+                      </th>
+                    );
+                  })}
                   {/* Chevron column header — silent, just claims width */}
                   <th aria-hidden className="bg-surface-card" style={{ width: 36 }} />
                 </tr>

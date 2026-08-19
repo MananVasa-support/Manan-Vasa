@@ -61,6 +61,7 @@ export default async function TaskDetailPage({ params }: PageProps) {
             taskId={id}
             me={{
               id: me.id,
+              email: me.email ?? null,
               name: me.name,
               avatarUrl: me.avatarUrl,
               department: me.department,

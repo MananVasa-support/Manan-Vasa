@@ -22,6 +22,10 @@ export interface PunctualityTask {
   id: string;
   taskNo: number | null;
   title: string;
+  /** The task body — what the work actually is. `title` is the CLIENT NAME in
+   *  this schema (the New Task form's "Client Name" writes to tasks.title), so
+   *  it is the wrong field to label a row with in a triage list. */
+  description: string | null;
   doerName: string | null;
   subject: string | null;
   client: string | null;
@@ -98,6 +102,7 @@ export async function loadPunctualityDrilldown(
       id: tasks.id,
       taskNo: tasks.taskNo,
       title: tasks.title,
+      description: tasks.description,
       subject: tasks.subject,
       client: tasks.client,
       completedAt: tasks.completedAt,
@@ -124,6 +129,7 @@ export async function loadPunctualityDrilldown(
       id: r.id,
       taskNo: r.taskNo,
       title: r.title,
+      description: r.description ?? null,
       doerName: r.doerName ?? null,
       subject: r.subject ?? null,
       client: r.client ?? null,

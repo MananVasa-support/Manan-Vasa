@@ -192,6 +192,38 @@ export function MyDayBoard({ payload }: { payload: MyDayPayload }) {
         </AnimatePresence>
       </ul>
 
+      {/* ── Also due today, but NOT on the plan ──────────────────────────────
+          Sir wanted one view of "my today" with goals and tasks CLUBBED
+          together. The list above is only what was committed to; this is the
+          rest of what the day is asking for — read-only, so it never quietly
+          becomes a second plan. Adding one is still a deliberate act on the
+          planner. */}
+      {payload.alsoDue.length > 0 && (
+        <section className="mt-5 border-t border-hairline pt-4">
+          <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-ink-subtle">
+            Also due today · not on your plan
+            <span className="ml-1.5 tabular-nums text-ink-muted">({payload.alsoDue.length})</span>
+          </h3>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {payload.alsoDue.map((it) => (
+              <li
+                key={it.id}
+                className="flex items-center gap-2 rounded-xl border border-hairline bg-surface-card px-3 py-2"
+              >
+                <SourceTag kind={it.kind} />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink-strong" title={it.title}>
+                  {it.title}
+                </span>
+                {it.taskNo != null && (
+                  <span className="shrink-0 text-[11px] font-bold tabular-nums text-ink-subtle">#{it.taskNo}</span>
+                )}
+                {it.overdue && <OverdueTag />}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-hairline pt-3 max-sm:flex-col max-sm:items-stretch">
         <p className="text-[11px] text-ink-muted">
           {closed ? (

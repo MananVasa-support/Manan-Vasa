@@ -27,6 +27,9 @@ export interface CompletedTaskRow {
   id: string;
   taskNo: number | null;
   title: string;
+  /** The work itself. `title` is the CLIENT NAME in this schema, so the row
+   *  label has to come from here or it just repeats the Client column. */
+  description: string | null;
   client: string | null;
   subject: string | null;
   priority: EisenhowerPriority;
@@ -96,6 +99,7 @@ export async function loadPerformerDrilldown(
       id: tasks.id,
       taskNo: tasks.taskNo,
       title: tasks.title,
+      description: tasks.description,
       client: tasks.client,
       subject: tasks.subject,
       priority: tasks.priority,
@@ -121,6 +125,7 @@ export async function loadPerformerDrilldown(
       id: r.id,
       taskNo: r.taskNo ?? null,
       title: r.title,
+      description: r.description ?? null,
       client: r.client ?? null,
       subject: r.subject ?? null,
       priority: r.priority,

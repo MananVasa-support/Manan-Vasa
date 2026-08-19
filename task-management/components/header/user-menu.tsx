@@ -1,9 +1,11 @@
 "use client";
 
+import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { ShortcutsSheet } from "@/components/header/shortcuts-sheet";
 import Link from "next/link";
 import type { Route } from "next";
 import {
@@ -13,6 +15,7 @@ import {
   LogOut,
   UserCog,
   Inbox,
+  Keyboard,
   FileText,
   Archive,
   ChevronUp,
@@ -51,6 +54,8 @@ export function UserMenu({
     // THIS user's cached pages (e.g. the admin panel). A full load wipes it.
     window.location.replace("/login");
   }
+
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
 
   // Outer container provides the gradient ring (for admins) and pulse-on-mount.
   // Inner avatar sits on a dark spacer so the gradient reads as a 2px halo.
@@ -287,6 +292,27 @@ export function UserMenu({
 
           <DropdownMenu.Separator className="my-1 h-px bg-[#E2E8F0]" />
 
+          {/* Sir: the shortcut list lives under the profile. Opened via a
+              CONTROLLED dialog — the menu closes on select, which would unmount
+              an uncontrolled one before it ever painted. */}
+          <DropdownMenu.Item
+            onSelect={(e) => {
+              e.preventDefault();
+              setShortcutsOpen(true);
+            }}
+            className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none text-[#0F172A] data-[highlighted]:bg-[#F1F5F9]"
+          >
+            <span className="inline-flex items-center gap-2">
+              <Keyboard size={14} strokeWidth={2.2} style={{ color: "#475569" }} />
+              <span className="font-medium">Keyboard shortcuts</span>
+            </span>
+            <kbd className="rounded border border-[#E2E8F0] bg-[#F8FAFC] px-1.5 py-0.5 text-[11px] font-bold text-[#475569]">
+              ?
+            </kbd>
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Separator className="my-1 h-px bg-[#E2E8F0]" />
+
           <DropdownMenu.Item
             onSelect={handleSignOut}
             className="flex items-center gap-2.5 px-3.5 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none text-[#A80400] data-[highlighted]:bg-[#FEF2F2]"
@@ -296,6 +322,7 @@ export function UserMenu({
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
+      <ShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </DropdownMenu.Root>
   );
 }

@@ -313,8 +313,8 @@ function WindowToggle({
   onChange: (k: WindowKey) => void;
 }) {
   const options: { id: WindowKey; label: string }[] = [
-    { id: "d3", label: "3-day" },
-    { id: "d7", label: "7-day" },
+    { id: "d3", label: "3-Day" },
+    { id: "d7", label: "7-Day" },
   ];
   return (
     <div
@@ -439,7 +439,7 @@ function ManagerRail({
             <span className="font-semibold tabular-nums text-gray-900">
               {PER_REPORT_PER_DAY} × {workingDays}
             </span>{" "}
-            working {workingDays === 1 ? "day" : "days"} × direct reports
+            Working {workingDays === 1 ? "Day" : "Days"} × Direct Reports
           </>
         }
         actions={

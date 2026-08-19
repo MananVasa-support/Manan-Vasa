@@ -77,7 +77,7 @@ export function TaskReportView({ data, avatarById, isAdmin, meId }: TaskReportVi
           icon={<XCircle size={22} strokeWidth={2.4} />}
           kicker="Not approved"
           title="Sent-back work, by person and by how overdue"
-          subtitle="Tasks an admin declined and returned. Left: who is carrying them · Right: aged against each task's effective due date (red = overdue)."
+          subtitle="Tasks an Admin Declined and Returned. Left: Who is Carrying Them · Right: Aged Against Each Task's Effective Due Date (Red = Overdue)."
           tone="red"
           label="sent-back work"
         >
@@ -105,7 +105,7 @@ export function TaskReportView({ data, avatarById, isAdmin, meId }: TaskReportVi
              table as the dashboard the caption would contradict the Target
              Ratio column directly beneath it. The dashboard header hit exactly
              this and was fixed the same way. */
-          subtitle={`Tasks each manager handed to their direct reports, scored against the target of ${PER_REPORT_PER_DAY} tasks per report per working day.`}
+          subtitle={`Tasks Each Manager Handed to Their Direct Reports, Scored Against the Target of ${PER_REPORT_PER_DAY} Tasks per Report per Working Day.`}
           label="the delegation scorecards"
         >
         <InitiatorPanel
@@ -394,10 +394,10 @@ function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }
         </div>
         <div className="text-right text-[12.5px] font-bold">
           <p style={{ color: GREEN }}>
-            <span className="tabular-nums text-ink-strong">{dist.onTime}</span> on / before
+            <span className="tabular-nums text-ink-strong">{dist.onTime}</span> On / Before
           </p>
           <p style={{ color: RED }}>
-            <span className="tabular-nums text-ink-strong">{dist.late}</span> late
+            <span className="tabular-nums text-ink-strong">{dist.late}</span> Late
           </p>
         </div>
       </div>
@@ -425,7 +425,7 @@ function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }
 
       {dist.undated > 0 && (
         <p className="mt-3 text-[12px] font-semibold text-ink-subtle">
-          {dist.undated} done without a comparable date — not counted.
+          {dist.undated} Done Without a Comparable Date — Not Counted.
         </p>
       )}
     </GlassCard>

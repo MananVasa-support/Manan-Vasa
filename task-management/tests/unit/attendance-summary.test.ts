@@ -28,7 +28,7 @@ const HD = (date: string, wk: string, extra: Partial<DayCodeResult> = {}) =>
   day(date, wk, { code: "H/D", dayValue: 0.5, workedMinutes: 300, ...extra });
 
 describe("attendance summarize", () => {
-  it("week that hits 54h waives half-days + late/early marks", () => {
+  it("54h of ordinary attendance earns a full 6-day week", () => {
     // 6 days × 9h = 54h exactly. One day was late + a half-day on paper.
     const wk = "2026-07-06";
     const days = [
@@ -40,15 +40,20 @@ describe("attendance summarize", () => {
       day("2026-07-11", wk, { code: "H/D", dayValue: 0.5, workedMinutes: 540, late: true }), // odd but 9h
     ];
     const s = summarize(days, 1000);
-    // 54h reached → everything upgraded to present, no marks, no deduction
+    // HOURS RULE (2026-08): 54h of ordinary attendance earns the full 6 days, so
+    // there is nothing to deduct. The late / half-day MARKS are still counted and
+    // shown — they tell the employee what happened — they simply no longer drive
+    // a deduction, because the hours already reflect the shortfall (or lack of
+    // one). Under the old all-or-nothing waiver these were zeroed out entirely.
     expect(s.workingDays).toBe(6);
     expect(s.presentDays).toBe(6);
-    expect(s.lateDays).toBe(0);
-    expect(s.halfDays).toBe(0);
     expect(s.salaryReduced).toBe(0);
+    expect(s.deductionDays).toBe(0);
+    expect(s.lateDays).toBe(2);
+    expect(s.halfDays).toBe(1);
   });
 
-  it("week under 54h keeps half-days + counts marks; 3 marks = extra half-day", () => {
+  it("under 54h, days are earned proportionally from hours (9h = 1 day)", () => {
     const wk = "2026-07-13";
     const days = [
       P("2026-07-13", wk, { late: true }), // late mark 1
@@ -59,15 +64,20 @@ describe("attendance summarize", () => {
     ]; // total worked = 540*3 + 300 = 1920 min < 3240 → no waiver
     const s = summarize(days, 1000);
     expect(s.workingDays).toBe(5);
-    expect(s.presentDays).toBe(3.5); // 3 full + 1 half + 0 absent
+    // 1920 worked minutes ÷ 540 (9h) = 3.55 → 3.5 days to the nearest half.
+    expect(s.presentDays).toBe(3.5);
+    // Marks are still surfaced as information…
     expect(s.lateDays).toBe(2);
     expect(s.earlyDays).toBe(1);
     expect(s.halfDays).toBe(1);
     expect(s.absentDays).toBe(1);
-    expect(s.markDeductionDays).toBe(0.5); // floor((2+1)/3)*0.5
-    // deduction = (5 - 3.5) + 0.5 = 2.0 → ₹2000
-    expect(s.deductionDays).toBe(2);
-    expect(s.salaryReduced).toBe(2000);
+    // …but the old "every 3 marks costs half a day" cut is RETIRED: arriving
+    // late already lands as fewer worked hours, so charging for it again
+    // deducted twice for one event.
+    expect(s.markDeductionDays).toBe(0);
+    // deduction = 5 expected − 3.5 earned = 1.5 → ₹1500
+    expect(s.deductionDays).toBe(1.5);
+    expect(s.salaryReduced).toBe(1500);
   });
 
   it("ignores off-days and future (non-elapsed) days", () => {

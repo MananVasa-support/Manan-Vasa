@@ -198,6 +198,7 @@ export function computeEmployeeStatusTable(
     id: t.id,
     taskNo: t.taskNo ?? null,
     title: t.title,
+    description: t.description ?? null,
     client: t.client ?? null,
     subject: t.subject ?? null,
     dueAt: t.dueAt ?? null,
