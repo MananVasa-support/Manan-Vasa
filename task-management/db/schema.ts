@@ -26,6 +26,7 @@ import {
   EMPLOYEE_ROLES,
   TASK_PRIORITIES,
   APPROVAL_STATUSES,
+  APPROVAL_LEVELS,
   type TaskStatus,
   type AccountType,
   type ReligionCode,
@@ -63,6 +64,7 @@ export const taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
 export const employeeRoleEnum = pgEnum("employee_role", EMPLOYEE_ROLES);
 export const taskPriorityEnum = pgEnum("task_priority", TASK_PRIORITIES);
 export const approvalStatusEnum = pgEnum("approval_status", APPROVAL_STATUSES);
+export const approvalLevelEnum = pgEnum("approval_level", APPROVAL_LEVELS);
 
 // Salary module (migration 0062) — admin-managed rosters referenced by the
 // employees FKs below. Declared first so the FK callbacks resolve cleanly.
@@ -979,6 +981,17 @@ export const tasks = pgTable(
     //                       `due_at` so the original commitment isn't lost.
     tags: text("tags").array(),
     approvalStatus: approvalStatusEnum("approval_status"),
+    // Two-stage approval (migration 0185). 'none' → not signed off; 'manager' →
+    // accepted by the doer's manager; 'admin' → final sign-off, which ONLY the
+    // founder can give. The Kanban's two approved columns are derived from this,
+    // not from new task_status values, so existing consumers are untouched.
+    approvalLevel: approvalLevelEnum("approval_level").notNull().default("none"),
+    managerApprovedById: uuid("manager_approved_by_id").references(() => employees.id, { onDelete: "set null" }),
+    managerApprovedAt: timestamp("manager_approved_at", { withTimezone: true }),
+    managerApprovalNote: text("manager_approval_note"),
+    adminApprovedById: uuid("admin_approved_by_id").references(() => employees.id, { onDelete: "set null" }),
+    adminApprovedAt: timestamp("admin_approved_at", { withTimezone: true }),
+    adminApprovalNote: text("admin_approval_note"),
     revisedTargetDate: timestamp("revised_target_date", { withTimezone: true }),
     // Read-receipt (migration 0045): set when any user first opens the task
     // detail. NULL = never opened. Powers the "Not Read" stat card.

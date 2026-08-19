@@ -350,7 +350,13 @@ export async function timeDashboardWidgets(): Promise<TimeDashboardWidgets> {
         avgApprovalCycleSeconds: sql<number>`coalesce(avg(extract(epoch from (${taskTimeRollup.approvedAt} - ${taskTimeRollup.firstStartedAt}))) filter (where ${taskTimeRollup.approvedAt} is not null and ${taskTimeRollup.firstStartedAt} is not null and ${taskTimeRollup.approvedAt} > ${taskTimeRollup.firstStartedAt}), 0)`.mapWith(Number),
       })
       .from(taskTimeRollup),
-    taskTimeReport(undefined, {}, 6),
+    // HIGHEST-EFFORT means what it says: only tasks with tracked effort belong
+    // here. The list used to be padded to 6 rows with 0m tasks (Sir: "balance is
+    // empty"), which also dragged in throwaway rows like "Raj - Test". Ask for
+    // more than we show, then keep only the ones with real time on them.
+    taskTimeReport(undefined, {}, 24).then((rows) =>
+      rows.filter((r) => (r.totalActiveSeconds ?? 0) > 0).slice(0, 6),
+    ),
     goalTimeReport({}),
     db
       .select({

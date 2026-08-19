@@ -33,9 +33,19 @@ export const getCurrentEmployee = cache(async (): Promise<Employee | null> => {
  * the session-cookie mint, the mobile auth). A real employee is live while
  * `isActive`; a candidate guest-account is live while `candidateActive` (a
  * candidate is always `isActive=false`, so it's excluded from every roster).
+ *
+ * A SYSTEM account (test / demo logins) follows the SAME hiding pattern as a
+ * candidate, for the same reason: it is kept `isActive=false` so that the
+ * ~120 roster queries which filter on `is_active = true` exclude it
+ * AUTOMATICALLY — attendance boards, DCC rankings, PMS lists, pickers, team
+ * views — without every one of them needing its own account_type filter (which
+ * is the kind of sweep that always misses one). Its liveness is therefore
+ * independent of `isActive`: the account still logs in and works normally.
  */
 export function isLoginLive(e: Employee): boolean {
-  return e.accountType === "candidate" ? e.candidateActive : e.isActive;
+  if (e.accountType === "candidate") return e.candidateActive;
+  if (e.accountType === "system") return true;
+  return e.isActive;
 }
 
 /** True for a candidate guest-account (a job applicant's limited login). */

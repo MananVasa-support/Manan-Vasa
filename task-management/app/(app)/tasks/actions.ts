@@ -53,6 +53,12 @@ import { listEmployees } from "@/lib/queries/employees";
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { listActiveSubjectNames } from "@/lib/queries/subjects";
 import { listProjectNodeOptions } from "@/lib/queries/projects";
+import {
+  canManagerApprove,
+  canAdminApprove,
+  canManagerSendBack,
+  canAdminSendBack,
+} from "@/lib/tasks/approval-permissions";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   canEditTaskFields,
@@ -1360,6 +1366,181 @@ export async function editTaskFields(
  * initiator changes their mind, they decline the existing decision and
  * the doer reworks, producing a second `status_changed` row.
  */
+/* ------------------------------------------------------------------------- */
+/* TWO-STAGE APPROVAL (mig 0185)                                             */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * The ONE choke point for both approval stages (Sir, 2026-08).
+ *
+ * The client sends only an INTENT - which level it is acting at and whether it
+ * is approving or sending back - plus the optimistic-lock token. Everything that
+ * decides whether that is allowed is re-derived HERE from the session actor and
+ * the row as it exists in the database. A level, an id or a flag arriving from
+ * the browser is never trusted.
+ *
+ * Both stages write status='approved' (or 'not_approved'), keeping the ~40
+ * existing consumers of approved-ness correct; the STAGE is carried by
+ * approval_level, and each stage stamps its own audit columns so a manager
+ * sign-off is never overwritten by the admin one.
+ */
+export async function decideTaskApproval(
+  taskId: string,
+  input: { level: "manager" | "admin"; decision: "approved" | "send_back"; note?: string },
+  expectedUpdatedAt: string,
+): Promise<
+  | { ok: true }
+  | { ok: false; error: "invalid" | "not-found" | "forbidden" | "stale"; message?: string }
+> {
+  if (!isUuid(taskId)) return { ok: false, error: "invalid", message: "Bad task id" };
+  if (input.level !== "manager" && input.level !== "admin") {
+    return { ok: false, error: "invalid", message: "Bad level" };
+  }
+  if (input.decision !== "approved" && input.decision !== "send_back") {
+    return { ok: false, error: "invalid", message: "Bad decision" };
+  }
+
+  const me = await requireUser();
+
+  const current = await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
+  if (!current) return { ok: false, error: "not-found" };
+
+  // Context the predicates need, all read server-side.
+  const doerRow = await db.query.employees.findFirst({
+    where: eq(employees.id, current.doerId),
+    columns: { managerId: true },
+  });
+  const assignerId = current.initiatorId ?? current.createdById ?? null;
+  const assignerRow = assignerId
+    ? await db.query.employees.findFirst({
+        where: eq(employees.id, assignerId),
+        columns: { id: true, isAdmin: true },
+      })
+    : undefined;
+  // Does the assigner manage anyone? That is what makes them "a manager".
+  const assignerIsManager = assignerRow
+    ? (await db.query.employees.findFirst({
+        where: eq(employees.managerId, assignerRow.id),
+        columns: { id: true },
+      })) != null
+    : false;
+
+  const actor = { id: me.id, email: me.email ?? null, isAdmin: me.isAdmin };
+  const permTask = {
+    status: current.status,
+    approvalLevel: (current.approvalLevel ?? "none") as "none" | "manager" | "admin",
+    doerId: current.doerId,
+    assignerId,
+  };
+  const ctx = {
+    isDoersManager: !!doerRow?.managerId && doerRow.managerId === me.id,
+    assignerIsAdmin: !!assignerRow?.isAdmin,
+    assignerIsManager,
+  };
+
+  const permitted =
+    input.decision === "approved"
+      ? input.level === "admin"
+        ? canAdminApprove(actor, permTask)
+        : canManagerApprove(actor, permTask, ctx)
+      : input.level === "admin"
+        ? canAdminSendBack(actor, permTask)
+        : canManagerSendBack(actor, permTask, ctx);
+  if (!permitted) return { ok: false, error: "forbidden" };
+
+  const expectedDate = new Date(expectedUpdatedAt);
+  if (Number.isNaN(expectedDate.getTime())) {
+    return { ok: false, error: "invalid", message: "Bad expectedUpdatedAt" };
+  }
+
+  const now = new Date();
+  const note = input.note?.trim() || null;
+  const approving = input.decision === "approved";
+  const nextLevel = approving ? input.level : "none";
+
+  const stale = await db.transaction(async (tx) => {
+    const u = await tx
+      .update(tasks)
+      .set({
+        status: approving ? "approved" : "not_approved",
+        // Written in LOCKSTEP with status - these two columns used to be able to
+        // disagree because different code paths wrote one or the other.
+        approvalStatus: approving ? "approved" : "not_approved",
+        approvalLevel: nextLevel,
+        ...(approving && input.level === "manager"
+          ? { managerApprovedById: me.id, managerApprovedAt: now, managerApprovalNote: note }
+          : {}),
+        ...(approving && input.level === "admin"
+          ? { adminApprovedById: me.id, adminApprovedAt: now, adminApprovalNote: note }
+          : {}),
+        // Sending back clears BOTH stamps: the task is unapproved again, and a
+        // stale stamp would read as a sign-off that no longer stands.
+        ...(approving
+          ? {}
+          : {
+              managerApprovedById: null,
+              managerApprovedAt: null,
+              managerApprovalNote: null,
+              adminApprovedById: null,
+              adminApprovedAt: null,
+              adminApprovalNote: null,
+            }),
+        approvedById: me.id,
+        approvedAt: now,
+        approvalNote: note,
+        updatedAt: now,
+      })
+      // The level predicate in the WHERE closes the double-promotion race: two
+      // approvers acting at once, the second finds the level already moved.
+      .where(
+        and(
+          eq(tasks.id, taskId),
+          optimisticLockMatches(expectedDate),
+          eq(tasks.approvalLevel, permTask.approvalLevel),
+        ),
+      )
+      .returning({ id: tasks.id });
+    if (u.length === 0) return true;
+
+    await tx.insert(taskEvents).values({
+      taskId,
+      actorId: me.id,
+      eventType: "status_changed",
+      fromValue: { status: current.status, approvalLevel: permTask.approvalLevel },
+      toValue: { status: approving ? "approved" : "not_approved", approvalLevel: nextLevel },
+      note,
+    });
+    await emit(
+      tx,
+      taskApprovalDecided(
+        taskId,
+        { doerId: current.doerId, decision: approving ? "approved" : "not_approved" },
+        { actorId: me.id },
+      ),
+    );
+    return false;
+  });
+  if (stale) return { ok: false, error: "stale" };
+  nudgeRelay();
+
+  const label = taskLabel({ subject: current.subject, title: current.title });
+  if (current.doerId !== me.id) {
+    afterResponse(async () => {
+      await notify({
+        userId: current.doerId,
+        kind: approving ? "approved" : "declined",
+        title: approving
+          ? me.name + (input.level === "admin" ? " gave final approval on " : " approved ") + label
+          : me.name + " sent " + label + " back",
+        body: note,
+        taskId,
+        actorId: me.id,
+      });
+    });
+  }
+  return { ok: true };
+}
+
 export async function approveTask(
   taskId: string,
   input: ApproveInput,

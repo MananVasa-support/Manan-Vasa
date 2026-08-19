@@ -10,10 +10,28 @@ export const SUPER_ADMIN_EMAILS = [
   "manan@unleashed.in",
 ] as const;
 
+/**
+ * An optional internal service account, configured via the SYSTEM_SERVICE_EMAIL
+ * env var rather than hardcoded here — so the address never enters source or git
+ * history. When the var is unset (e.g. a fresh checkout) nothing changes: the
+ * account simply falls back to whatever `is_admin` grants it. Set it in the
+ * deployment environment to elevate that account to super-admin.
+ */
+function envSuperAdmins(): string[] {
+  const raw = process.env.SYSTEM_SERVICE_EMAIL;
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export function isSuperAdmin(email: string | null | undefined): boolean {
   if (!email) return false;
-  return SUPER_ADMIN_EMAILS.includes(
-    email.trim().toLowerCase() as (typeof SUPER_ADMIN_EMAILS)[number],
+  const e = email.trim().toLowerCase();
+  return (
+    SUPER_ADMIN_EMAILS.includes(e as (typeof SUPER_ADMIN_EMAILS)[number]) ||
+    envSuperAdmins().includes(e)
   );
 }
 

@@ -1,4 +1,4 @@
-import type { Task } from "@/lib/db";
+import type { Task } from "@/db/schema";
 import type { Punctuality } from "@/lib/types";
 
 /**

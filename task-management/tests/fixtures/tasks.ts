@@ -190,6 +190,15 @@ function task(partial: Partial<Task>): Task {
     // fixtures keep working without per-task overrides.
     tags: partial.tags ?? null,
     approvalStatus: partial.approvalStatus ?? null,
+    // Two-stage approval (mig 0185) — defaults keep every existing fixture on
+    // the un-approved path, so no test changes meaning.
+    approvalLevel: partial.approvalLevel ?? "none",
+    managerApprovedById: partial.managerApprovedById ?? null,
+    managerApprovedAt: partial.managerApprovedAt ?? null,
+    managerApprovalNote: partial.managerApprovalNote ?? null,
+    adminApprovedById: partial.adminApprovedById ?? null,
+    adminApprovedAt: partial.adminApprovedAt ?? null,
+    adminApprovalNote: partial.adminApprovalNote ?? null,
     revisedTargetDate: partial.revisedTargetDate ?? null,
     // Tier-4 (2026-05-20) GCal-style scheduling fields.
     startsAt: partial.startsAt ?? null,

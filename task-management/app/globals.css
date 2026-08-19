@@ -1324,11 +1324,14 @@ html[data-density="dense"] body {
   font-family: var(--font-sans);
   color: var(--color-ink);
 }
+/* Month caption reads as a plain UI label — the serif ITALIC it used to carry
+   looked like a typo in date pickers (Sir). Same weight/size, upright sans. */
 .rdp-root .rdp-caption_label,
 .rdp-root .rdp-month_caption {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 18px;
+  font-family: var(--font-sans);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 16px;
   color: var(--color-ink-strong);
   letter-spacing: -0.01em;
 }

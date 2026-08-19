@@ -884,6 +884,8 @@ export type TaskDetail = {
   // Tier-3 (2026-05-20) additions
   tags: string[] | null;
   approvalStatus: "approved" | "not_approved" | "cancelled" | "transferred" | null;
+  // Two-stage approval (mig 0185): which level, if any, this task is signed off at.
+  approvalLevel: "none" | "manager" | "admin";
   revisedTargetDate: Date | null;
   // Tier-4 (2026-05-20) — GCal-style scheduling
   startsAt: Date | null;
@@ -932,6 +934,7 @@ export async function getTaskById(taskId: string): Promise<TaskDetail | null> {
       updatedAt: tasks.updatedAt,
       tags: tasks.tags,
       approvalStatus: tasks.approvalStatus,
+      approvalLevel: tasks.approvalLevel,
       revisedTargetDate: tasks.revisedTargetDate,
       startsAt: tasks.startsAt,
       endsAt: tasks.endsAt,

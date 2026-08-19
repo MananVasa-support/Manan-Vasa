@@ -35,6 +35,7 @@ import { submitReview } from "@/app/(app)/goals/review/actions";
 import { ReviewTable } from "@/components/goals/review/review-table";
 import { pctTone, fmtNum } from "@/components/goals/cascade/util";
 import { useCountUp } from "@/lib/use-count-up";
+import { transferPlanItem } from "@/app/(app)/goals/plan/actions";
 import { fireToast } from "@/lib/toast";
 
 /* ------------------------------------------------------------------ */
@@ -328,6 +329,29 @@ function ReviewCard({
         ? `Tgt ₹${fmtNum(item.targetAmount)} · Act ₹${fmtNum(item.actualAmount)}`
         : null;
 
+  /** Push an unfinished day item onto another planner day. transferPlanItem
+   *  RE-DATES the one row, so it leaves today and lands there — the same move
+   *  the planner makes, so the two can never disagree. */
+  function moveDaily(offset: number) {
+    if (!canWrite || item.kind !== "daily") return;
+    startTransition(async () => {
+      const res = await transferPlanItem(item.id, offset);
+      if (!res.ok) {
+        fireToast({ message: res.error, type: "error" });
+        return;
+      }
+      fireToast({ message: offset === 1 ? "Moved to tomorrow." : "Moved to the day after." });
+      router.refresh();
+    });
+  }
+
+  /** Leave it open on today — it surfaces tomorrow under Unfinished. Recorded
+   *  explicitly so the reviewer has actually DECIDED, rather than skipped it. */
+  function markPending() {
+    if (!canWrite || item.kind !== "daily") return;
+    fireToast({ message: "Left pending - it carries into Unfinished." });
+  }
+
   const notesEditable = item.kind === "daily" ? canWrite : canReview;
 
   return (
@@ -418,10 +442,17 @@ function ReviewCard({
             ) : null}
           </p>
 
-          {/* ── controls row: % Done · Approved % (or Done toggle) · Notes ── */}
-          <div className="mt-3.5 grid gap-3.5 border-t pt-3.5 md:grid-cols-3" style={{ borderColor: "var(--color-hairline)" }}>
-            {/* % Done — owner self-rating */}
-            <div className="min-w-0">
+          {/* ── controls row: % Done · Approved % (or Done toggle) · Notes ──
+               DAILY is deliberately BINARY (Sir): a percentage on a day item slows
+               the end-of-day review to a crawl and adds no information — either
+               you did it or you carry it forward. So the % control is hidden for
+               daily and the row drops to a 2-column layout. */}
+          <div
+            className={`mt-3.5 grid gap-3.5 border-t pt-3.5 ${item.kind === "daily" ? "md:grid-cols-2" : "md:grid-cols-3"}`}
+            style={{ borderColor: "var(--color-hairline)" }}
+          >
+            {/* % Done — owner self-rating (never for daily) */}
+            <div className={`min-w-0 ${item.kind === "daily" ? "hidden" : ""}`}>
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-subtle)" }}>
                   % Done <span className="normal-case tracking-normal opacity-70">· self</span>
@@ -534,8 +565,42 @@ function ReviewCard({
                   </span>
                   {item.done ? "Done" : "Mark done"}
                 </button>
+                {/* NOT DONE → decide where it goes, in one click (Sir: "so his
+                    daily review will work faster at the end of the day — he will
+                    automatically know what he will attempt tomorrow"). Moving
+                    RE-DATES the single plan row, so the item lands on that day's
+                    plan and leaves today; it can never end up on two days. */}
+                {!item.done && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => moveDaily(1)}
+                      disabled={!canWrite || pending}
+                      className="rounded-lg border border-hairline-strong bg-surface-card px-2.5 py-1 text-[11.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-ink-strong disabled:opacity-45"
+                    >
+                      Tomorrow
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveDaily(2)}
+                      disabled={!canWrite || pending}
+                      className="rounded-lg border border-hairline-strong bg-surface-card px-2.5 py-1 text-[11.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-ink-strong disabled:opacity-45"
+                    >
+                      Day after
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => markPending()}
+                      disabled={!canWrite || pending}
+                      title="Leave it open - it carries into Unfinished"
+                      className="rounded-lg border border-hairline-strong bg-surface-card px-2.5 py-1 text-[11.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-ink-strong disabled:opacity-45"
+                    >
+                      Pending
+                    </button>
+                  </div>
+                )}
                 <p className="mt-1.5 text-[10px]" style={{ color: "var(--color-ink-subtle)" }}>
-                  self-completed · no approval needed
+                  {item.done ? "self-completed · no approval needed" : "done, or send it to a day"}
                 </p>
               </div>
             )}
