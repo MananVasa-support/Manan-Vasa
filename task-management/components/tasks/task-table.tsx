@@ -97,6 +97,7 @@ import {
   Ban,
   Group as GroupIcon,
   type LucideIcon,
+  GripVertical,
 } from "lucide-react";
 
 // Group-by options for the Tasks table. "none" = flat list (default).
@@ -221,9 +222,24 @@ type TaskCol = ColumnDef<TaskListRow> & {
   meta?: { mobileHide?: boolean; align?: "center" | "right"; narrow?: boolean; wide?: boolean };
 };
 
+/**
+ * A column's stable id. TanStack derives it from `id` when present and from
+ * `accessorKey` otherwise; the order we persist has to key off the SAME string
+ * or a saved layout would not match the live columns after a reload.
+ */
+function colId(c: TaskCol): string {
+  const anyCol = c as { id?: string; accessorKey?: string };
+  return anyCol.id ?? anyCol.accessorKey ?? "";
+}
+
+/** Columns that stay put: the select checkbox and the row-actions rail are
+ *  positional furniture, not data, and both are sticky-pinned to an edge. */
+const UNMOVABLE_COLUMNS = new Set(["select", "actions"]);
+
+
 function buildColumns(
   employees: { id: string; name: string }[],
-  me: { id: string; isAdmin: boolean },
+  me: { id: string; isAdmin: boolean; canChangeDoer?: boolean },
   statusLabels: StatusLabels,
   statusTones: StatusTones,
   /** Present only when the list opens records in the drawer. */
@@ -350,7 +366,11 @@ function buildColumns(
           doerId={row.original.doerId}
           doerName={row.original.doerName}
           employees={employees}
-          editable={me.isAdmin}
+          // DOER = MANAN ONLY (Sir), not every admin. Optional prop, so a caller
+          // that forgets to pass it renders a plain read-only name rather than
+          // silently handing the control to the wrong person. The server action
+          // enforces the same rule — this only hides the affordance.
+          editable={me.canChangeDoer === true}
         />
       ),
     },
@@ -472,7 +492,7 @@ export function TaskTable({
 }: {
   rows: TaskListRow[];
   employees: { id: string; name: string }[];
-  me: { id: string; isAdmin: boolean };
+  me: { id: string; isAdmin: boolean; canChangeDoer?: boolean };
   statusLabels?: StatusLabels;
   statusTones?: StatusTones;
   /** Bulk-set option rosters. When omitted, fall back to the distinct
@@ -567,6 +587,62 @@ export function TaskTable({
     }
   }, [columnVisibility]);
 
+  // ── Drag-to-reorder column order, saved PER USER ────────────────────────
+  //
+  // Keyed by employee id, not just by browser: two people sharing a machine
+  // must not inherit each other's layout, which is exactly what the unkeyed
+  // visibility blob above does. One person's arrangement is theirs alone and
+  // never becomes the default for anyone else.
+  //
+  // localStorage rather than a new table: there is no general UI-preference
+  // store in this schema (only the feature-specific notification_preferences),
+  // and the column-visibility setting beside it already established this as the
+  // house pattern for task-table layout. The trade-off is that the order does
+  // not follow a user to another browser or device.
+  const orderKey = `altus.tasks.columnOrder.v1:${me.id}`;
+  const defaultOrder = React.useMemo(() => columns.map((c) => colId(c)), [columns]);
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(defaultOrder);
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(orderKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as string[];
+      // RECONCILE, never trust wholesale: a stored order names the columns that
+      // existed when it was written. Drop ids that have since been removed, and
+      // append columns added since — otherwise a new column would be invisible
+      // to anyone who had ever reordered, which is a silent data-loss bug.
+      const known = new Set(defaultOrder);
+      const kept = saved.filter((id) => known.has(id));
+      const added = defaultOrder.filter((id) => !kept.includes(id));
+      setColumnOrder([...kept, ...added]);
+    } catch {
+      /* ignore malformed storage */
+    }
+  }, [orderKey, defaultOrder]);
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(orderKey, JSON.stringify(columnOrder));
+    } catch {
+      /* storage may be unavailable (private mode) */
+    }
+  }, [orderKey, columnOrder]);
+
+  // Which header is being dragged, and where it would land. `null` = idle.
+  const [dragCol, setDragCol] = React.useState<string | null>(null);
+  const [dropCol, setDropCol] = React.useState<string | null>(null);
+
+  /** Move `from` to sit where `to` currently is, preserving everything else. */
+  const moveColumn = React.useCallback((from: string, to: string) => {
+    if (from === to) return;
+    setColumnOrder((prev) => {
+      const next = prev.filter((id) => id !== from);
+      const at = next.indexOf(to);
+      if (at < 0) return prev;
+      next.splice(at, 0, from);
+      return next;
+    });
+  }, []);
+
   // Click-to-sort state (the user's chosen column) + group-by selection.
   // When grouped, the group column becomes the PRIMARY sort key so rows
   // cluster, and the user's sort applies within each group — see
@@ -640,8 +716,9 @@ export function TaskTable({
   const table = useReactTable({
     data: visibleRows,
     columns,
-    state: { columnVisibility, sorting: effectiveSorting, rowSelection },
+    state: { columnVisibility, columnOrder, sorting: effectiveSorting, rowSelection },
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
     onSortingChange: handleSortingChange,
     onRowSelectionChange: setRowSelection,
     enableRowSelection: true,
@@ -844,9 +921,42 @@ export function TaskTable({
                 const canSort = h.column.getCanSort();
                 const sorted = h.column.getIsSorted(); // false | "asc" | "desc"
                 const headerNode = flexRender(h.column.columnDef.header, h.getContext());
+                const movable = !UNMOVABLE_COLUMNS.has(h.column.id);
+                const isDropTarget = dropCol === h.column.id && dragCol !== h.column.id;
+                // Which edge to draw the marker on — the side the column would
+                // arrive from, so the line sits where it will actually land.
+                const fromLeft =
+                  dragCol != null &&
+                  columnOrder.indexOf(dragCol) < columnOrder.indexOf(h.column.id);
                 return (
                   <th
                     key={h.id}
+                    // Drop target. `preventDefault` on dragover is what tells
+                    // the browser a drop is allowed here at all.
+                    onDragOver={
+                      movable
+                        ? (e) => {
+                            if (!dragCol) return;
+                            e.preventDefault();
+                            setDropCol(h.column.id);
+                          }
+                        : undefined
+                    }
+                    onDragLeave={
+                      movable
+                        ? () => setDropCol((c) => (c === h.column.id ? null : c))
+                        : undefined
+                    }
+                    onDrop={
+                      movable
+                        ? (e) => {
+                            e.preventDefault();
+                            if (dragCol) moveColumn(dragCol, h.column.id);
+                            setDragCol(null);
+                            setDropCol(null);
+                          }
+                        : undefined
+                    }
                     aria-sort={
                       sorted === "asc"
                         ? "ascending"
@@ -860,7 +970,7 @@ export function TaskTable({
                     /* `w-full` on the wide column's header too: auto layout
                        resolves a column's width from the whole column, so the
                        th and td have to agree or the header lags the body. */
-                    className={`sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
+                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
                     style={{
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
@@ -871,11 +981,52 @@ export function TaskTable({
                       backdropFilter: "blur(10px) saturate(140%)",
                       WebkitBackdropFilter: "blur(10px) saturate(140%)",
                       color: "var(--color-ink-soft)",
-                      boxShadow: isActions
-                        ? "inset 0 -1px 0 var(--color-hairline-strong), -10px 0 14px -10px rgba(15,23,42,0.14)"
-                        : "inset 0 -1px 0 var(--color-hairline-strong)",
+                      // The drop marker is drawn as an extra inset shadow on the
+                      // edge the column would arrive from — no extra element, so
+                      // it cannot disturb the sticky header's stacking or width.
+                      boxShadow: [
+                        isActions
+                          ? "inset 0 -1px 0 var(--color-hairline-strong), -10px 0 14px -10px rgba(15,23,42,0.14)"
+                          : "inset 0 -1px 0 var(--color-hairline-strong)",
+                        isDropTarget
+                          ? `inset ${fromLeft ? "-3px" : "3px"} 0 0 var(--color-altus-red)`
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(", "),
+                      opacity: dragCol === h.column.id ? 0.45 : 1,
                     }}
                   >
+                    {/* A separate GRIP, not a draggable <th>. Making the whole
+                        header draggable competes with the sort button inside it:
+                        a click that moves a few pixels becomes a drag and the
+                        sort silently fails to fire. The grip owns dragging, the
+                        button owns sorting, and neither can swallow the other.
+                        It appears on hover so ten grips do not clutter the row. */}
+                    {movable && (
+                      <span
+                        draggable
+                        onDragStart={(e) => {
+                          setDragCol(h.column.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          // Firefox refuses to start a drag without payload.
+                          e.dataTransfer.setData("text/plain", h.column.id);
+                        }}
+                        onDragEnd={() => {
+                          setDragCol(null);
+                          setDropCol(null);
+                        }}
+                        role="button"
+                        tabIndex={-1}
+                        aria-label={`Reorder column ${
+                          typeof headerNode === "string" ? headerNode : h.column.id
+                        }`}
+                        title="Drag to reorder this column"
+                        className="mr-1 inline-flex cursor-grab align-middle text-ink-subtle opacity-0 transition-opacity hover:text-ink-strong active:cursor-grabbing group-hover/head:opacity-70"
+                      >
+                        <GripVertical size={12} strokeWidth={2.4} aria-hidden />
+                      </span>
+                    )}
                     {canSort ? (
                       <button
                         type="button"
@@ -1535,7 +1686,7 @@ function TaskCard({
 }: {
   row: TaskListRow;
   employees: { id: string; name: string }[];
-  me: { id: string; isAdmin: boolean };
+  me: { id: string; isAdmin: boolean; canChangeDoer?: boolean };
   statusLabels: StatusLabels;
   statusTones: StatusTones;
   selected: boolean;

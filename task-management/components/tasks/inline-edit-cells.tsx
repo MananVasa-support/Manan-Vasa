@@ -8,6 +8,7 @@ import { format, differenceInCalendarDays } from "date-fns";
 import { formatDate } from "@/lib/format";
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { fireToast } from "@/lib/toast";
+import { scheduleReconcile } from "@/lib/client/reconcile";
 import {
   TASK_PRIORITIES,
   PRIORITY_LABELS,
@@ -64,6 +65,40 @@ function toYmd(value: Date | null): string {
 }
 
 // ── Doer ───────────────────────────────────────────────────────────────────
+/**
+ * A brief "saved" tint on the cell that was just edited.
+ *
+ * The toast confirms the write, but it appears in a corner far from the cell
+ * the user is looking at — on a wide table that is easy to miss entirely. This
+ * marks the change AT the point of interaction, then fades, so the row does not
+ * accumulate permanent decoration.
+ */
+function useSavedFlash(ms = 1400): [boolean, () => void] {
+  const [on, setOn] = React.useState(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+  const flash = React.useCallback(() => {
+    setOn(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOn(false), ms);
+  }, [ms]);
+  return [on, flash];
+}
+
+/** Shared styling for the saved flash — a soft green seat, no layout shift. */
+const savedStyle = (on: boolean) =>
+  on
+    ? {
+        background: "color-mix(in srgb, #16a34a 14%, transparent)",
+        boxShadow: "inset 0 0 0 1px color-mix(in srgb, #16a34a 45%, transparent)",
+      }
+    : undefined;
+
 export function InlineDoerCell({
   taskId,
   doerId,
@@ -116,7 +151,10 @@ export function InlineDoerCell({
         fireToast({ message: res.error || "Could not reassign." });
       } else {
         fireToast({ message: `Reassigned to ${nm}.` });
-        router.refresh();
+        // The cell already shows the new doer. Reconcile server-derived fields
+        // in ONE coalesced background pass rather than re-fetching the whole
+        // view per edit — see lib/client/reconcile.
+        scheduleReconcile(() => router.refresh());
       }
     } finally {
       setPending(false);
@@ -223,7 +261,7 @@ export function InlinePriorityCell({
         fireToast({ message: res.error || "Could not change priority." });
       } else {
         fireToast({ message: `Priority set to ${PRIORITY_LABELS[p]}.` });
-        router.refresh();
+        scheduleReconcile(() => router.refresh());
       }
     } finally {
       setPending(false);
@@ -297,7 +335,25 @@ export function InlineDueCell({
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [shown, setShown] = React.useState<Date | null>(dueAt);
+  const [saved, flashSaved] = useSavedFlash();
   React.useEffect(() => setShown(dueAt), [dueAt]);
+
+  /**
+   * The draft date, held here rather than written straight through.
+   *
+   * THE BUG THIS FIXES: a native `<input type="date">` fires `change` the moment
+   * the three segments form a valid date — so typing the day fired a save, the
+   * popover closed under the cursor, and the month and year had to be set by
+   * re-opening it and starting again. Editing one date meant eight passes.
+   *
+   * Now nothing is written until the tick (or Enter). The popover stays open,
+   * every segment can be typed in any order, and the date can be changed as
+   * often as you like before it counts. Escape / clicking away discards.
+   *
+   * Declared HERE, above the `!editable` early return — a hook after that
+   * return would run only for editable cells and break the hook order.
+   */
+  const [draft, setDraft] = React.useState(() => toYmd(dueAt));
 
   const u = dueColor(shown, status);
   const display = (
@@ -322,26 +378,56 @@ export function InlineDueCell({
         setShown(prev);
         fireToast({ message: res.error || "Could not reschedule." });
       } else {
+        flashSaved();
         fireToast({ message: "Due date updated." });
-        router.refresh();
+        scheduleReconcile(() => router.refresh());
       }
     } finally {
       setPending(false);
     }
   }
 
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(draft);
+  const dirty = draft !== toYmd(shown);
+
+  // Re-seed the draft from the row each time the popover OPENS, not on every
+  // render — otherwise a background refresh mid-edit would wipe what was typed.
+  function onOpenChange(next: boolean) {
+    if (pending) return;
+    if (next) setDraft(toYmd(shown));
+    setOpen(next);
+  }
+
+  function confirm() {
+    if (!valid) return;
+    if (!dirty) {
+      setOpen(false); // nothing changed — close quietly, no write, no toast
+      return;
+    }
+    void commit(draft);
+  }
+
   return (
-    <Popover.Root open={open} onOpenChange={(n) => !pending && setOpen(n)}>
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
           disabled={pending}
           className="inline-flex items-center gap-1 rounded-chip px-1.5 py-1 -mx-1.5 hover:bg-surface-soft transition-colors"
-          style={{ cursor: pending ? "wait" : "pointer", opacity: pending ? 0.7 : 1 }}
+          style={{
+            cursor: pending ? "wait" : "pointer",
+            opacity: pending ? 0.7 : 1,
+            ...savedStyle(saved),
+          }}
           aria-label="Reschedule due date"
         >
           {display}
+          {/* Confirmation at the point of interaction, not just in a corner
+              toast the eye may never reach on a wide table. */}
+          {saved && (
+            <Check size={13} strokeWidth={3} aria-hidden style={{ color: "#15803d" }} />
+          )}
         </button>
       </Popover.Trigger>
       <Popover.Portal>
@@ -352,16 +438,64 @@ export function InlineDueCell({
           className="z-[60] rounded-chip border bg-surface-card p-3"
           style={{ borderColor: "var(--color-hairline-strong)", boxShadow: "0 16px 40px rgba(15,23,42,0.18)" }}
         >
-          <label className="block text-[12px] font-bold text-ink-subtle uppercase tracking-[0.06em] mb-1.5">
+          <label
+            htmlFor={`due-${taskId}`}
+            className="block text-[12px] font-bold text-ink-subtle uppercase tracking-[0.06em] mb-1.5"
+          >
             Due date
           </label>
-          <input
-            autoFocus
-            type="date"
-            defaultValue={toYmd(shown)}
-            onChange={(e) => void commit(e.target.value)}
-            className="h-10 px-3 rounded-chip border border-hairline bg-surface-soft text-[14px] outline-none focus:border-altus-red"
-          />
+          <div className="flex items-center gap-1.5">
+            <input
+              autoFocus
+              id={`due-${taskId}`}
+              type="date"
+              value={draft}
+              disabled={pending}
+              onChange={(e) => setDraft(e.target.value)}
+              // Enter commits, Escape discards. Both are stopped from bubbling:
+              // Enter would otherwise reach the row (which opens the task) and
+              // Escape is handled here so the draft is cleared on the way out.
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  confirm();
+                } else if (e.key === "Escape") {
+                  e.stopPropagation();
+                  setDraft(toYmd(shown));
+                  setOpen(false);
+                }
+              }}
+              className="h-10 px-3 rounded-chip border border-hairline bg-surface-soft text-[14px] outline-none focus:border-altus-red"
+            />
+            {/* The tick. Nothing is saved until this (or Enter) — the whole
+                point of the change, so it sits beside the field rather than
+                anywhere the eye has to travel to find it. */}
+            <button
+              type="button"
+              onClick={confirm}
+              disabled={!valid || pending}
+              title={dirty ? "Save due date (Enter)" : "Close (nothing changed)"}
+              aria-label="Save due date"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-chip border transition-colors disabled:opacity-40"
+              style={{
+                borderColor: dirty && valid ? "#15803d" : "var(--color-hairline-strong)",
+                background:
+                  dirty && valid ? "color-mix(in srgb, #16a34a 12%, transparent)" : "transparent",
+                color: dirty && valid ? "#15803d" : "var(--color-ink-subtle)",
+                cursor: !valid || pending ? "default" : "pointer",
+              }}
+            >
+              {pending ? (
+                <Loader2 size={16} className="animate-spin" aria-hidden />
+              ) : (
+                <Check size={17} strokeWidth={3} aria-hidden />
+              )}
+            </button>
+          </div>
+          <p className="mt-1.5 text-[11px] font-semibold text-ink-subtle">
+            Enter or ✓ to save · Esc to cancel
+          </p>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

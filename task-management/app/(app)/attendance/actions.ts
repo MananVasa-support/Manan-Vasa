@@ -22,10 +22,19 @@ import { withRetry } from "@/lib/db/with-timeout";
 import { insertPunchRow, resolvePunchGeofence } from "@/lib/attendance/record-punch";
 import { evaluateOfficeIp } from "@/lib/attendance/office-ip";
 import { isDccFilledFor } from "@/lib/dcc/gate";
-import { needsDailyPlan } from "@/lib/daily-checklist/gate";
+import {
+  needsDailyPlan,
+  dailyPlanShortfall,
+  MIN_ATTENDANCE_ITEMS,
+} from "@/lib/daily-checklist/gate";
 import { needsGoalActuals, unloggedGoalLabels } from "@/lib/weekly-goals/actuals";
 import { isManagerWithReports, isMondayIST, managerMondayGoalState } from "@/lib/manager-gates";
-import { satCommitGateOn, monApproveGateOn, checkoutCloseoutGateOn } from "@/lib/goals/flag";
+import {
+  satCommitGateOn,
+  monApproveGateOn,
+  checkoutCloseoutGateOn,
+  punchPlanGateOn,
+} from "@/lib/goals/flag";
 import { isDayClosedOut } from "@/lib/queries/daily-checklist";
 import { assertMonthEditable } from "@/lib/reports/attendance-freeze";
 import { weekCommitSatisfied, managerApproveSatisfied } from "@/lib/goals/gates-predicates";
@@ -162,33 +171,51 @@ export async function punchAttendance(input: {
     }
   }
 
-  // ── Clock-IN planning gate (employees only) ──────────────────────────
-  // An employee must "Plan Your Day" — commit ≥5 today AND log today's progress
-  // on each open weekly goal — before clocking IN. Managers, admins and super-
-  // admins are EXEMPT. FAIL-OPEN (any check error → allow the punch), honors
-  // PUNCH_PLAN_GATE_OFF. Mirrors the layout gate so the mobile punch can't skip it.
-  if (kind === "in" && false /* plan gate force-off 2026-07-27 (attendance unblock) */) {
-    const exempt =
-      isSuperAdmin(me.email) || me.isAdmin || (await isManagerWithReports(me.id).catch(() => true));
-    if (!exempt) {
-      const planned = !(await needsDailyPlan(me.id).catch(() => false));
-      const actuals = !(await needsGoalActuals(me.id).catch(() => false));
-      if (!planned || !actuals) {
-        // Make the block SPECIFIC: when goals are the blocker, name the exact
-        // ones still unlogged + point at the one-tap "Log all" fix, so a person
-        // with many goals isn't left guessing what's missing.
-        let error =
-          "Plan your day first — commit your 5 and log today's goal progress on the Daily Checklist, then clock in.";
-        if (planned && !actuals) {
-          const names = await unloggedGoalLabels(me.id).catch(() => [] as string[]);
-          if (names.length > 0) {
-            const shown = names.slice(0, 4).join(", ");
-            const more = names.length > 4 ? ` +${names.length - 4} more` : "";
-            error = `Log today's progress on ${names.length} weekly goal${names.length === 1 ? "" : "s"} before clocking in: ${shown}${more}. Tip: use “Log all at current %” on the Daily Checklist.`;
-          }
+  // ── Clock-IN planning gate ───────────────────────────────────────────
+  // Nobody marks themselves present without a plan: MIN_ATTENDANCE_ITEMS things
+  // on today's plan AND today's progress logged on each open weekly goal.
+  //
+  // NO ROLE EXEMPTIONS (Sir). The old `exempt` branch let super-admins, admins
+  // and anyone with a direct report punch in unplanned; the rule now applies to
+  // everyone, which means PUNCH_PLAN_GATE_OFF is the only way to unblock a bad
+  // state — see punchPlanGateOn.
+  //
+  // FAIL-OPEN, deliberately: any error in the checks allows the punch. A
+  // database hiccup must never stop the workforce clocking in. Mirrors the
+  // mobile punch so the app can't skip it.
+  if (kind === "in" && punchPlanGateOn()) {
+    const planned = !(await needsDailyPlan(me.id).catch(() => false));
+    const actuals = !(await needsGoalActuals(me.id).catch(() => false));
+    if (!planned || !actuals) {
+      // Make the block SPECIFIC — say how far off they are rather than just
+      // refusing, so nobody has to guess what "plan your day" means today.
+      let error = "Plan your day first, then clock in.";
+      if (!planned) {
+        const { have, need, started } = await dailyPlanShortfall(me.id).catch(() => ({
+          have: 0,
+          need: MIN_ATTENDANCE_ITEMS,
+          started: false,
+        }));
+        // Two different failures with two different fixes — name the right one.
+        // "Add 2 more" is useless advice to someone who has ten items and simply
+        // never hit Start My Day.
+        if (have < need) {
+          const short = Math.max(1, need - have);
+          error = `You have ${have} of ${need} things planned for today. Add ${short} more on Plan My Day, then clock in.`;
+        } else if (!started) {
+          error = `Hit “Start My Day” on WMS › Plan My Day to begin your day, then clock in.`;
         }
-        return { ok: false, error };
+      } else {
+        // Goals are the blocker: name the exact ones still unlogged + point at
+        // the one-tap "Log all" fix.
+        const names = await unloggedGoalLabels(me.id).catch(() => [] as string[]);
+        if (names.length > 0) {
+          const shown = names.slice(0, 4).join(", ");
+          const more = names.length > 4 ? ` +${names.length - 4} more` : "";
+          error = `Log today's progress on ${names.length} weekly goal${names.length === 1 ? "" : "s"} before clocking in: ${shown}${more}. Tip: use “Log all at current %” on the Daily Checklist.`;
+        }
       }
+      return { ok: false, error };
     }
   }
 

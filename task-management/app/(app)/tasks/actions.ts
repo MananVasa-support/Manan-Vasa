@@ -48,6 +48,7 @@ import { taskEvents, clients, subjects, employees } from "@/db/schema";
 import { CreateClientSchema } from "@/lib/validators/client";
 import { CreateSubjectSchema } from "@/lib/validators/subject";
 import { requireUser, requireWeeklyGoalsFilled } from "@/lib/auth/current";
+import { canChangeDoer } from "@/lib/auth/super-admin";
 import { listEmployees } from "@/lib/queries/employees";
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { listActiveSubjectNames } from "@/lib/queries/subjects";
@@ -417,6 +418,13 @@ export async function reassignDoer(
   if (!isUuid(taskId)) return { ok: false, error: "Invalid task id." };
   if (!isUuid(doerId)) return { ok: false, error: "Invalid employee id." };
   const me = await requireUser();
+  // DOER IS MANAN'S CALL ALONE (Sir). The inline cell is hidden for everyone
+  // else, but hiding a control is presentation — this is the boundary. Every
+  // path that writes tasks.doerId carries the same check: here, bulkReassignDoer
+  // and reassignTask.
+  if (!canChangeDoer(me.email)) {
+    return { ok: false, error: "Only Manan can change a task's doer." };
+  }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   try {
@@ -715,6 +723,13 @@ export async function bulkReassignDoer(
   if (!ids) return { ok: false, error: "Invalid selection." };
   if (!isUuid(doerId)) return { ok: false, error: "Invalid doer." };
   const me = await requireUser();
+  // Same rule as reassignDoer — and note this action previously had NO
+  // permission check at all beyond being signed in, so it was the widest of
+  // the three doer paths. Reassigning fifty tasks at once is no less an
+  // allocation decision than reassigning one.
+  if (!canChangeDoer(me.email)) {
+    return { ok: false, error: "Only Manan can change a task's doer." };
+  }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -1497,6 +1512,11 @@ export async function reassignTask(
   if (!isUuid(taskId)) return { ok: false, error: "invalid", message: "Bad task id" };
 
   const me = await requireUser();
+  // The third doer path (the Reassign dialog). Same rule — otherwise the inline
+  // cell is locked while a dialog two clicks away does the same write.
+  if (!canChangeDoer(me.email)) {
+    return { ok: false, error: "forbidden", message: "Only Manan can change a task's doer." };
+  }
 
   let parsed;
   try {

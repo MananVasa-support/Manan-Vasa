@@ -148,10 +148,13 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
               {/* The same digit the hub badges show, so the shortcut is learnable
                   from whichever surface you happen to be looking at. Dimmer than
                   the label — a hint, not a heading — and aria-hidden so the row
-                  does not read as "one W M S two Goals". */}
+                  does not read as "one W M S two Goals".
+                  The ⌃ prefix is not decoration: the digit alone no longer
+                  navigates (it was colliding with typing), so a bare "1" here
+                  would now be advertising a shortcut that does nothing. */}
               {shortcut && (
                 <span aria-hidden className="tabular-nums opacity-55">
-                  {shortcut}
+                  ⌃{shortcut}
                 </span>
               )}
               <span className="whitespace-nowrap">{m.label}</span>
@@ -178,6 +181,7 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
             <Link
               key={id}
               href={m.href}
+              title={shortcut ? `${m.label} — Ctrl+${shortcut} (or Alt+${shortcut})` : m.label}
               aria-current={active ? "page" : undefined}
               // Resting state is a dark neutral so ten labels do not glare on the
               // light glass; the module's own accent appears on hover/focus, and

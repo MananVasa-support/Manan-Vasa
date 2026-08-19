@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { Route } from "next";
 import { X, Check, ExternalLink, Loader2 } from "lucide-react";
@@ -15,7 +16,18 @@ import { planCategory, CATEGORY_ACCENT } from "./source-tag";
  *
  * A slide-over, not the centred `ItemDetailModal` that source cards use: this
  * opens from a table row, and a centred sheet would cover the very list you are
- * working down. ~45vw so the row you clicked stays visible beside it.
+ * working down. 75vw (Sir) — wide enough that a task reads as a document rather
+ * than a column, with the list still visible down the left edge.
+ *
+ * PORTALLED TO document.body, and that is load-bearing rather than tidiness.
+ * Its parent in day-review carries `.wg-rise`, whose `fadeUp` animation ends on
+ * `transform: translateY(0)` with fill-mode `both` — so the transform is never
+ * removed. Any non-`none` transform makes a descendant's `position: fixed`
+ * resolve against THAT element instead of the viewport, which is why this panel
+ * used to render as a box floating in the middle of the page, clipped short of
+ * the bottom and scrolling internally with room to spare around it. Portalling
+ * lifts it out of every transformed ancestor for good; widening it without this
+ * would only have produced a bigger misplaced box.
  *
  * Sections that have no data for this row are NOT rendered. Subtasks and the
  * activity timeline only exist for rows backed by a WMS task — an ad-hoc
@@ -54,13 +66,18 @@ export function PlanItemDrawer({
     };
   }, [item, onClose]);
 
-  if (!item) return null;
+  // Portals need a DOM target, which does not exist during SSR — render nothing
+  // on the server pass and mount on the client.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
+  if (!item || !mounted) return null;
 
   const category = planCategory(item.kind, item.carriedOver);
   const heroTitle = item.client?.trim() || item.subject?.trim() || item.title;
   const isTaskBacked = Boolean(item.taskId);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[70] flex justify-end" role="dialog" aria-modal="true">
       {/* Scrim — a button so a click anywhere off the panel closes it. */}
       <button
@@ -72,7 +89,7 @@ export function PlanItemDrawer({
       />
 
       <aside
-        className="relative flex h-full w-[45vw] min-w-[420px] flex-col bg-white max-lg:w-[70vw] max-md:w-full max-md:min-w-0"
+        className="relative flex h-full w-[75vw] min-w-[420px] flex-col bg-white max-lg:w-[85vw] max-md:w-full max-md:min-w-0"
         style={{
           boxShadow: "-24px 0 60px -24px rgba(15,23,42,0.35)",
           animation: "drawerIn 180ms ease-out",
@@ -163,7 +180,9 @@ export function PlanItemDrawer({
               <p className="mt-1 text-[14px] font-semibold text-ink-soft">{item.title}</p>
             )}
 
-            {/* Inline metadata row */}
+            {/* Owner sits with the title; the rest of the facts moved into the
+                Details card on the right, where a wide panel can hold them as a
+                scannable list instead of a wrapping run-on row. */}
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
               <span className="inline-flex items-center gap-2">
                 <Avatar name={employeeName} avatarUrl={avatarUrl ?? null} size={22} />
@@ -171,65 +190,84 @@ export function PlanItemDrawer({
                   {employeeName}
                 </span>
               </span>
-              <Meta label="Priority">
-                {item.priority ? (
-                  <PriorityPill priority={item.priority} />
-                ) : (
-                  <span className="text-ink-subtle">—</span>
-                )}
-              </Meta>
-              <Meta label="Due">{item.dueYmd ?? "—"}</Meta>
-              <Meta label="Created">{item.createdYmd ?? "—"}</Meta>
-              {item.ageDays != null && <Meta label="Age">{item.ageDays}d open</Meta>}
             </div>
           </div>
 
-          {/* ── 3 · Body ─────────────────────────────────────────────────── */}
-          <div className="space-y-5 px-5 py-4">
-            <section>
-              <SectionLabel>Description</SectionLabel>
-              {item.description ? (
-                <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-soft">
-                  {item.description}
-                </p>
-              ) : (
-                <p className="text-[13px] font-medium italic text-ink-subtle">
-                  No description on this commitment.
-                </p>
-              )}
-            </section>
-
-            {item.doneNote ? (
+          {/* ── 3 · Body — TWO COLUMNS once there is room for them ─────────
+              At 75vw a single column of prose leaves most of the panel empty and
+              still makes a long description scroll. Narrative on the left, facts
+              in a card on the right (the shape of the WMS task detail view Sir
+              pointed at). Collapses back to one column under `lg`, where the
+              panel is 85vw/full-width and a 320px sidebar would crush the text. */}
+          <div className="grid gap-5 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
+            <div className="min-w-0 space-y-5">
               <section>
-                <SectionLabel>Close-out note</SectionLabel>
-                <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-soft">
-                  {item.doneNote}
-                </p>
+                <SectionLabel>Description</SectionLabel>
+                {item.description ? (
+                  <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-soft">
+                    {item.description}
+                  </p>
+                ) : (
+                  <p className="text-[13px] font-medium italic text-ink-subtle">
+                    No description on this commitment.
+                  </p>
+                )}
               </section>
-            ) : null}
 
-            {/* Subtasks + activity live on the TASK, so they exist only for
-                task-backed rows. For everything else the sections are omitted
-                rather than shown empty — see the component doc. */}
-            {isTaskBacked ? (
-              <section>
-                <SectionLabel>Subtasks &amp; activity</SectionLabel>
-                <Link
-                  href={`/tasks/${item.taskId}` as Route}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-surface-card px-3 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
-                >
-                  <ExternalLink size={14} />
-                  Open the full task
-                </Link>
-                <p className="mt-1.5 text-[12px] font-medium text-ink-subtle">
-                  Its checklist, comments and time log live on the task itself.
-                </p>
-              </section>
-            ) : null}
+              {item.doneNote ? (
+                <section>
+                  <SectionLabel>Close-out note</SectionLabel>
+                  <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-soft">
+                    {item.doneNote}
+                  </p>
+                </section>
+              ) : null}
+
+              {/* Subtasks + activity live on the TASK, so they exist only for
+                  task-backed rows. For everything else the sections are omitted
+                  rather than shown empty — see the component doc. */}
+              {isTaskBacked ? (
+                <section>
+                  <SectionLabel>Subtasks &amp; activity</SectionLabel>
+                  <Link
+                    href={`/tasks/${item.taskId}` as Route}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-surface-card px-3 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+                  >
+                    <ExternalLink size={14} />
+                    Open the full task
+                  </Link>
+                  <p className="mt-1.5 text-[12px] font-medium text-ink-subtle">
+                    Its checklist, comments and time log live on the task itself.
+                  </p>
+                </section>
+              ) : null}
+            </div>
+
+            <aside className="min-w-0">
+              <div className="rounded-section border border-hairline bg-surface-soft p-4">
+                <SectionLabel>Details</SectionLabel>
+                <dl className="mt-1 divide-y divide-hairline">
+                  <DetailRow label="Priority">
+                    {item.priority ? (
+                      <PriorityPill priority={item.priority} />
+                    ) : (
+                      <span className="text-ink-subtle">—</span>
+                    )}
+                  </DetailRow>
+                  <DetailRow label="Due">{item.dueYmd ?? "—"}</DetailRow>
+                  <DetailRow label="Created">{item.createdYmd ?? "—"}</DetailRow>
+                  {item.ageDays != null && (
+                    <DetailRow label="Age">{item.ageDays}d open</DetailRow>
+                  )}
+                  <DetailRow label="Category">{category}</DetailRow>
+                </dl>
+              </div>
+            </aside>
           </div>
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -241,16 +279,18 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Meta({ label, children }: { label: string; children: React.ReactNode }) {
+/** One label/value line in the Details card. Replaces the old inline `Meta`
+ *  chip, which was built for a horizontal run under the title. */
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-baseline gap-1.5">
-      <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink-subtle">
+    <div className="flex items-center justify-between gap-3 py-2">
+      <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-subtle">
         {label}
-      </span>
-      <span className="text-[12.5px] font-semibold tabular-nums text-ink-strong">
+      </dt>
+      <dd className="text-right text-[12.5px] font-semibold tabular-nums text-ink-strong">
         {children}
-      </span>
-    </span>
+      </dd>
+    </div>
   );
 }
 

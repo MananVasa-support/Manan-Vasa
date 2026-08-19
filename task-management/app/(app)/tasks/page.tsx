@@ -4,7 +4,7 @@ import { FilterBar } from "@/components/layout/filter-bar";
 import { TaskListPage } from "@/components/tasks/task-list-page";
 import { TaskDetailLoader } from "@/components/tasks/task-detail-loader";
 import { BufferingState } from "@/components/ui/spinner";
-import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { isSuperAdmin, canChangeDoer } from "@/lib/auth/super-admin";
 import { markTaskRead } from "@/app/(app)/tasks/read-actions";
 import { listEmployeeOptions } from "@/lib/queries/employees";
 import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
@@ -146,7 +146,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
         rows={rows}
         filters={filters}
         employees={allEmployees}
-        me={{ id: me.id, isAdmin: me.isAdmin }}
+        me={{ id: me.id, isAdmin: me.isAdmin, canChangeDoer: canChangeDoer(me.email) }}
         statusLabels={statusLabels}
         statusTones={statusTones}
         subjects={subjects}

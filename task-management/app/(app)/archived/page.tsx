@@ -5,6 +5,7 @@ import { listEmployees } from "@/lib/queries/employees";
 import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
 import { parseTaskFilters } from "@/lib/task-filters";
 import { requireUser } from "@/lib/auth/current";
+import { canChangeDoer } from "@/lib/auth/super-admin";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
 import { redirect } from "next/navigation";
@@ -73,7 +74,7 @@ export default async function ArchivedPage({ searchParams }: PageProps) {
         filters={filters}
         basePath="/archived"
         employees={allEmployees.map((e) => ({ id: e.id, name: e.name }))}
-        me={{ id: me.id, isAdmin: me.isAdmin }}
+        me={{ id: me.id, isAdmin: me.isAdmin, canChangeDoer: canChangeDoer(me.email) }}
         statusLabels={statusLabels}
         statusTones={statusTones}
         subjects={subjects}

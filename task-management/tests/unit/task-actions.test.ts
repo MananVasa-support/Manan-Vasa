@@ -27,7 +27,7 @@ vi.mock("@/lib/auth/current", () => ({
     isAdmin: false,
     isActive: true,
     name: "Me",
-    email: "me@vp.com",
+    email: "manan@unleashed.in",
   })),
   getCurrentEmployee: vi.fn(async () => null),
   requireAdmin: vi.fn(),
@@ -140,7 +140,7 @@ const ADMIN_USER = {
   isAdmin: true,
   isActive: true,
   name: "Me",
-  email: "me@vp.com",
+  email: "manan@unleashed.in",
 } as Awaited<ReturnType<typeof requireUser>>;
 
 beforeEach(() => {

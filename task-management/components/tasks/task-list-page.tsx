@@ -129,7 +129,7 @@ export function TaskListPage({
   metricsRows?: TaskListRow[];
   filters: TaskListFilters;
   employees: { id: string; name: string }[];
-  me: { id: string; isAdmin: boolean };
+  me: { id: string; isAdmin: boolean; canChangeDoer?: boolean };
   statusLabels?: Record<TaskStatus, string>;
   statusTones?: Record<TaskStatus, StatusColorToken>;
   /** Bulk-set option rosters, threaded down to the bulk-action bar. */
