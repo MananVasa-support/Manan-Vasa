@@ -19,9 +19,20 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * sent-back task is waiting on the doer, and it is the whole point of the
  * "Sent-back work, by person" drill-through.
  */
-const OVERDUE_OPEN_STATUSES = TASK_STATUSES.filter(
-  (s) => !["done", "approved", "cancelled", "transferred"].includes(s),
-);
+const AGE_TERMINAL: readonly string[] = ["done", "approved", "cancelled", "transferred"];
+
+/**
+ * Computed on CALL, not at module load. A module-level
+ * `TASK_STATUSES.filter(...)` evaluates the moment this file is first imported,
+ * and if the enum module has not finished initialising by then (import order,
+ * bundler chunking, a cycle introduced later) the value is `undefined` and the
+ * `.filter` throws — at import time, taking down every route that touches this
+ * file rather than the one query that needed it. There is no measurable cost to
+ * building a nine-item array per call.
+ */
+function overdueOpenStatuses() {
+  return TASK_STATUSES.filter((s) => !AGE_TERMINAL.includes(s));
+}
 
 /**
  * `?overdue=true` — effective due date strictly before today, still open.
@@ -38,7 +49,7 @@ function overdueConditions() {
   // array keeps the types honest without an assertion.
   return [
     lt(effectiveDueAtSql(), todayUtc),
-    inArray(tasks.status, OVERDUE_OPEN_STATUSES),
+    inArray(tasks.status, overdueOpenStatuses()),
   ];
 }
 
@@ -57,6 +68,26 @@ function dayIndex(d: Date): number {
   return Math.floor(
     Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / MS_PER_DAY,
   );
+}
+
+/**
+ * Coerce a timestamp that MIGHT already be a Date, might be an ISO string, and
+ * might be neither.
+ *
+ * `effectiveDueAtSql()` is a raw `sql<Date>` fragment, and that type parameter
+ * is a COMPILE-TIME ASSERTION with no runtime mapper behind it — drizzle only
+ * converts values for real column definitions. So the effective due date can
+ * arrive as an ISO string, exactly as lib/tasks/time/engine.ts documents for
+ * raw `tx.execute(sql)`, and exactly why the cached wrapper below already casts
+ * `r.dueAt as unknown as string | Date` before calling `new Date` on it.
+ *
+ * Returns null rather than an Invalid Date so callers branch instead of
+ * silently producing NaN.
+ */
+function toDate(v: Date | string | number | null | undefined): Date | null {
+  if (v == null) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 
@@ -87,8 +118,20 @@ function dayIndex(d: Date): number {
  * a completed task keeps accumulating — one delivered a day late last year
  * reads its full elapsed overdue count, not 1d.
  */
-function ageInDays(dueAt: Date, nowDay: number): number {
-  return nowDay - dayIndex(dueAt);
+function ageInDays(dueAt: Date | string | null, nowDay: number): number {
+  const due = toDate(dueAt);
+  // THIS GUARD IS WHY /tasks WAS THROWING. `dayIndex` calls getUTCFullYear on
+  // its argument; handed the ISO string that effectiveDueAtSql can return, that
+  // is a TypeError — which happens inside a server component, so it took the
+  // whole page down to the route error boundary rather than spoiling one cell.
+  // The previous version of this function read `createdAt`, a real column with
+  // a real mapper, which is why the problem only appeared once Age moved onto
+  // the due date.
+  //
+  // Returning 0 here is a CRASH GUARD, not a display fallback: it is the
+  // difference between one odd row reading 0d and nobody seeing any tasks.
+  if (!due) return 0;
+  return nowDay - dayIndex(due);
 }
 
 // A task's "effective" status spans two columns: the working `status` and the
