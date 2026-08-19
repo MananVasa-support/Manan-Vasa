@@ -53,8 +53,10 @@ export async function GET(req: Request) {
     clients: [],
     taskId: null,
     archived: false,
+    overdue: false,
+    ageRange: null,
     assigneeMode: "default",
-      team: null,
+      teams: [],
       viewerId: null,
   };
 

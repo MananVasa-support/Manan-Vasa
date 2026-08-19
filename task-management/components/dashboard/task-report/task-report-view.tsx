@@ -1,18 +1,17 @@
 "use client";
 
+import { createPortal } from "react-dom";
+import { CollapsibleBody } from "@/components/dashboard/section-chrome";
+import { PER_REPORT_PER_DAY } from "@/lib/transforms/initiator-scorecard";
+import Link from "next/link";
+import type { Route } from "next";
 import * as React from "react";
 import { motion } from "motion/react";
-import {
-  CalendarCheck2,
-  XCircle,
-  Users,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { CalendarCheck2, XCircle, Users, Maximize2, Minimize2, ChevronUp } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { FineBucketBars } from "@/components/dashboard/task-report/fine-bucket-bars";
-import { ManagerInitiatorCard } from "@/components/dashboard/exec/manager-initiator-card";
+import { ManagerInitiatorTable } from "@/components/dashboard/exec/manager-initiator-table";
 import { ManagerDrilldown } from "@/components/dashboard/exec/manager-drilldown";
 import { useReducedMotion } from "@/lib/motion-utils";
 import type {
@@ -56,27 +55,32 @@ export function TaskReportView({ data, avatarById, isAdmin, meId }: TaskReportVi
     <PageShell as="div" width="full" py={false} className="pb-20">
       {/* ── Section 1 + 2: the two DONE distributions, side by side ── */}
       <motion.section {...rise(0)} aria-label="Done on time by due-date basis">
-        <SectionHeader
+        <ReportSection
           icon={<CalendarCheck2 size={22} strokeWidth={2.4} />}
           kicker="Done on time"
           title="Delivery vs due date — the 12-bucket spread"
-          subtitle="Each completed task placed by how many days early (+) or late (−) it finished. Left: against the ORIGINAL committed date · Right: against the REVISED (effective) date."
-        />
-        <div className="grid grid-cols-2 gap-6 max-lg:grid-cols-1">
-          <DoneCard dist={data.doneByOriginal} label="By ORIGINAL due date" />
-          <DoneCard dist={data.doneByRevised} label="By REVISED due date" />
-        </div>
+          subtitle="Completed tasks categorized by delivery timing relative to their committed due dates."
+          label="the delivery spread"
+        >
+        {/* ONE distribution now. The "By REVISED due date" panel is removed —
+            the split below reuses the width it occupied to separate late from
+            on-time/early, which is the comparison people actually read this
+            chart for. `data.doneByRevised` is still computed upstream; nothing
+            renders it. */}
+        <DoneCard dist={data.doneByOriginal} label="By ORIGINAL due date" />
+        </ReportSection>
       </motion.section>
 
       {/* ── Section 3: Not Approved ── */}
       <motion.section {...rise(0.08)} className="mt-12" aria-label="Not-approved tasks">
-        <SectionHeader
+        <ReportSection
           icon={<XCircle size={22} strokeWidth={2.4} />}
           kicker="Not approved"
           title="Sent-back work, by person and by how overdue"
           subtitle="Tasks an admin declined and returned. Left: who is carrying them · Right: aged against each task's effective due date (red = overdue)."
           tone="red"
-        />
+          label="sent-back work"
+        >
         <NotApprovedPanel
           total={data.notApproved.total}
           byPerson={data.notApproved.byPerson}
@@ -86,22 +90,31 @@ export function TaskReportView({ data, avatarById, isAdmin, meId }: TaskReportVi
           meId={meId}
           resolveAvatar={resolveAvatar}
         />
+        </ReportSection>
       </motion.section>
 
       {/* ── Section 4: Task Initiator scorecards ── */}
       <motion.section {...rise(0.12)} className="mt-12" aria-label="Task initiator scorecards">
-        <SectionHeader
+        <ReportSection
           icon={<Users size={22} strokeWidth={2.4} />}
           kicker="Task initiator"
           title="Who is delegating — target vs actual"
-          subtitle="Tasks each manager handed to their direct reports, scored against the target of 3 tasks per report per working day."
-        />
+          /* Reads the CONSTANT, not a literal. This said "3 tasks per report
+             per working day" while PER_REPORT_PER_DAY has been 5 — harmless
+             while the section showed cards, but now that it renders the same
+             table as the dashboard the caption would contradict the Target
+             Ratio column directly beneath it. The dashboard header hit exactly
+             this and was fixed the same way. */
+          subtitle={`Tasks each manager handed to their direct reports, scored against the target of ${PER_REPORT_PER_DAY} tasks per report per working day.`}
+          label="the delegation scorecards"
+        >
         <InitiatorPanel
           initiator={data.initiator}
           isAdmin={isAdmin}
           meId={meId}
           resolveAvatar={resolveAvatar}
         />
+        </ReportSection>
       </motion.section>
     </PageShell>
   );
@@ -115,16 +128,23 @@ function SectionHeader({
   title,
   subtitle,
   tone = "brand",
+  actions,
 }: {
   icon: React.ReactNode;
   kicker: string;
   title: string;
-  subtitle: string;
+  subtitle: React.ReactNode;
   tone?: "brand" | "red";
+  /** Fullscreen + collapse cluster, pinned top-right. */
+  actions?: React.ReactNode;
 }) {
   const accent = tone === "red" ? RED : "var(--color-altus-red-deep)";
   return (
-    <header className="mb-5">
+    // relative + an absolutely-placed cluster rather than a flex row: the
+    // kicker, title and subtitle are three stacked blocks of differing width,
+    // and flexing them against the buttons would drag the subtitle's nowrap
+    // line into the button column on narrower screens.
+    <header className="relative mb-5 pr-24">
       <p
         className="inline-flex items-center gap-2 text-[10.5px] font-black uppercase tracking-[0.16em]"
         style={{ color: accent }}
@@ -151,10 +171,175 @@ function SectionHeader({
       >
         {title}
       </h2>
-      <p className="mt-1.5 max-w-[820px] text-[14px] font-semibold text-ink-subtle">
+      {/* Single line from lg up. The max-w-[820px] cap is what wrapped these;
+          with it gone `whitespace-nowrap` keeps each subtitle on one row.
+
+          lg, not md, because this rule is shared by all three sections and the
+          longest subtitle here is 134 characters ≈ 870px at 14px. That clears
+          the ~970px of content width at lg, but not the ~710px at md — and a
+          nowrap line wider than its container does not truncate, it pushes the
+          whole page into horizontal scroll. Below lg they wrap, which is the
+          lesser evil. */}
+      <p className="mt-1.5 text-[14px] font-semibold text-ink-subtle max-lg:whitespace-normal lg:whitespace-nowrap">
         {subtitle}
       </p>
+      {actions && (
+        <div className="absolute right-0 top-0 flex items-center gap-1.5">{actions}</div>
+      )}
     </header>
+  );
+}
+
+/**
+ * One analytics section: header + collapsible body + a fullscreen view.
+ *
+ * FULLSCREEN RENDERS THE SAME `children`, MOVED — not a second copy. These
+ * sections hold real state (which manager rows are expanded, the 3/7-day
+ * window, which tooltip is open), and a duplicate tree for the overlay would
+ * reset all of it on entry and strand any change made inside it on exit. React
+ * keeps the instance alive across the portal move, so the widget you blow up is
+ * the widget you were looking at.
+ *
+ * It portals to <body> deliberately. `position: fixed` is contained by any
+ * ancestor carrying a transform, and each section is a motion.section whose
+ * entrance animates `y` — an overlay left in place would be clipped by its own
+ * card instead of covering the viewport.
+ */
+function ReportSection({
+  icon,
+  kicker,
+  title,
+  subtitle,
+  tone,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  kicker: string;
+  title: string;
+  subtitle: React.ReactNode;
+  tone?: "brand" | "red";
+  /** Accessible name for the two controls, e.g. "the 12-bucket spread". */
+  label: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = React.useState(true);
+  const [full, setFull] = React.useState(false);
+
+  // Esc exits, and the page behind must not scroll while the overlay is up.
+  React.useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFull(false);
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [full]);
+
+  const controls = (
+    <>
+      <IconAction
+        onClick={() => setFull((v) => !v)}
+        label={full ? `Exit fullscreen for ${label}` : `Open ${label} fullscreen`}
+        title={full ? "Exit fullscreen (Esc)" : "Fullscreen"}
+      >
+        {full ? (
+          <Minimize2 size={15} strokeWidth={2.4} />
+        ) : (
+          <Maximize2 size={15} strokeWidth={2.4} />
+        )}
+      </IconAction>
+      {/* Collapse is hidden in fullscreen: folding a widget that fills the
+          viewport leaves an empty screen with a header floating in it. */}
+      {!full && (
+        <IconAction
+          onClick={() => setOpen((v) => !v)}
+          label={open ? `Collapse ${label}` : `Expand ${label}`}
+          title={open ? "Collapse" : "Expand"}
+          aria-expanded={open}
+        >
+          <ChevronUp
+            size={15}
+            strokeWidth={2.6}
+            className={`transition-transform duration-200 ${open ? "" : "rotate-180"}`}
+          />
+        </IconAction>
+      )}
+    </>
+  );
+
+  const header = (
+    <SectionHeader
+      icon={icon}
+      kicker={kicker}
+      title={title}
+      subtitle={subtitle}
+      tone={tone}
+      actions={controls}
+    />
+  );
+
+  if (full && typeof document !== "undefined") {
+    return createPortal(
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="fixed inset-0 z-[80] overflow-y-auto bg-white p-8 max-md:p-4"
+      >
+        {header}
+        {children}
+        <div className="mt-8 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setFull(false)}
+            className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-white px-4 py-2.5 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+          >
+            <Minimize2 size={15} strokeWidth={2.4} /> Exit Fullscreen
+          </button>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
+  return (
+    <>
+      {header}
+      <CollapsibleBody expanded={open}>{children}</CollapsibleBody>
+    </>
+  );
+}
+
+/** Square icon button, shared by the two section controls. */
+function IconAction({
+  onClick,
+  label,
+  title,
+  children,
+  ...rest
+}: {
+  onClick: () => void;
+  label: string;
+  title: string;
+  children: React.ReactNode;
+} & Omit<React.ComponentPropsWithoutRef<"button">, "onClick" | "title" | "children">) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={title}
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-hairline bg-white text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong"
+      {...rest}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -181,6 +366,9 @@ function GlassCard({ children, className }: { children: React.ReactNode; classNa
 
 function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }) {
   const rate = dist.dated > 0 ? Math.round((dist.onTime / dist.dated) * 100) : 0;
+  // One denominator across BOTH halves, taken from the full distribution, so a
+  // bar's length means the same thing on either side of the split.
+  const barScale = Math.max(...dist.buckets.map((b) => b.count), 1);
   return (
     <GlassCard>
       <div className="flex items-end justify-between gap-4">
@@ -214,8 +402,25 @@ function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }
         </div>
       </div>
 
-      <div className="mt-5">
-        <FineBucketBars buckets={dist.buckets} />
+      {/* Side-by-side split. The buckets are already ordered most-overdue first
+          through earliest-delivery last, so `fineBucketIsLate` cuts the list
+          cleanly in two at the "On Due Date" boundary — no re-ordering and no
+          second source of truth for which band is which.
+          On Due Date sits on the RIGHT: delivering exactly on the committed day
+          is hitting the deadline, not missing it. */}
+      <div className="mt-5 grid grid-cols-2 gap-6 max-lg:grid-cols-1">
+        <FineBucketBars
+          buckets={dist.buckets.filter((b) => b.late)}
+          heading="Overdue"
+          scaleMax={barScale}
+          percentBase={dist.dated}
+        />
+        <FineBucketBars
+          buckets={dist.buckets.filter((b) => !b.late)}
+          heading="On time & early"
+          scaleMax={barScale}
+          percentBase={dist.dated}
+        />
       </div>
 
       {dist.undated > 0 && (
@@ -280,7 +485,22 @@ function NotApprovedPanel({
             {people.map((p) => {
               const w = (p.count / maxCount) * 100;
               return (
-                <li key={p.employeeId} className="flex items-center gap-3">
+                <li key={p.employeeId}>
+                  {/* The whole row is the target, bar included — the bar is the
+                      thing the eye lands on, so making only the name clickable
+                      would put the affordance in the wrong place.
+
+                      `emp`, not `doer`, and the employee ID rather than a name
+                      slug: that is what parseTaskFilters already reads and what
+                      the query filters on. A slug would need a reverse lookup
+                      and would break on renames and duplicate names. */}
+                  <Link
+                    href={
+                      `/tasks?emp=${encodeURIComponent(p.employeeId)}&status=not_approved&overdue=true` as Route
+                    }
+                    title={`Open ${p.employeeName}'s overdue sent-back tasks`}
+                    className="flex items-center gap-3 rounded-lg px-1 py-1 -mx-1 transition-colors hover:bg-slate-50"
+                  >
                   <Avatar name={p.employeeName} avatarUrl={resolveAvatar(p.employeeId)} size={32} />
                   <span
                     className="w-[30%] shrink-0 truncate text-[13.5px] font-bold text-ink-strong"
@@ -303,6 +523,7 @@ function NotApprovedPanel({
                   <span className="w-9 shrink-0 text-right text-[14px] font-black tabular-nums" style={{ color: RED }}>
                     {p.count}
                   </span>
+                  </Link>
                 </li>
               );
             })}
@@ -310,13 +531,28 @@ function NotApprovedPanel({
         )}
       </GlassCard>
 
-      {/* RIGHT — aging across the fine buckets */}
-      <GlassCard>
+      {/* RIGHT — aging across the fine buckets.
+          `h-full flex flex-col` on the card + `flex-1` on the chart wrapper is
+          what lets the nine rows absorb the height the taller left panel sets,
+          instead of the card ending early and leaving a white band. */}
+      <GlassCard className="flex h-full flex-col">
         <p className="text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">
           How overdue · vs effective due date
         </p>
-        <div className="mt-4">
-          <FineBucketBars buckets={buckets} earlyLabel="not yet due" lateLabel="overdue" />
+        <div className="mt-4 flex flex-1 flex-col">
+          <FineBucketBars
+            buckets={buckets}
+            earlyLabel="not yet due"
+            lateLabel="overdue"
+            // Every task in THIS chart is sent-back work by construction — it is
+            // the Not Approved section — so the drill-through and the tooltip's
+            // split can both state that rather than infer it per row.
+            linkStatuses={["not_approved"]}
+            statusBreakdown={(count) => [
+              { label: "Not Approved", value: count },
+              { label: "Pending", value: 0 },
+            ]}
+          />
         </div>
         {undated > 0 && (
           <p className="mt-3 text-[12px] font-semibold text-ink-subtle">
@@ -350,13 +586,6 @@ function InitiatorPanel({
     ? board.managers
     : board.managers.filter((m) => m.managerId === meId);
 
-  const scrollerRef = React.useRef<HTMLDivElement | null>(null);
-  function nudge(dir: -1 | 1) {
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollBy({ left: dir * Math.min(420, el.clientWidth * 0.9), behavior: "smooth" });
-  }
-
   return (
     <GlassCard>
       <div className="mb-5 flex items-end justify-between gap-4 max-md:flex-col max-md:items-stretch">
@@ -367,12 +596,8 @@ function InitiatorPanel({
         </p>
         <div className="flex items-center gap-2">
           <WindowToggle value={windowKey} onChange={setWindowKey} />
-          {managers.length > 1 && (
-            <div className="flex items-center gap-1.5 max-md:hidden">
-              <RailArrow dir={-1} onClick={() => nudge(-1)} />
-              <RailArrow dir={1} onClick={() => nudge(1)} />
-            </div>
-          )}
+          {/* The rail's ‹ › nudge arrows are gone with the rail — there is no
+              longer a horizontal scroller for them to drive. */}
         </div>
       </div>
 
@@ -383,35 +608,23 @@ function InitiatorPanel({
           body="Assign reporting lines in Admin → Employees to see initiation scorecards."
         />
       ) : (
-        <div
-          ref={scrollerRef}
-          className="task-report-rail flex gap-4 overflow-x-auto pb-2"
-          style={{ scrollSnapType: "x mandatory" }}
-        >
-          {managers.map((m) => (
-            <div
-              key={m.managerId}
-              className="shrink-0"
-              style={{
-                scrollSnapAlign: "start",
-                width:
-                  managers.length === 1
-                    ? "100%"
-                    : managers.length === 2
-                      ? "calc(50% - 0.5rem)"
-                      : "min(540px, 88vw)",
-                minWidth: managers.length === 1 ? undefined : "min(480px, 88vw)",
-              }}
-            >
-              <ManagerInitiatorCard
-                scorecard={m}
-                avatarUrl={resolveAvatar(m.managerId)}
-                resolveAvatar={resolveAvatar}
-                onOpenDrilldown={setOpenManagerId}
-              />
-            </div>
-          ))}
-        </div>
+        /* TABLE, not the horizontal card rail that used to live here. The rail
+           put one wide card per manager behind a sideways scroll, so comparing
+           two managers meant scrolling one out of view to reach the other —
+           and delegation is a leaderboard question, which is exactly the
+           comparison a rail makes impossible.
+
+           This is the SAME <ManagerInitiatorTable> the WMS dashboard already
+           uses (it was converted there first), so the two surfaces now agree
+           instead of showing the same numbers in two different shapes. It is
+           `table-fixed` with a percentage colgroup, so ten columns fit without
+           any horizontal scroll, and each row still expands in place to the
+           per-report breakdown. */
+        <ManagerInitiatorTable
+          managers={managers}
+          resolveAvatar={resolveAvatar}
+          onOpenDrilldown={(managerId) => setOpenManagerId(managerId)}
+        />
       )}
 
       <ManagerDrilldown
@@ -420,15 +633,6 @@ function InitiatorPanel({
         onClose={() => setOpenManagerId(null)}
       />
 
-      <style>{`
-        .task-report-rail { scrollbar-width: thin; }
-        .task-report-rail::-webkit-scrollbar { height: 8px; }
-        .task-report-rail::-webkit-scrollbar-thumb {
-          background: color-mix(in srgb, var(--color-altus-red) 22%, transparent);
-          border-radius: 999px;
-        }
-        .task-report-rail::-webkit-scrollbar-track { background: transparent; }
-      `}</style>
     </GlassCard>
   );
 }
@@ -472,28 +676,6 @@ function WindowToggle({ value, onChange }: { value: WindowKey; onChange: (k: Win
         );
       })}
     </div>
-  );
-}
-
-function RailArrow({ dir, onClick }: { dir: -1 | 1; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={dir === -1 ? "Scroll managers left" : "Scroll managers right"}
-      className="grid size-8 place-items-center rounded-full border transition-transform active:scale-95"
-      style={{
-        borderColor: "var(--color-hairline-strong)",
-        background: "var(--color-surface-card)",
-        color: "var(--color-ink-soft)",
-      }}
-    >
-      {dir === -1 ? (
-        <ChevronLeft size={16} strokeWidth={2.6} />
-      ) : (
-        <ChevronRight size={16} strokeWidth={2.6} />
-      )}
-    </button>
   );
 }
 

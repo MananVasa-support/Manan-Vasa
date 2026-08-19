@@ -6,7 +6,8 @@
  * revalidation. The rules, event log, session ledger and rollup all live in the
  * engine so the web + (future) mobile clients never diverge.
  */
-import { revalidatePath } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { timeIntelEnabled } from "@/lib/tasks/time/flags";
@@ -25,6 +26,13 @@ function revalidate(taskId: string) {
   revalidatePath(`/tasks/${taskId}`);
   revalidatePath("/tasks");
   revalidatePath("/tasks/time");
+  // The task LIST is an unstable_cache keyed on CACHE_TAGS.tasks with a 30s
+  // window, and revalidatePath does not touch it — only revalidateTag does.
+  // Without this the inline timer in the table would keep reporting the old
+  // state for up to 30s after a Start or Stop, because the row it reads comes
+  // from that cache. Every other task mutation already does this
+  // (tasks/actions.ts); the time actions were the gap.
+  updateTag(CACHE_TAGS.tasks);
 }
 
 export async function startWorkAction(taskId: string): Promise<TimeResult> {

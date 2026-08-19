@@ -1038,6 +1038,10 @@ export const tasks = pgTable(
   },
   (t) => [
     index("tasks_doer_created_idx").on(t.doerId, t.createdAt),
+    // (doer, status) — Status-by-Doer and every "this person's open work"
+    // filter. The doer/created and status/created pairs above cannot serve it:
+    // neither leads with doer AND narrows by status. Migration 0186.
+    index("tasks_doer_status_idx").on(t.doerId, t.status),
     index("tasks_origin_goal_idx").on(t.originGoalId),
     index("tasks_initiator_created_idx").on(t.initiatorId, t.createdAt),
     index("tasks_status_created_idx").on(t.status, t.createdAt),
@@ -1052,6 +1056,11 @@ export const tasks = pgTable(
     // Added 2026-05-25 (migration 0029) to back the queries flagged by
     // the hardening audit — see the migration file for context.
     index("tasks_due_at_idx").on(t.dueAt),
+    // End Time sorts/filters. Partial: a null completed_at means "still open",
+    // which is most of the table and never what these queries want. Mig 0186.
+    index("tasks_completed_at_idx")
+      .on(t.completedAt)
+      .where(sql`${t.completedAt} is not null`),
     index("tasks_approved_by_idx").on(t.approvedById),
     index("tasks_transferred_from_idx").on(t.transferredFromId),
     index("tasks_project_node_idx").on(t.projectNodeId),
@@ -1183,7 +1192,19 @@ export const taskTimeRollup = pgTable("task_time_rollup", {
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   openSessionCount: integer("open_session_count").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+},
+(t) => [
+  // This projection had NOTHING but its primary key. Both columns are read
+  // constantly but so far only by PK lookup or full aggregate scan; these exist
+  // so a server-side Start Time sort or a rework filter does not seq-scan when
+  // one is added. Partial, so they stay small. Migration 0186.
+  index("task_time_rollup_first_started_idx")
+    .on(t.firstStartedAt)
+    .where(sql`${t.firstStartedAt} is not null`),
+  index("task_time_rollup_rejections_idx")
+    .on(t.rejectionCount)
+    .where(sql`${t.rejectionCount} > 0`),
+]);
 export type TaskTimeRollup = typeof taskTimeRollup.$inferSelect;
 
 /** Camera captures taken during a live session (private, super-admin-only). */

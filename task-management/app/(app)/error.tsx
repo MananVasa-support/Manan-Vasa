@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { RefreshCw } from "lucide-react";
 
 /**
@@ -25,6 +26,15 @@ export default function AppError({
   // Admin-only guards throw "Forbidden" — let the root boundary render its
   // dedicated 403 screen for that instead of a generic retry card.
   if (error.message === "Forbidden") throw error;
+
+  // Surface the real error somewhere a human can reach it. This card shows only
+  // a digest, and in production Next REDACTS server error messages before they
+  // reach the client — so without this the only copy of the message is the
+  // server log, and nothing on screen tells you to go looking. In dev the
+  // message comes through intact and this prints it straight to the console.
+  React.useEffect(() => {
+    console.error("[app error boundary]", error.digest ?? "(no digest)", error);
+  }, [error]);
 
   return (
     <main className="mx-auto max-w-[720px] px-8 max-md:px-4 mt-16 mb-24">

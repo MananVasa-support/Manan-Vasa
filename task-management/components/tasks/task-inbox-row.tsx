@@ -252,9 +252,20 @@ export function TaskInboxRow({
       </span>
 
       {/* 10 · Age */}
+      {/* ageDays is DUE-relative (see lib/queries/tasks.ts): positive = days
+          late, 0 = due today, negative = days still left. The old wording said
+          "N days old" and the thresholds assumed a value that only ever grew
+          from 0 — both were true of a created-relative age and neither is now.
+          A task 3 days early would have read "-3 days old" in grey. */}
       <span
         className="w-[46px] shrink-0 tabular-nums text-[11.5px] font-bold"
-        title={`${row.ageDays} day${row.ageDays === 1 ? "" : "s"} old`}
+        title={
+          row.ageDays > 0
+            ? `${row.ageDays} day${row.ageDays === 1 ? "" : "s"} past due`
+            : row.ageDays === 0
+              ? "Due today"
+              : `${Math.abs(row.ageDays)} day${row.ageDays === -1 ? "" : "s"} until due`
+        }
         style={{
           color:
             row.ageDays >= 30

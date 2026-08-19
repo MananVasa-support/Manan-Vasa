@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { LayoutGrid } from "lucide-react";
 import { TaskTable } from "./task-table";
+import { SectionErrorBoundary } from "@/components/ui/section-error-boundary";
 import { TaskDetailDrawer } from "./task-detail-drawer";
 import { TaskToolsMenu } from "./task-tools-menu";
 import { TasksFullscreen, FullscreenToggleButton } from "./tasks-fullscreen";
@@ -335,16 +336,21 @@ export function TaskListPage({
         </div>
       ) : (
         <>
-          <TaskTable
-            rows={rows}
-            employees={employees}
-            me={me}
-            statusLabels={statusLabels}
-            statusTones={statusTones}
-            subjects={subjects}
-            clients={clients}
-            openInDrawer
-          />
+          {/* Scoped so a throw inside the grid does not take the filters,
+              toolbar and drawer down with it — which is what the route-level
+              error.tsx did. */}
+          <SectionErrorBoundary label="the tasks table">
+            <TaskTable
+              rows={rows}
+              employees={employees}
+              me={me}
+              statusLabels={statusLabels}
+              statusTones={statusTones}
+              subjects={subjects}
+              clients={clients}
+              openInDrawer
+            />
+          </SectionErrorBoundary>
           {/* The record opens ONLY on an explicit row click — there is no
               persistent reading pane holding the space. `detail` is the
               server-rendered subtree for `?task=`; when nothing is selected it

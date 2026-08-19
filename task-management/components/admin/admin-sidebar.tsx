@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar } from "@/components/ui/avatar";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
@@ -37,13 +38,6 @@ export function AdminSidebar({
     await fetch("/api/auth/signout", { method: "POST" });
     window.location.replace("/login");
   }
-
-  const initials = adminName
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 
   const Pill = ({ href, label, Icon, active }: { href: Route; label: string; Icon: LucideIcon; active: boolean }) => (
     <Link
@@ -111,14 +105,9 @@ export function AdminSidebar({
       {/* ── Footer: identity + sign out ── */}
       <div className="mt-auto flex items-center gap-2.5 border-t px-3 py-3" style={{ borderColor: "var(--color-hairline)" }}>
         <span className="inline-flex shrink-0 rounded-full" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-rose))", padding: 1.5 }}>
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt={adminName} className="block h-8 w-8 rounded-full object-cover" />
-          ) : (
-            <span className="flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-semibold text-white" style={{ background: "linear-gradient(135deg, #475569, #1f2937)" }}>
-              {initials}
-            </span>
-          )}
+          {/* Shared <Avatar> — the local img had no onError, so a dead URL
+              showed the broken-image glyph in the rail on every admin page. */}
+          <Avatar name={adminName} avatarUrl={avatarUrl} size={32} />
         </span>
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-[13px] font-bold text-ink-strong">{adminName}</span>

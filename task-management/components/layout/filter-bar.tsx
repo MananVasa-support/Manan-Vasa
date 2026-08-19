@@ -1,4 +1,6 @@
 "use client";
+import { FINE_BUCKET_BY_SLUG } from "@/lib/transforms/aging-buckets-fine";
+import { TeamFilter, MY_TEAM } from "./filters/team-filter";
 import * as React from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
@@ -40,6 +42,12 @@ interface Props {
     subj: string[];
     status?: string[];
     client?: string[];
+    /** `?overdue=true` — narrows to open work already past its due date. */
+    overdue?: boolean;
+    /** `?age_range=<slug>` — one of the nine fine aging buckets. */
+    ageRange?: string | null;
+    /** `?team=mine,Sales` — org-chart scope + department groups. */
+    team?: string[];
   };
   subjects?: string[];
   statusOptions?: { value: string; label: string }[];
@@ -61,6 +69,9 @@ const TINT = {
   department: "#8b5cf6",
   subject: "#0ea5e9",
   view: "#64748b",
+  overdue: "#dc2626",
+  ageRange: "#b45309",
+  team: "#0d9488",
 } as const;
 
 export function FilterBar({
@@ -78,6 +89,14 @@ export function FilterBar({
   const [isPending, startTransition] = useTransition();
 
   const showScopeChip = Boolean(me && !me.isAdmin);
+  // Overdue has no picker of its own — it arrives from a drill-through link
+  // (e.g. the Task Report's sent-back-by-person rows) and is cleared from its
+  // chip. A dropdown for a single boolean would be a worse control than the
+  // chip already is.
+  const [overdue, setOverdue] = React.useState<boolean>(Boolean(initial.overdue));
+  // Same shape as `overdue`: arrives from a drill-through, leaves by its chip.
+  const [ageRange, setAgeRange] = React.useState<string | null>(initial.ageRange ?? null);
+  const [team, setTeam] = React.useState<string[]>(initial.team ?? []);
 
   const [start, setStart] = React.useState(initial.start);
   const [end, setEnd] = React.useState(initial.end);
@@ -123,6 +142,9 @@ export function FilterBar({
     if (subj.length > 0) sp.set("subj", subj.join(",")); else sp.delete("subj");
     if (status.length > 0) sp.set("status", status.join(",")); else sp.delete("status");
     if (client.length > 0) sp.set("client", client.join(",")); else sp.delete("client");
+    if (overdue) sp.set("overdue", "true"); else sp.delete("overdue");
+    if (ageRange) sp.set("age_range", ageRange); else sp.delete("age_range");
+    if (team.length > 0) sp.set("team", team.join(",")); else sp.delete("team");
     startTransition(() => router.replace(`${pathname}?${sp.toString()}` as Route));
   }
 
@@ -135,7 +157,7 @@ export function FilterBar({
     const t = setTimeout(apply, 200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [start, end, view, emp, assigneeMode, dept, prio, subj, status, client]);
+  }, [start, end, view, emp, assigneeMode, dept, prio, subj, status, client, overdue, ageRange, team]);
 
   function reset() {
     const today = new Date();
@@ -149,6 +171,9 @@ export function FilterBar({
     setSubj([]);
     setStatus([]);
     setClient([]);
+    setOverdue(false);
+    setAgeRange(null);
+    setTeam([]);
   }
 
   const fmt = (s: string) => {
@@ -196,6 +221,25 @@ export function FilterBar({
     activePills.push({ key: `subj-${s}`, label: s, color: TINT.subject, remove: () => setSubj(subj.filter((x) => x !== s)) });
   if (view !== "doer")
     activePills.push({ key: "view", label: "Initiator View", color: TINT.view, remove: () => setView("doer") });
+  if (overdue)
+    activePills.push({ key: "overdue", label: "Overdue", color: TINT.overdue, remove: () => setOverdue(false) });
+  for (const t of team)
+    activePills.push({
+      key: `t-${t}`,
+      label: t === MY_TEAM ? "My Team" : t,
+      color: TINT.team,
+      remove: () => setTeam(team.filter((x) => x !== t)),
+    });
+  if (ageRange)
+    activePills.push({
+      key: "age",
+      // The human bucket label, not the slug — "22 or more days overdue"
+      // rather than "22_plus". Falls back to the slug if an unknown one is
+      // ever pasted in, so the chip is still clearable.
+      label: FINE_BUCKET_BY_SLUG[ageRange] ?? ageRange,
+      color: TINT.ageRange,
+      remove: () => setAgeRange(null),
+    });
 
   return (
     <div
@@ -278,7 +322,11 @@ export function FilterBar({
           {clients && clients.length > 0 && (
             <ClientFilter options={clients.map((c) => ({ value: c, label: c }))} selected={client} onChange={setClient} />
           )}
+          {/* Team sits directly after Department: they are adjacent questions
+              (who owns this work) and reading them side by side is what makes
+              the difference between them legible. */}
           <DepartmentFilter selected={dept} onChange={setDept} />
+          <TeamFilter selected={team} onChange={setTeam} />
 
           {/* Subject — always shown */}
           {subjects && subjects.length > 0 && (

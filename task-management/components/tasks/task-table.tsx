@@ -16,7 +16,7 @@ import {
   type Updater,
   type Table as TableInstance,
 } from "@tanstack/react-table";
-import { differenceInCalendarDays, format } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 
 // Classic numbered pagination: a rows-per-page selector (default 25) with
 // First « · Prev · 1 2 3 … N · Next · Last » controls.
@@ -36,18 +36,6 @@ function safeFormat(value: unknown): string {
   if (!value) return "—";
   const d = value instanceof Date ? value : new Date(value as string);
   return Number.isNaN(d.getTime()) ? "—" : formatDate(d);
-}
-
-// "18 Aug 2026, 04:35 PM" for the Start/End timestamp columns. Same null/invalid
-// guard as safeFormat — one bad row must degrade to a dash, not throw during
-// render and take the whole table with it. These two columns are the only place
-// the list shows a TIME as well as a date, so the format lives here rather than
-// in lib/format's date-only helper.
-function safeFormatDateTime(value: unknown): string {
-  if (!value) return "—";
-  const d = value instanceof Date ? value : new Date(value as string);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${format(d, "dd MMM yyyy")}, ${format(d, "hh:mm a")}`;
 }
 
 // Due-date urgency for the list. Terminal/finished tasks never read as overdue
@@ -146,6 +134,7 @@ const PRIORITY_RANK: Record<string, number> = Object.fromEntries(
 );
 import type { TaskListRow } from "@/lib/types";
 import { TaskRowActions } from "./task-row-actions";
+import { TaskTimerCell } from "./task-timer-cell";
 import { BulkActionBar } from "./bulk-action-bar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -178,8 +167,7 @@ import {
 
 // Friendly labels for the column show/hide menu (#11).
 const COLUMN_LABELS: Record<string, string> = {
-  startedAt: "Start Time",
-  completedAt: "End Time",
+  timer: "Action",
   taskNo: "ID No.",
   client: "Client",
   doerName: "Doer",
@@ -224,8 +212,8 @@ type TaskCol = ColumnDef<TaskListRow> & {
 
 /**
  * A column's stable id. TanStack derives it from `id` when present and from
- * `accessorKey` otherwise; the order we persist has to key off the SAME string
- * or a saved layout would not match the live columns after a reload.
+ * `accessorKey` otherwise; the persisted order has to key off the SAME string
+ * or a saved layout will not match the live columns after a reload.
  */
 function colId(c: TaskCol): string {
   const anyCol = c as { id?: string; accessorKey?: string };
@@ -246,6 +234,36 @@ function buildColumns(
   onOpenTask?: (id: string) => void,
 ): TaskCol[] {
   return [
+    // TIMER — takes the slot the Start Time / End Time columns held. Those two
+    // showed WHEN work happened; this lets you act on it, which is what the
+    // leading column of a work queue is for. Both timestamps are still on the
+    // row payload (and still stamped by the engine) — only their columns are
+    // gone.
+    {
+      id: "timer",
+      header: "Action",
+      enableSorting: false,
+      // `narrow` keeps it out of the flexible-width pool; the w-24/min-w-[90px]
+      // box is applied on the cells themselves (see the th/td below) because
+      // `meta` carries hints, not classes.
+      meta: { narrow: true, align: "center" },
+      cell: ({ row }) => (
+        // Explicit flex centring rather than leaning on the td's text-center:
+        // the button is the cell's only content and a fixed-width frozen column
+        // is exactly where an off-centre control is most obvious.
+        <div className="flex items-center justify-center">
+        <TaskTimerCell
+          taskId={row.original.id}
+          running={row.original.timerRunning}
+          // The engine allows admin, the doer, OR the doer's manager. The
+          // manager leg needs the org chart, which the table does not have, so
+          // the inline control shows for admin + doer and managers keep using
+          // the drawer. Better a missing button than one that always errors.
+          canOperate={me.isAdmin || me.id === row.original.doerId}
+        />
+        </div>
+      ),
+    },
     {
       id: "select",
       enableSorting: false,
@@ -266,43 +284,6 @@ function buildColumns(
           ariaLabel="Select task"
         />
       ),
-    },
-    // Start / End lead the table: they are the first two columns after the
-    // select checkbox. Both come from the time engine — startedAt is
-    // task_time_rollup.first_started_at (the first Start press) and completedAt
-    // is the task's own completion stamp — so a task that has never been
-    // started, or is still open, reads "—" rather than guessing from createdAt.
-    {
-      accessorKey: "startedAt",
-      header: "Start Time",
-      meta: { narrow: true },
-      cell: (info) => {
-        const v = info.getValue<Date | null>();
-        return (
-          <span
-            className={`tabular-nums ${v ? "text-ink-soft" : "text-ink-subtle"}`}
-            style={{ fontSize: 13 }}
-          >
-            {safeFormatDateTime(v)}
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: "completedAt",
-      header: "End Time",
-      meta: { narrow: true },
-      cell: (info) => {
-        const v = info.getValue<Date | null>();
-        return (
-          <span
-            className={`tabular-nums ${v ? "text-ink-soft" : "text-ink-subtle"}`}
-            style={{ fontSize: 13 }}
-          >
-            {safeFormatDateTime(v)}
-          </span>
-        );
-      },
     },
     {
       accessorKey: "taskNo",
@@ -454,19 +435,24 @@ function buildColumns(
       accessorKey: "ageDays",
       header: "Age",
       meta: { mobileHide: true, align: "center" },
-      // `ageDays` is computed server-side in lib/queries/tasks.ts from
-      // createdAt (+ the completion stamp for finished tasks). It does NOT
-      // depend on the Created column being rendered — hiding that column via
-      // the Columns menu changes nothing here, because `createdAt` stays in the
-      // row payload either way and only its CELL is suppressed.
+      // `ageDays` is computed server-side in lib/queries/tasks.ts as
+      // (today | day it closed) − effective due date. Positive = days late,
+      // 0 = due today, negative = days still remaining.
       cell: (info) => {
         const d = info.getValue<number>();
         return (
-          <span className="text-body-lg text-ink tabular-nums">
-            {/* 0 means created and (if finished) closed on the same calendar
-                day — under a day of life. "0d" read as "no age recorded"; the
-                "<" says the clock has started but not turned over. */}
-            {d === 0 ? "< 1d" : `${d}d`}
+          <span
+            className={`text-body-lg tabular-nums ${
+              // Late is the only state worth colouring. Everything else is
+              // either on schedule or ahead of it, and tinting those competes
+              // with the Due column's own urgency treatment right beside it.
+              d > 0 ? "font-semibold text-red-600" : "text-ink"
+            }`}
+          >
+            {/* Plain signed integer days. The old "< 1d" is gone: it existed
+                for a created-relative age where 0 meant "less than a day old",
+                and under this formula 0 means exactly "due today". */}
+            {d}d
           </span>
         );
       },
@@ -589,16 +575,14 @@ export function TaskTable({
 
   // ── Drag-to-reorder column order, saved PER USER ────────────────────────
   //
-  // Keyed by employee id, not just by browser: two people sharing a machine
-  // must not inherit each other's layout, which is exactly what the unkeyed
-  // visibility blob above does. One person's arrangement is theirs alone and
-  // never becomes the default for anyone else.
+  // Keyed by employee id, not merely by browser: two people sharing a machine
+  // must not inherit each other's layout. One person's arrangement is theirs
+  // alone and never becomes the default for anyone else.
   //
   // localStorage rather than a new table: there is no general UI-preference
-  // store in this schema (only the feature-specific notification_preferences),
-  // and the column-visibility setting beside it already established this as the
-  // house pattern for task-table layout. The trade-off is that the order does
-  // not follow a user to another browser or device.
+  // store in this schema, and the column-visibility setting above already
+  // established this as the house pattern for task-table layout. The trade-off
+  // is that the order does not follow a user to another browser or device.
   const orderKey = `altus.tasks.columnOrder.v1:${me.id}`;
   const defaultOrder = React.useMemo(() => columns.map((c) => colId(c)), [columns]);
   const [columnOrder, setColumnOrder] = React.useState<string[]>(defaultOrder);
@@ -608,9 +592,9 @@ export function TaskTable({
       if (!raw) return;
       const saved = JSON.parse(raw) as string[];
       // RECONCILE, never trust wholesale: a stored order names the columns that
-      // existed when it was written. Drop ids that have since been removed, and
-      // append columns added since — otherwise a new column would be invisible
-      // to anyone who had ever reordered, which is a silent data-loss bug.
+      // existed when it was written. Drop ids since removed and append columns
+      // added since — otherwise a new column would be invisible to anyone who
+      // had ever reordered, which is a silent data-loss bug.
       const known = new Set(defaultOrder);
       const kept = saved.filter((id) => known.has(id));
       const added = defaultOrder.filter((id) => !kept.includes(id));
@@ -918,21 +902,22 @@ export function TaskTable({
                 const col = h.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = h.column.id === "actions";
+                const isTimer = h.column.id === "timer";
                 const canSort = h.column.getCanSort();
                 const sorted = h.column.getIsSorted(); // false | "asc" | "desc"
                 const headerNode = flexRender(h.column.columnDef.header, h.getContext());
                 const movable = !UNMOVABLE_COLUMNS.has(h.column.id);
                 const isDropTarget = dropCol === h.column.id && dragCol !== h.column.id;
-                // Which edge to draw the marker on — the side the column would
-                // arrive from, so the line sits where it will actually land.
+                // Which edge to mark — the side the column would arrive from, so
+                // the line sits where it will actually land.
                 const fromLeft =
                   dragCol != null &&
                   columnOrder.indexOf(dragCol) < columnOrder.indexOf(h.column.id);
                 return (
                   <th
                     key={h.id}
-                    // Drop target. `preventDefault` on dragover is what tells
-                    // the browser a drop is allowed here at all.
+                    // `preventDefault` on dragover is what tells the browser a
+                    // drop is allowed here at all.
                     onDragOver={
                       movable
                         ? (e) => {
@@ -970,7 +955,10 @@ export function TaskTable({
                     /* `w-full` on the wide column's header too: auto layout
                        resolves a column's width from the whole column, so the
                        th and td have to agree or the header lags the body. */
-                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
+                    // z-30 for BOTH frozen columns: they must paint above the
+                    // z-20 of the ordinary sticky headers, or a header scrolling
+                    // under them shows through.
+                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${isTimer ? "task-timer-cell left-0 w-24 min-w-[90px]" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : isTimer ? "z-30" : "z-20"}`}
                     style={{
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
@@ -981,9 +969,6 @@ export function TaskTable({
                       backdropFilter: "blur(10px) saturate(140%)",
                       WebkitBackdropFilter: "blur(10px) saturate(140%)",
                       color: "var(--color-ink-soft)",
-                      // The drop marker is drawn as an extra inset shadow on the
-                      // edge the column would arrive from — no extra element, so
-                      // it cannot disturb the sticky header's stacking or width.
                       boxShadow: [
                         isActions
                           ? "inset 0 -1px 0 var(--color-hairline-strong), -10px 0 14px -10px rgba(15,23,42,0.14)"
@@ -1001,8 +986,7 @@ export function TaskTable({
                         header draggable competes with the sort button inside it:
                         a click that moves a few pixels becomes a drag and the
                         sort silently fails to fire. The grip owns dragging, the
-                        button owns sorting, and neither can swallow the other.
-                        It appears on hover so ten grips do not clutter the row. */}
+                        button owns sorting, and neither swallows the other. */}
                     {movable && (
                       <span
                         draggable
@@ -1170,6 +1154,7 @@ export function TaskTable({
                 const col = cell.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = cell.column.id === "actions";
+                const isTimer = cell.column.id === "timer";
                 // Columns now size to their CONTENT and the table scrolls
                 // sideways, rather than every value being squeezed to ~32ch and
                 // truncated. The ONE exception is the free-text Task title: a
@@ -1194,8 +1179,16 @@ export function TaskTable({
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
-                    style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
+                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""} ${isTimer ? "task-timer-cell sticky left-0 z-10 w-24 min-w-[90px]" : ""}`}
+                    style={
+                      isActions
+                        ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" }
+                        : isTimer
+                          ? // Mirrored: the edge shadow falls to the RIGHT, so the
+                            // columns sliding under it read as being behind it.
+                            { boxShadow: "10px 0 14px -10px rgba(15,23,42,0.14)" }
+                          : undefined
+                    }
                   >
                     {flexRender(
                       cell.column.columnDef.cell ?? ((c) => c.getValue()),
@@ -1803,7 +1796,15 @@ function TaskCard({
         <span aria-hidden>·</span>
         <span className="tabular-nums">Created {safeFormat(row.createdAt)}</span>
         <span aria-hidden>·</span>
-        <span className="tabular-nums">{row.ageDays}d old</span>
+        {/* Wording tracks the sign: the number is due-relative now, so "old"
+            would be wrong for anything not yet due. */}
+        <span className="tabular-nums">
+          {row.ageDays > 0
+            ? `${row.ageDays}d late`
+            : row.ageDays === 0
+              ? "due today"
+              : `${Math.abs(row.ageDays)}d left`}
+        </span>
       </div>
     </div>
   );
