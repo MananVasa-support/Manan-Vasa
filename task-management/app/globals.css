@@ -1896,7 +1896,14 @@ html[data-density="dense"] body {
    background lives here and repeats each row state, rather than being a fixed
    `bg-surface-card` utility on the cell.
    ────────────────────────────────────────────────────────────────────────── */
-.task-row > .task-actions-cell {
+/* BOTH frozen columns, not just Manage. The timer column is `sticky left-0`
+   for the same reason Manage is `sticky right-0`, and it has the same
+   requirement: the other columns slide UNDERNEATH it, so it has to paint an
+   opaque background of its own or they show straight through. Sharing the
+   selectors keeps one source of truth for the three row states below — a
+   separate copy would drift the first time a tint changed. */
+.task-row > .task-actions-cell,
+.task-row > .task-timer-cell {
   background: var(--color-surface-card);
 }
 
@@ -1905,7 +1912,8 @@ html[data-density="dense"] body {
    here lets the scrolled-under columns show straight through the frozen cell.
    So the tint is painted as a gradient layer ON TOP of the opaque card surface
    — visually identical to the row, but with no transparency. */
-.task-row:hover > .task-actions-cell {
+.task-row:hover > .task-actions-cell,
+.task-row:hover > .task-timer-cell {
   background:
     linear-gradient(var(--task-row-hover-tint), var(--task-row-hover-tint)),
     var(--color-surface-card);
@@ -1913,7 +1921,8 @@ html[data-density="dense"] body {
 
 /* Keyboard/deep-link focus tint — matches the row's `bg-altus-red/[0.06]`,
    composited over the card surface so the cell stays fully opaque. */
-.task-row.is-focused > .task-actions-cell {
+.task-row.is-focused > .task-actions-cell,
+.task-row.is-focused > .task-timer-cell {
   background: color-mix(
     in srgb,
     var(--color-altus-red) 6%,

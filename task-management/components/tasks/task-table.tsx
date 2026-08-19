@@ -234,6 +234,36 @@ function buildColumns(
   onOpenTask?: (id: string) => void,
 ): TaskCol[] {
   return [
+    // TIMER — takes the slot the Start Time / End Time columns held. Those two
+    // showed WHEN work happened; this lets you act on it, which is what the
+    // leading column of a work queue is for. Both timestamps are still on the
+    // row payload (and still stamped by the engine) — only their columns are
+    // gone.
+    {
+      id: "timer",
+      header: "Action",
+      enableSorting: false,
+      // `narrow` keeps it out of the flexible-width pool; the w-24/min-w-[90px]
+      // box is applied on the cells themselves (see the th/td below) because
+      // `meta` carries hints, not classes.
+      meta: { narrow: true, align: "center" },
+      cell: ({ row }) => (
+        // Explicit flex centring rather than leaning on the td's text-center:
+        // the button is the cell's only content and a fixed-width frozen column
+        // is exactly where an off-centre control is most obvious.
+        <div className="flex items-center justify-center">
+        <TaskTimerCell
+          taskId={row.original.id}
+          running={row.original.timerRunning}
+          // The engine allows admin, the doer, OR the doer's manager. The
+          // manager leg needs the org chart, which the table does not have, so
+          // the inline control shows for admin + doer and managers keep using
+          // the drawer. Better a missing button than one that always errors.
+          canOperate={me.isAdmin || me.id === row.original.doerId}
+        />
+        </div>
+      ),
+    },
     {
       id: "select",
       enableSorting: false,
@@ -252,28 +282,6 @@ function buildColumns(
           checked={row.getIsSelected()}
           onChange={(v) => row.toggleSelected(v)}
           ariaLabel="Select task"
-        />
-      ),
-    },
-    // TIMER — takes the slot the Start Time / End Time columns held. Those two
-    // showed WHEN work happened; this lets you act on it, which is what the
-    // leading column of a work queue is for. Both timestamps are still on the
-    // row payload (and still stamped by the engine) — only their columns are
-    // gone.
-    {
-      id: "timer",
-      header: "Action",
-      enableSorting: false,
-      meta: { narrow: true, align: "center" },
-      cell: ({ row }) => (
-        <TaskTimerCell
-          taskId={row.original.id}
-          running={row.original.timerRunning}
-          // The engine allows admin, the doer, OR the doer's manager. The
-          // manager leg needs the org chart, which the table does not have, so
-          // the inline control shows for admin + doer and managers keep using
-          // the drawer. Better a missing button than one that always errors.
-          canOperate={me.isAdmin || me.id === row.original.doerId}
         />
       ),
     },
@@ -890,6 +898,7 @@ export function TaskTable({
                 const col = h.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = h.column.id === "actions";
+                const isTimer = h.column.id === "timer";
                 const canSort = h.column.getCanSort();
                 const sorted = h.column.getIsSorted(); // false | "asc" | "desc"
                 const headerNode = flexRender(h.column.columnDef.header, h.getContext());
@@ -942,7 +951,10 @@ export function TaskTable({
                     /* `w-full` on the wide column's header too: auto layout
                        resolves a column's width from the whole column, so the
                        th and td have to agree or the header lags the body. */
-                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
+                    // z-30 for BOTH frozen columns: they must paint above the
+                    // z-20 of the ordinary sticky headers, or a header scrolling
+                    // under them shows through.
+                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${isTimer ? "task-timer-cell left-0 w-24 min-w-[90px]" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : isTimer ? "z-30" : "z-20"}`}
                     style={{
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
@@ -1138,6 +1150,7 @@ export function TaskTable({
                 const col = cell.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = cell.column.id === "actions";
+                const isTimer = cell.column.id === "timer";
                 // Columns now size to their CONTENT and the table scrolls
                 // sideways, rather than every value being squeezed to ~32ch and
                 // truncated. The ONE exception is the free-text Task title: a
@@ -1162,8 +1175,16 @@ export function TaskTable({
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
-                    style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
+                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""} ${isTimer ? "task-timer-cell sticky left-0 z-10 w-24 min-w-[90px]" : ""}`}
+                    style={
+                      isActions
+                        ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" }
+                        : isTimer
+                          ? // Mirrored: the edge shadow falls to the RIGHT, so the
+                            // columns sliding under it read as being behind it.
+                            { boxShadow: "10px 0 14px -10px rgba(15,23,42,0.14)" }
+                          : undefined
+                    }
                   >
                     {flexRender(
                       cell.column.columnDef.cell ?? ((c) => c.getValue()),
