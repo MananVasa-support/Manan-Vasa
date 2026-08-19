@@ -40,6 +40,8 @@ interface Props {
     subj: string[];
     status?: string[];
     client?: string[];
+    /** `?overdue=true` — narrows to open work already past its due date. */
+    overdue?: boolean;
   };
   subjects?: string[];
   statusOptions?: { value: string; label: string }[];
@@ -61,6 +63,7 @@ const TINT = {
   department: "#8b5cf6",
   subject: "#0ea5e9",
   view: "#64748b",
+  overdue: "#dc2626",
 } as const;
 
 export function FilterBar({
@@ -78,6 +81,11 @@ export function FilterBar({
   const [isPending, startTransition] = useTransition();
 
   const showScopeChip = Boolean(me && !me.isAdmin);
+  // Overdue has no picker of its own — it arrives from a drill-through link
+  // (e.g. the Task Report's sent-back-by-person rows) and is cleared from its
+  // chip. A dropdown for a single boolean would be a worse control than the
+  // chip already is.
+  const [overdue, setOverdue] = React.useState<boolean>(Boolean(initial.overdue));
 
   const [start, setStart] = React.useState(initial.start);
   const [end, setEnd] = React.useState(initial.end);
@@ -123,6 +131,7 @@ export function FilterBar({
     if (subj.length > 0) sp.set("subj", subj.join(",")); else sp.delete("subj");
     if (status.length > 0) sp.set("status", status.join(",")); else sp.delete("status");
     if (client.length > 0) sp.set("client", client.join(",")); else sp.delete("client");
+    if (overdue) sp.set("overdue", "true"); else sp.delete("overdue");
     startTransition(() => router.replace(`${pathname}?${sp.toString()}` as Route));
   }
 
@@ -135,7 +144,7 @@ export function FilterBar({
     const t = setTimeout(apply, 200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [start, end, view, emp, assigneeMode, dept, prio, subj, status, client]);
+  }, [start, end, view, emp, assigneeMode, dept, prio, subj, status, client, overdue]);
 
   function reset() {
     const today = new Date();
@@ -149,6 +158,7 @@ export function FilterBar({
     setSubj([]);
     setStatus([]);
     setClient([]);
+    setOverdue(false);
   }
 
   const fmt = (s: string) => {
@@ -196,6 +206,8 @@ export function FilterBar({
     activePills.push({ key: `subj-${s}`, label: s, color: TINT.subject, remove: () => setSubj(subj.filter((x) => x !== s)) });
   if (view !== "doer")
     activePills.push({ key: "view", label: "Initiator View", color: TINT.view, remove: () => setView("doer") });
+  if (overdue)
+    activePills.push({ key: "overdue", label: "Overdue", color: TINT.overdue, remove: () => setOverdue(false) });
 
   return (
     <div

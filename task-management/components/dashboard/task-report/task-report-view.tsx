@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import type { Route } from "next";
 import * as React from "react";
 import { motion } from "motion/react";
 import {
@@ -309,7 +311,22 @@ function NotApprovedPanel({
             {people.map((p) => {
               const w = (p.count / maxCount) * 100;
               return (
-                <li key={p.employeeId} className="flex items-center gap-3">
+                <li key={p.employeeId}>
+                  {/* The whole row is the target, bar included — the bar is the
+                      thing the eye lands on, so making only the name clickable
+                      would put the affordance in the wrong place.
+
+                      `emp`, not `doer`, and the employee ID rather than a name
+                      slug: that is what parseTaskFilters already reads and what
+                      the query filters on. A slug would need a reverse lookup
+                      and would break on renames and duplicate names. */}
+                  <Link
+                    href={
+                      `/tasks?emp=${encodeURIComponent(p.employeeId)}&status=not_approved&overdue=true` as Route
+                    }
+                    title={`Open ${p.employeeName}'s overdue sent-back tasks`}
+                    className="flex items-center gap-3 rounded-lg px-1 py-1 -mx-1 transition-colors hover:bg-slate-50"
+                  >
                   <Avatar name={p.employeeName} avatarUrl={resolveAvatar(p.employeeId)} size={32} />
                   <span
                     className="w-[30%] shrink-0 truncate text-[13.5px] font-bold text-ink-strong"
@@ -332,6 +349,7 @@ function NotApprovedPanel({
                   <span className="w-9 shrink-0 text-right text-[14px] font-black tabular-nums" style={{ color: RED }}>
                     {p.count}
                   </span>
+                  </Link>
                 </li>
               );
             })}

@@ -139,6 +139,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
           // Reflect the Archived pseudo-chip back into the picker when active.
           status: filters.archived ? [...filters.statuses, "archived"] : filters.statuses,
           client: filters.clients,
+          overdue: filters.overdue,
         }}
       />
       <TaskListPage

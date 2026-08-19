@@ -74,6 +74,7 @@ describe("parseTaskFilters", () => {
       clients: [],
       taskId: null,
       archived: false,
+    overdue: false,
       assigneeMode: "all" as const,
       team: "mine",
       viewerId: null,
@@ -157,5 +158,36 @@ describe("default date range", () => {
     const f = parseTaskFilters({ start: "2026-03-05", end: "2026-03-10" }, false);
     expect(f.startDate?.toISOString().slice(0, 10)).toBe("2026-03-05");
     expect(f.endDate?.toISOString().slice(0, 10)).toBe("2026-03-10");
+  });
+});
+
+describe("overdue param", () => {
+  it("parses ?overdue=true and its forgiving spellings", () => {
+    for (const v of ["true", "TRUE", "1", "yes"]) {
+      expect(parseTaskFilters({ overdue: v }, false).overdue).toBe(true);
+    }
+  });
+
+  it("is false when absent or not a truthy spelling", () => {
+    expect(parseTaskFilters({}, false).overdue).toBe(false);
+    expect(parseTaskFilters({ overdue: "false" }, false).overdue).toBe(false);
+    expect(parseTaskFilters({ overdue: "" }, false).overdue).toBe(false);
+  });
+
+  it("round-trips through taskFiltersToSearchString", () => {
+    const parsed = parseTaskFilters(
+      { emp: "e1", status: "not_approved", overdue: "true" },
+      false,
+    );
+    const qs = taskFiltersToSearchString(parsed);
+    const back = parseTaskFilters(Object.fromEntries(new URLSearchParams(qs)), false);
+    expect(back.overdue).toBe(true);
+    expect(back.statuses).toEqual(["not_approved"]);
+    expect(back.doerIds).toEqual(["e1"]);
+  });
+
+  it("drops the param entirely when false, so clean URLs stay clean", () => {
+    const qs = taskFiltersToSearchString(parseTaskFilters({}, false));
+    expect(qs).not.toContain("overdue");
   });
 });

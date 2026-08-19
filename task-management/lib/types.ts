@@ -334,6 +334,11 @@ export interface TaskListFilters {
   clients: string[];
   taskId: string | null;
   archived: boolean;
+  /** `?overdue=true` — only OPEN tasks whose effective due date is already
+   *  past. A cross-cut, not a status: it narrows within whatever statuses are
+   *  selected rather than replacing them. Terminal work is excluded because a
+   *  task that is done is no longer late, it is finished. */
+  overdue: boolean;
   /** Team scope from the toolbar's Team dropdown.
    *  - null      : no team scoping
    *  - "mine"    : the viewer + everyone below them in the org chart

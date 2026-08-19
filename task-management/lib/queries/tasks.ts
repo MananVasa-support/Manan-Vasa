@@ -13,6 +13,36 @@ import type { TaskListFilters, TaskListRow } from "@/lib/types";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
+ * Statuses that are still LIVE work. `?overdue=true` narrows to these only:
+ * a finished task cannot be overdue, it is finished — including one delivered
+ * late, which the Age column already records. `not_approved` IS live: a
+ * sent-back task is waiting on the doer, and it is the whole point of the
+ * "Sent-back work, by person" drill-through.
+ */
+const OVERDUE_OPEN_STATUSES = TASK_STATUSES.filter(
+  (s) => !["done", "approved", "cancelled", "transferred"].includes(s),
+);
+
+/**
+ * `?overdue=true` — effective due date strictly before today, still open.
+ *
+ * Compared against TODAY AT UTC MIDNIGHT, not `now`: a task due today is not
+ * overdue at 6pm, and comparing against the current instant would flip it to
+ * overdue partway through its own due date.
+ */
+function overdueConditions() {
+  const todayUtc = new Date();
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  // Returned as a LIST rather than one and(): drizzle's and() is typed
+  // `SQL | undefined`, and spreading two definite conditions into the existing
+  // array keeps the types honest without an assertion.
+  return [
+    lt(effectiveDueAtSql(), todayUtc),
+    inArray(tasks.status, OVERDUE_OPEN_STATUSES),
+  ];
+}
+
+/**
  * Whole-day index for a timestamp, in UTC.
  *
  * Age is a CALENDAR-DAY difference, not elapsed milliseconds. The previous
@@ -29,67 +59,36 @@ function dayIndex(d: Date): number {
   );
 }
 
-/**
- * Statuses whose age STOPS counting. Deliberately narrower than "not pending":
- * `not_approved` is excluded because a sent-back task is live work — it is
- * waiting on the doer, and freezing its age would hide exactly the rework that
- * has been sitting longest.
- */
-const AGE_FROZEN_STATUSES = new Set<TaskStatus>([
-  "done",
-  "approved",
-  "cancelled",
-  "transferred",
-]);
 
 /**
- * Age in whole calendar days, measured against the DUE DATE.
+ * Age = today − due date, in whole calendar days.
  *
- *   age = endDay − dueDay
+ *   positive → that many days OVERDUE
+ *   0        → due today
+ *   negative → that many days still REMAINING
  *
- * Positive = late by that many days. 0 = due today (or delivered on the day it
- * was due). NEGATIVE = still has that many days left before it is due.
+ * Both sides go through `dayIndex`, which floors a timestamp to its UTC day
+ * boundary, so this is an integer subtraction of two day numbers — NOT a
+ * millisecond delta divided and floored. That distinction is the whole point:
+ * a due date at 18:00 and a "now" at 09:00 are 15 hours apart, which floor
+ * division of elapsed time reports as 0 days even when the calendar has
+ * clearly turned over. Normalising first removes that class of bug entirely,
+ * and it is why partial hours can never collapse a real gap to 0.
  *
- * This replaced a created-relative age (`today − createdAt`, floored at 0).
- * That answered "how long has this existed", which on a triage list is the
- * wrong question and is why every recent row read the same tiny number — the
- * list is ordered createdAt DESC, so the top rows were all a day or two old
- * regardless of whether they were weeks overdue. Due-relative answers "how far
- * past its deadline is this", which is what the column is read for.
+ * `dueAt` is the EFFECTIVE due date (revised ?? original, see
+ * effectiveDueAtSql), so moving a deadline moves the age with it. It is
+ * `notNull` on the table and non-nullable on TaskListRow, so there is no
+ * null branch and no fallback constant — the type carries that guarantee
+ * instead of a runtime `return 0`.
  *
- * `dueAt` here is the EFFECTIVE due date (revised ?? original, see
- * effectiveDueAtSql), so moving a deadline moves the age with it.
- *
- * The floor at 0 is gone — clamping would erase the entire upcoming half of the
- * range and make every future task look due today.
- *
- * FINISHED TASKS STILL FREEZE. An open task measures to today so the number
- * climbs while it slips; a finished one measures from the day it closed, so it
- * records how late it was DELIVERED and stops. Without this a task delivered
- * one day late two years ago would read 730d forever. Only status = "done"
- * stamps completed_at, so cancelled/approved/transferred fall back to
- * updated_at — the last touch, which for a terminal task is when it was
- * terminated. A proxy, not a true closure timestamp.
- *
- * Whole calendar days, not elapsed hours: the Due column renders with
- * `differenceInCalendarDays`, and two adjacent columns measuring the same two
- * dates in different units is the drift `dayIndex` exists to remove.
+ * NOTHING FREEZES. An earlier version stopped the clock for finished tasks so
+ * they recorded how late they were DELIVERED. That is gone by request: the
+ * formula is now purely today-relative for every row. The consequence is that
+ * a completed task keeps accumulating — one delivered a day late last year
+ * reads its full elapsed overdue count, not 1d.
  */
-function ageInDays(
-  row: {
-    dueAt: Date | null;
-    completedAt: Date | null;
-    status: TaskStatus;
-    updatedAt: Date;
-  },
-  nowDay: number,
-): number {
-  // No deadline means nothing to be late against. 0 rather than a guess.
-  if (!row.dueAt) return 0;
-  const frozenAt =
-    row.completedAt ?? (AGE_FROZEN_STATUSES.has(row.status) ? row.updatedAt : null);
-  const endDay = frozenAt ? dayIndex(frozenAt) : nowDay;
-  return endDay - dayIndex(row.dueAt);
+function ageInDays(dueAt: Date, nowDay: number): number {
+  return nowDay - dayIndex(dueAt);
 }
 
 // A task's "effective" status spans two columns: the working `status` and the
@@ -121,6 +120,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
   if (filters.priorities.length > 0) conditions.push(inArray(tasks.priority, filters.priorities));
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
+  if (filters.overdue)               conditions.push(...overdueConditions());
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {
@@ -205,7 +205,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     initiatorName: r.initiatorName ?? null,
     createdAt: r.createdAt,
     dueAt: r.dueAt,
-    ageDays: ageInDays(r, nowDay),
+    ageDays: ageInDays(r.dueAt, nowDay),
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,
@@ -351,6 +351,7 @@ async function listTasksPageUncached(
     conditions.push(inArray(tasks.priority, filters.priorities));
   if (filters.subjects.length > 0) conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.taskId) conditions.push(eq(tasks.id, filters.taskId));
+  if (filters.overdue) conditions.push(...overdueConditions());
 
   if (filters.departments.length > 0) {
     const ids = await employeeIdsInDepartments(filters.departments);
@@ -433,7 +434,7 @@ async function listTasksPageUncached(
     initiatorName: r.initiatorName ?? null,
     createdAt: r.createdAt,
     dueAt: r.dueAt,
-    ageDays: ageInDays(r, nowDay),
+    ageDays: ageInDays(r.dueAt, nowDay),
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,
@@ -644,6 +645,7 @@ export async function listTasksForExport(
   if (filters.priorities.length > 0) conditions.push(inArray(tasks.priority, filters.priorities));
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
+  if (filters.overdue)               conditions.push(...overdueConditions());
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {

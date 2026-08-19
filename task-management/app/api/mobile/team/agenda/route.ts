@@ -53,6 +53,7 @@ export async function GET(req: Request) {
     clients: [],
     taskId: null,
     archived: false,
+    overdue: false,
     assigneeMode: "default",
       team: null,
       viewerId: null,

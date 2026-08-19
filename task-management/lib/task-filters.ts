@@ -109,6 +109,9 @@ export function parseTaskFilters(
     clients: split(get("client")),
     taskId: typeof id === "string" && id.length > 0 ? id : null,
     archived: archived || wantsArchived,
+    // Accepts true/1/yes so a hand-typed or shared link is forgiving; anything
+    // else (including the param being absent) is false.
+    overdue: ["true", "1", "yes"].includes((get("overdue") ?? "").toLowerCase()),
     assigneeMode,
   };
 }
@@ -133,5 +136,6 @@ export function taskFiltersToSearchString(f: TaskListFilters): string {
   if (f.subjects.length > 0)     sp.set("subj", f.subjects.join(","));
   if (f.clients.length > 0)      sp.set("client", f.clients.join(","));
   if (f.taskId) sp.set("id", f.taskId);
+  if (f.overdue) sp.set("overdue", "true");
   return sp.toString();
 }
