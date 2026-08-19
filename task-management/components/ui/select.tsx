@@ -68,6 +68,19 @@ export function Select({
   const selected = options.find((o) => o.value === value);
   const showSearch = searchable ?? options.length > 8;
 
+  // WHY the popover closed decides whether focus should come back.
+  //
+  // `onCloseAutoFocus` is prevented below for two real reasons: a trigger that
+  // opens on focus would reopen in a loop, and after a Tab-commit the browser
+  // must be free to move focus ON to the next field. But that also swallowed
+  // the Escape case, where returning to the trigger is the whole point —
+  // pressing Escape used to drop focus onto <body>, so the next Tab restarted
+  // from the top of the page.
+  //
+  // The flag distinguishes them: Escape sets it, and only then is the default
+  // restore allowed through.
+  const closedByEscape = React.useRef(false);
+
   // cmdk auto-highlights the first item on every query change, so Tab must only
   // commit when the user has deliberately arrow-navigated — otherwise Tabbing
   // out silently commits the first filtered option. Reset whenever the popover
@@ -82,6 +95,27 @@ export function Select({
   function onCommandKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       userNavigated.current = true;
+      return;
+    }
+    if (e.key === "Escape") {
+      // Let Radix restore focus to the trigger on THIS close only.
+      closedByEscape.current = true;
+      return;
+    }
+    if (e.key === " ") {
+      // Space toggles the highlighted option — but ONLY with an empty query.
+      // With text typed it has to stay a literal space, or multi-word searches
+      // ("Business Development", "Not Approved") become untypeable. That is the
+      // standard trade for a combobox whose filter box and list share focus.
+      const input = e.currentTarget.querySelector<HTMLInputElement>("[cmdk-input]");
+      if (input && input.value.length > 0) return;
+      const active = e.currentTarget.querySelector<HTMLElement>(
+        '[cmdk-item][aria-selected="true"]',
+      );
+      if (active) {
+        e.preventDefault();
+        active.click();
+      }
       return;
     }
     // Typing changes the query → cmdk re-auto-highlights, so navigation intent
@@ -157,11 +191,18 @@ export function Select({
       <PopoverContent
         align="start"
         sideOffset={6}
-        // Closing must NOT restore focus to the trigger: that fights the
-        // browser's Tab (focus can't advance after a commit) and, for triggers
-        // that open-on-focus, would re-fire onFocus → reopen loop. Keyboard-
-        // first teams Tab through these constantly.
-        onCloseAutoFocus={(e) => e.preventDefault()}
+        // Focus restore is now CONDITIONAL — see `closedByEscape`. Restoring
+        // unconditionally fights the browser's Tab (focus can't advance after a
+        // commit) and, for triggers that open-on-focus, re-fires onFocus into a
+        // reopen loop. Never restoring stranded Escape on <body>.
+        onCloseAutoFocus={(e) => {
+          if (closedByEscape.current) {
+            // Escape: let the default run so focus lands back on the trigger.
+            closedByEscape.current = false;
+            return;
+          }
+          e.preventDefault();
+        }}
         className={cn(
           // .gdd-panel = the shared premium dropdown surface (rounded-2xl,
           // backdrop-blur, layered shadow, fade+slide+scale entrance). It rides
