@@ -503,7 +503,7 @@ export function ManagerInitiatorTable({
           className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-100"
         >
           {showAll
-            ? `Show top ${COLLAPSED_ROWS}`
+            ? `Show Top ${COLLAPSED_ROWS}`
             : `View All (${managers.length}) Managers`}
         </button>
       )}

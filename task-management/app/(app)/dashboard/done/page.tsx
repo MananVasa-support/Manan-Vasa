@@ -49,7 +49,7 @@ export default async function DoneDashboardPage() {
             className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-subtle transition-colors hover:text-ink-strong"
           >
             <ArrowLeft size={15} strokeWidth={2.6} />
-            Back to dashboard
+            Back to Dashboard
           </Link>
           <div className="mt-4 flex items-center gap-3.5">
             <span
