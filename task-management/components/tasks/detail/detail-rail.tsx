@@ -10,13 +10,17 @@ import {
   Sparkles,
   AlertTriangle,
   XCircle,
-  Loader2,
+  RotateCcw,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import type { TaskTimeState, TimelineEntry } from "@/lib/queries/task-time";
 import type { TaskInsight } from "@/lib/tasks/insight";
 import { formatMinutesLabel } from "@/lib/tasks/time/types";
-import { startWorkAction, pauseWorkAction } from "@/app/(app)/tasks/time-actions";
+import {
+  startWorkAction,
+  pauseWorkAction,
+  restartTimerAction,
+} from "@/app/(app)/tasks/time-actions";
 import { useElapsedSeconds } from "@/components/tasks/time/use-elapsed";
 
 function initials(name: string): string {
@@ -113,8 +117,25 @@ function LiveMins({ startedAt, base }: { startedAt: string; base: number }) {
   return <>{formatMinutesLabel(base + secs)}</>;
 }
 
-/** "Time Spent" card — total (live), segmented session bar, session count, and
- *  compact Start/Pause controls (the essential timer, kept subtle). */
+/**
+ * Time Intelligence control centre — live total, session bar, Start/Stop/
+ * Restart, and the most recent session stamps.
+ *
+ * OPTIMISTIC, and that is the point. Every control here used to run through a
+ * `startTransition` that AWAITED the server action and then `router.refresh()`,
+ * holding `pending` — and therefore a spinner on the button — true for the whole
+ * round trip. Against a remote database that is seconds of dead UI for a click
+ * whose outcome is never in doubt.
+ *
+ * The flip is applied locally first, so the label changes and the clock starts
+ * ticking in the same frame as the click. The action fires WITHOUT being awaited
+ * inside a transition; `router.refresh()` runs only once it resolves, and a
+ * failure rolls the flip back and says so.
+ *
+ * The flip records WHAT THE SERVER SAID when it was made, so staleness is
+ * derived during render rather than reconciled in an effect: once the refreshed
+ * state disagrees with `basedOn`, the server value takes over on its own.
+ */
 export function TimeSpentCard({
   taskId,
   state,
@@ -129,19 +150,49 @@ export function TimeSpentCard({
   onViewHistory?: () => void;
 }) {
   const router = useRouter();
-  const [pending, start] = React.useTransition();
   const r = state.rollup;
   const live = state.live;
+
+  const serverSince = live?.startedAt ?? null;
+  const [flip, setFlip] = React.useState<
+    { running: boolean; since: string; basedOn: string | null } | null
+  >(null);
+  const [busy, setBusy] = React.useState(false);
+  const [confirmRestart, setConfirmRestart] = React.useState(false);
+
+  const flipCurrent = flip !== null && flip.basedOn === serverSince;
+  const isRunning = flipCurrent ? flip.running : Boolean(live);
+  const since = flipCurrent ? flip.since : serverSince;
+
   const done = state.sessions.filter((s) => !s.live && s.durationSeconds != null);
   const totalForBar = done.reduce((n, s) => n + (s.durationSeconds ?? 0), 0) || 1;
   const seg = ["#8b5cf6", "#6366f1", "#3b82f6", "#16a34a", "#f59e0b"];
+  // Newest three stamped sessions. The full list lives behind View History —
+  // this is a glance, not a log.
+  const recent = [...done]
+    .sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1))
+    .slice(0, 3);
 
-  function act(fn: () => Promise<{ ok: boolean; message?: string }>) {
-    start(async () => {
-      const res = await fn();
-      if (!res.ok) fireToast({ message: res.message ?? "Couldn't do that.", type: "error" });
-      router.refresh();
-    });
+  function run(next: boolean, fn: () => Promise<{ ok: boolean; message?: string }>) {
+    if (busy) return;
+    setFlip({ running: next, since: new Date().toISOString(), basedOn: serverSince });
+    setBusy(true);
+    void fn()
+      .then((res) => {
+        if (!res.ok) {
+          setFlip(null);
+          fireToast({
+            // Says what happened rather than "Retrying…" — nothing retries on
+            // its own, and promising a retry that never comes is worse than a
+            // plain failure the user can act on.
+            message: res.message ?? "Couldn't update the timer. Try again.",
+            type: "error",
+          });
+          return;
+        }
+        router.refresh();
+      })
+      .finally(() => setBusy(false));
   }
 
   return (
@@ -156,8 +207,17 @@ export function TimeSpentCard({
         ) : null
       }
     >
-      <div className="text-[30px] font-black leading-none text-ink-strong">
-        {live ? <LiveMins startedAt={live.startedAt} base={r.totalActiveSeconds} /> : formatMinutesLabel(r.totalActiveSeconds)}
+      {/* Tabular mono so the digits don't jitter as the clock ticks — a
+          proportional face reflows the whole number every second. */}
+      <div className="font-mono text-2xl font-bold leading-none tabular-nums text-ink-strong">
+        {isRunning && since ? (
+          <LiveMins startedAt={since} base={r.totalActiveSeconds} />
+        ) : (
+          formatMinutesLabel(r.totalActiveSeconds)
+        )}
+      </div>
+      <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">
+        {isRunning ? "Running…" : "Total active time"}
       </div>
       {/* Segmented session bar */}
       <div className="mt-3 flex h-2 gap-0.5 overflow-hidden rounded-full bg-surface-soft">
@@ -174,30 +234,113 @@ export function TimeSpentCard({
       </div>
 
       {!locked && canOperate && (
-        <div className="mt-4 flex gap-2">
-          {live ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {isRunning ? (
             <button
               type="button"
-              disabled={pending}
-              onClick={() => act(() => pauseWorkAction(taskId))}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-[12.5px] font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+              onClick={() => run(false, () => pauseWorkAction(taskId))}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-amber-600"
             >
-              {pending ? <Loader2 size={14} className="animate-spin" /> : <Pause size={14} />} Pause
+              <Pause size={14} /> Stop
             </button>
           ) : (
             <button
               type="button"
-              disabled={pending}
-              onClick={() => act(() => startWorkAction(taskId))}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#18181b] px-3 py-2 text-[12.5px] font-bold text-white hover:bg-black disabled:opacity-50"
+              onClick={() => run(true, () => startWorkAction(taskId))}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-emerald-700"
             >
-              {pending ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} {r.sessionCount > 0 ? "Resume" : "Start Work"}
+              <Play size={14} /> {r.sessionCount > 0 ? "Resume" : "Start Work"}
+            </button>
+          )}
+          {(isRunning || r.sessionCount > 0) && (
+            <button
+              type="button"
+              onClick={() => setConfirmRestart(true)}
+              title="Reset this session's elapsed time to zero"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-2 text-[12.5px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+            >
+              <RotateCcw size={14} /> Restart
             </button>
           )}
         </div>
       )}
+
+      {/* Inline confirmation, not a modal: this is a narrow rail panel, and a
+          full-screen overlay for a one-session reset is a heavier interruption
+          than the action deserves. */}
+      {confirmRestart && (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <p className="text-[12.5px] font-bold text-amber-900">Reset this session to 00:00?</p>
+          <p className="mt-0.5 text-[11.5px] font-medium text-amber-800">
+            Completed sessions and the activity log are not affected.
+          </p>
+          <div className="mt-2.5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmRestart(false);
+                run(true, () => restartTimerAction(taskId));
+              }}
+              className="rounded-md bg-amber-500 px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-amber-600"
+            >
+              Restart
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmRestart(false)}
+              className="rounded-md border border-hairline bg-white px-3 py-1.5 text-[12px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Session stamps — start, end, duration. */}
+      {recent.length > 0 && (
+        <div className="mt-4 border-t border-hairline pt-3">
+          <p className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-subtle">
+            Recent sessions
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {recent.map((sn) => (
+              <li
+                key={sn.id}
+                className="flex items-baseline justify-between gap-2 text-[11.5px]"
+              >
+                <span className="min-w-0 truncate font-medium text-ink-soft">
+                  {stampRange(sn.startedAt, sn.endedAt)}
+                </span>
+                <span className="shrink-0 font-bold tabular-nums text-ink-strong">
+                  {formatMinutesLabel(sn.durationSeconds ?? 0)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </RailCard>
   );
+}
+
+/**
+ * "19 Aug 2026, 04:11 PM → 05:00 PM".
+ *
+ * The end DATE is omitted when it matches the start date, which it almost
+ * always does — repeating it doubles the line length for no information, and
+ * this line has to fit a 360px rail.
+ */
+function stampRange(startIso: string, endIso: string | null): string {
+  const start = new Date(startIso);
+  const day = (d: Date) =>
+    d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const time = (d: Date) =>
+    d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  if (!endIso) return `${day(start)}, ${time(start)}`;
+  const end = new Date(endIso);
+  return day(start) === day(end)
+    ? `${day(start)}, ${time(start)} → ${time(end)}`
+    : `${day(start)}, ${time(start)} → ${day(end)}, ${time(end)}`;
 }
 
 /** "AI Insights" card — transparent heuristic, labelled AI Analysis. */
