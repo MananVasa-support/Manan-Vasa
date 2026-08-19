@@ -77,7 +77,10 @@ export type StatusCellBucket =
 export interface StatusCellTask {
   id: string;
   taskNo: number | null;
+  /** CLIENT NAME — the New Task form's "Client Name" writes to tasks.title.
+   *  Use `description` to label a row; this is context, not the task. */
   title: string;
+  description: string | null;
   client: string | null;
   subject: string | null;
   dueAt: Date | null;

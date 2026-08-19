@@ -133,22 +133,50 @@ export function PunctualityTaskList({
                 </tr>
               </thead>
               <tbody>
-                {state.data.tasks.slice(0, shown).map((t) => (
+                {state.data.tasks.slice(0, shown).map((t) => {
+                  // description → subject → client name, in that order. Each
+                  // fallback is a real field rather than a placeholder, so a
+                  // task with no body still labels itself with something a
+                  // person can act on instead of an empty cell.
+                  const taskLabel =
+                    t.description?.trim() || t.subject?.trim() || t.title;
+                  // The hover carries what truncation ate, plus the identifiers
+                  // stripped from the label — nothing is lost, it just stops
+                  // occupying the one line the eye scans.
+                  const taskHover = [
+                    taskLabel,
+                    t.taskNo ? `Task #${t.taskNo}` : null,
+                    t.client ? `Client: ${t.client}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join("\n");
+                  return (
                   <tr
                     key={t.id}
                     className="border-t border-gray-100 transition-colors hover:bg-gray-50"
                   >
-                    <td className="px-3.5 py-2.5">
-                      {/* The whole title is a link to the task — this list is a
+                    {/* `title` on the <td> as well as the link: the hover target
+                        is then the whole cell, including the empty space to the
+                        right of a short description, rather than only the text
+                        run itself. */}
+                    <td className="px-3.5 py-2.5" title={taskHover}>
+                      {/* The whole label is a link to the task — this list is a
                           triage queue, so the next move after spotting a late
-                          row is always to open it. */}
+                          row is always to open it.
+
+                          It leads with the DESCRIPTION. It used to read
+                          "#2358 · {t.title}", and `title` in this schema is the
+                          CLIENT NAME — the New Task form's "Client Name" field
+                          writes straight to tasks.title. So the row announced a
+                          number nobody quotes followed by a client that was
+                          then repeated on the line directly below it, and said
+                          nothing about the work. */}
                       <Link
                         href={`/tasks/${t.id}` as Route}
                         className="block max-w-[420px] truncate text-[15px] font-semibold leading-snug text-gray-900 hover:text-altus-red hover:underline"
-                        title={t.title}
+                        title={taskHover}
                       >
-                        {t.taskNo ? `#${t.taskNo} · ` : ""}
-                        {t.title}
+                        {taskLabel}
                       </Link>
                       {t.client && (
                         <span className="block truncate text-[12.5px] font-medium text-gray-500">
@@ -173,7 +201,8 @@ export function PunctualityTaskList({
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
