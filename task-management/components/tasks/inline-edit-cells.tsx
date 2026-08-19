@@ -64,6 +64,56 @@ function toYmd(value: Date | null): string {
   return Number.isNaN(d.getTime()) ? "" : format(d, "yyyy-MM-dd");
 }
 
+/**
+ * PRIORITY PILLS — one colour per level, so urgency is readable at a glance
+ * down a long column instead of having to be read word by word (Sir):
+ *
+ *   Critical → red · Urgent → orange · Important → green · Normal → blue
+ *
+ * Note the enum names do NOT match the labels — `not_imp_urgent` is "Urgent"
+ * and `imp_not_urgent` is "Important" — so the colours are keyed off the enum
+ * value, never off the label string. Getting that backwards would paint the
+ * two middle levels each other's colour, which is exactly the mistake this
+ * comment exists to prevent.
+ *
+ * Only the LABEL is coloured, on a soft tint of the same hue with a matching
+ * border — the same construction as CriticalBadge above, so the four read as
+ * one family. The deep text-on-tint pairing keeps contrast well past 4.5:1;
+ * colour is never the only signal, since each pill still spells out its level.
+ *
+ * The underlying priority values, ordering and sort logic are untouched.
+ */
+const PRIORITY_TONE: Record<TaskPriority, { bg: string; fg: string; ring: string }> = {
+  // Critical is rendered by <CriticalBadge/> (it has a flame icon); kept here so
+  // the map stays exhaustive and any future caller gets the same red.
+  imp_urgent: { bg: "var(--color-red-bg)", fg: "var(--color-red-deep)", ring: "var(--color-red)" },
+  not_imp_urgent: { bg: "#FFF4E5", fg: "#B45309", ring: "#F59E0B" }, // Urgent → orange
+  imp_not_urgent: { bg: "#E9F7EF", fg: "#15803D", ring: "#22C55E" }, // Important → green
+  not_imp_not_urgent: { bg: "#EAF2FE", fg: "#1D4ED8", ring: "#3B82F6" }, // Normal → blue
+};
+
+export function PriorityPill({ priority }: { priority: TaskPriority }) {
+  const tone = PRIORITY_TONE[priority];
+  return (
+    <span
+      className="inline-flex items-center rounded-pill px-2 py-0.5"
+      style={{
+        background: tone.bg,
+        color: tone.fg,
+        border: `1px solid color-mix(in srgb, ${tone.ring} 30%, transparent)`,
+        fontFamily: "var(--font-sans)",
+        fontSize: 11,
+        fontWeight: 500,
+        lineHeight: 1,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+      }}
+    >
+      {PRIORITY_LABELS[priority]}
+    </span>
+  );
+}
+
 // ── Doer ───────────────────────────────────────────────────────────────────
 /**
  * A brief "saved" tint on the cell that was just edited.
@@ -243,9 +293,7 @@ export function InlinePriorityCell({
   const [shown, setShown] = React.useState<TaskPriority>(priority);
   React.useEffect(() => setShown(priority), [priority]);
 
-  const chip = shown === "imp_urgent" ? <CriticalBadge /> : (
-    <span className="text-body-lg text-ink-muted">{PRIORITY_LABELS[shown]}</span>
-  );
+  const chip = shown === "imp_urgent" ? <CriticalBadge /> : <PriorityPill priority={shown} />;
   if (!editable) return chip;
 
   async function pick(p: TaskPriority) {
@@ -307,7 +355,12 @@ export function InlinePriorityCell({
                   className="flex items-center gap-2.5 px-2.5 py-2 rounded-chip text-[14px] cursor-pointer hover:bg-surface-soft"
                   style={{ fontWeight: sel ? 700 : 500 }}
                 >
-                  <span className="flex-1 text-ink-strong">{PRIORITY_LABELS[p]}</span>
+                  {/* The same pill the cell shows, so you pick the colour you
+                      are about to see rather than a word you then have to
+                      translate. */}
+                  <span className="flex-1">
+                    <PriorityPill priority={p} />
+                  </span>
                   {sel && <Check size={14} strokeWidth={2.6} className="text-altus-red" />}
                 </li>
               );

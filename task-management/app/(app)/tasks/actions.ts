@@ -48,7 +48,10 @@ import { taskEvents, clients, subjects, employees } from "@/db/schema";
 import { CreateClientSchema } from "@/lib/validators/client";
 import { CreateSubjectSchema } from "@/lib/validators/subject";
 import { requireUser, requireWeeklyGoalsFilled } from "@/lib/auth/current";
-import { canChangeDoer } from "@/lib/auth/super-admin";
+import { canChangeDoerFor } from "@/lib/auth/doer-permission";
+
+/** One wording for all three doer paths, so the refusal reads the same wherever it is hit. */
+const DOER_DENIED = "Only managers, Manan and Om can change a task's doer.";
 import { listEmployees } from "@/lib/queries/employees";
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { listActiveSubjectNames } from "@/lib/queries/subjects";
@@ -418,12 +421,12 @@ export async function reassignDoer(
   if (!isUuid(taskId)) return { ok: false, error: "Invalid task id." };
   if (!isUuid(doerId)) return { ok: false, error: "Invalid employee id." };
   const me = await requireUser();
-  // DOER IS MANAN'S CALL ALONE (Sir). The inline cell is hidden for everyone
+  // WHO MAY REASSIGN (Sir): managers, Manan and Om — see canChangeDoerFor.
   // else, but hiding a control is presentation — this is the boundary. Every
   // path that writes tasks.doerId carries the same check: here, bulkReassignDoer
   // and reassignTask.
-  if (!canChangeDoer(me.email)) {
-    return { ok: false, error: "Only Manan can change a task's doer." };
+  if (!(await canChangeDoerFor(me))) {
+    return { ok: false, error: DOER_DENIED };
   }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -727,8 +730,8 @@ export async function bulkReassignDoer(
   // permission check at all beyond being signed in, so it was the widest of
   // the three doer paths. Reassigning fifty tasks at once is no less an
   // allocation decision than reassigning one.
-  if (!canChangeDoer(me.email)) {
-    return { ok: false, error: "Only Manan can change a task's doer." };
+  if (!(await canChangeDoerFor(me))) {
+    return { ok: false, error: DOER_DENIED };
   }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -1063,15 +1066,25 @@ export async function bulkCreateTasks(
 
 /**
  * Appends a new client to the shared roster, used by the "+ Add new
- * client…" affordance on the task forms. Any authenticated user may add
- * one (see migration 0022 RLS). Case-insensitive dedupe: if the name
- * already exists we return the canonical stored spelling instead of
- * erroring, so the picker can just select it.
+ * client…" affordance on the task forms.
+ *
+ * ADMIN ONLY (Sir). This used to accept any authenticated user, so the
+ * roster every task form picks from could be grown by anyone — and a
+ * misspelling added here becomes a permanent second client that quietly
+ * splits a client's task history in two. The picker hides the affordance
+ * for non-admins; this is the check that actually holds.
+ *
+ * Case-insensitive dedupe: if the name already exists we return the
+ * canonical stored spelling instead of erroring, so the picker can just
+ * select it.
  */
 export async function quickAddClient(
   rawName: string,
 ): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
-  await requireUser();
+  const me = await requireUser();
+  if (!me.isAdmin) {
+    return { ok: false, error: "Only an admin can add a new client." };
+  }
 
   const parsed = CreateClientSchema.safeParse({ name: rawName });
   if (!parsed.success) {
@@ -1116,12 +1129,16 @@ export async function quickAddClient(
 
 /**
  * Appends a new subject to the shared roster, used by the "+ Add new
- * subject…" affordance on the task forms. Mirrors quickAddClient.
+ * subject…" affordance on the task forms. ADMIN ONLY, mirroring
+ * quickAddClient — same reasoning, same enforcement point.
  */
 export async function quickAddSubject(
   rawName: string,
 ): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
-  await requireUser();
+  const me = await requireUser();
+  if (!me.isAdmin) {
+    return { ok: false, error: "Only an admin can add a new subject." };
+  }
 
   const parsed = CreateSubjectSchema.safeParse({ name: rawName });
   if (!parsed.success) {
@@ -1514,8 +1531,8 @@ export async function reassignTask(
   const me = await requireUser();
   // The third doer path (the Reassign dialog). Same rule — otherwise the inline
   // cell is locked while a dialog two clicks away does the same write.
-  if (!canChangeDoer(me.email)) {
-    return { ok: false, error: "forbidden", message: "Only Manan can change a task's doer." };
+  if (!(await canChangeDoerFor(me))) {
+    return { ok: false, error: "forbidden", message: DOER_DENIED };
   }
 
   let parsed;
@@ -2012,8 +2029,10 @@ export async function loadNewTaskOptions(): Promise<{
   clients: string[];
   subjects: string[];
   projectNodes: { id: string; label: string }[];
+  /** May this user create a new client/subject from the pickers? Admin only. */
+  canAddRoster: boolean;
 }> {
-  await requireUser();
+  const me = await requireUser();
   const [all, clientNames, subjectNames, projectNodes] = await Promise.all([
     listEmployees(),
     listActiveClientNames(),
@@ -2025,5 +2044,6 @@ export async function loadNewTaskOptions(): Promise<{
     clients: clientNames,
     subjects: subjectNames,
     projectNodes,
+    canAddRoster: me.isAdmin,
   };
 }

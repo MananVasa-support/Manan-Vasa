@@ -17,21 +17,9 @@ export function isSuperAdmin(email: string | null | undefined): boolean {
   );
 }
 
-/**
- * Manan Vasa — the ONLY person who may change a task's DOER.
- *
- * Deliberately NOT `isSuperAdmin`, which also covers Hetesh, and not
- * `isAdmin`, which covers every admin. Who a task belongs to is an allocation
- * decision reserved to one person, so this is a named individual and reads as
- * one. If that ever needs to become a role, it should become a role explicitly
- * rather than by quietly widening this.
- *
- * Everything else about a task stays editable by whoever could edit it before —
- * this narrows the doer field alone.
- */
-export const DOER_OWNER_EMAIL = "manan@unleashed.in";
-
-export function canChangeDoer(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return email.trim().toLowerCase() === DOER_OWNER_EMAIL;
-}
+// Who may change a task's DOER lives in lib/auth/doer-permission.ts, not here.
+// It briefly lived in this file as a Manan-only email test; the rule is now
+// "every manager, plus Manan and Om", which needs the org chart and so cannot
+// be a pure email check. The old helper was removed rather than left in place,
+// because an exported `canChangeDoer` still implementing the narrower rule is
+// exactly the kind of thing a future caller imports by name and trusts.

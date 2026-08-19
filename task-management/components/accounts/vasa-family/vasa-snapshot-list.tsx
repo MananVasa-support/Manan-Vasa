@@ -6,22 +6,18 @@ import {
   Download,
   Share2,
   FileSpreadsheet,
-  FileText,
   Mail,
   MessageCircle,
   Link2,
   Loader2,
+  Trash2,
+  ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import type { VasaCell } from "@/lib/queries/accounts-vasa";
 import { emailVasaSnapshot } from "@/app/(app)/accounts/vasa-family-interpersonal/actions";
-
-const inr = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
-function fmt(n: number): string {
-  if (n === 0) return "0";
-  const s = inr.format(Math.abs(n));
-  return n < 0 ? `-${s}` : s;
-}
+import { formatCompactInr, inrTooltip } from "@/lib/accounts/inr-format";
 
 /**
  * Per-snapshot download URL, keyed by the ROW's own date.
@@ -30,8 +26,8 @@ function fmt(n: number): string {
  * download or share quietly hands over the wrong report, and on a reconciliation
  * sheet a wrong-but-plausible file is worse than no file.
  */
-function downloadHref(asOn: string, format: "xlsx" | "csv"): string {
-  const qs = new URLSearchParams({ asOn, format });
+function downloadHref(asOn: string): string {
+  const qs = new URLSearchParams({ asOn });
   return `/accounts/vasa-family-interpersonal/export?${qs}`;
 }
 
@@ -51,6 +47,8 @@ export function VasaSnapshotList({
   labelOf,
   nameOf,
   quarterOf,
+  onOpen,
+  onDelete,
 }: {
   snapshots: string[];
   cells: VasaCell[];
@@ -58,10 +56,17 @@ export function VasaSnapshotList({
   labelOf: (s: string) => string;
   nameOf: (s: string) => string;
   quarterOf: (s: string) => string;
+  /** Open this chart in the Sheet tab. */
+  onOpen: (asOn: string) => void;
+  /** Permanently delete this chart. Confirmed here before it is called. */
+  onDelete: (asOn: string) => Promise<void>;
 }) {
   const [open, setOpen] = React.useState<string | null>(null);
   const [menu, setMenu] = React.useState<string | null>(null);
   const [sending, setSending] = React.useState<string | null>(null);
+  /** The chart awaiting delete confirmation, and the one being deleted. */
+  const [confirming, setConfirming] = React.useState<string | null>(null);
+  const [deleting, setDeleting] = React.useState<string | null>(null);
 
   const byKey = React.useMemo(() => {
     const m = new Map<string, number>();
@@ -86,7 +91,7 @@ export function VasaSnapshotList({
   function shareLink(asOn: string, via: "whatsapp" | "copy") {
     setMenu(null);
     const origin = typeof window === "undefined" ? "" : window.location.origin;
-    const url = `${origin}${downloadHref(asOn, "xlsx")}`;
+    const url = `${origin}${downloadHref(asOn)}`;
     const text = `Vasa Family Interpersonal Balance — ${labelOf(asOn)} (${quarterOf(asOn)}): ${url}`;
     if (via === "whatsapp") {
       // A LINK, not the file: WhatsApp cannot take an attachment from a URL, and
@@ -104,9 +109,9 @@ export function VasaSnapshotList({
     return (
       <div className="rounded-section border border-hairline bg-surface-card px-6 py-14 text-center">
         <FileSpreadsheet size={22} className="mx-auto mb-3 text-ink-subtle" aria-hidden />
-        <p className="text-[15px] font-bold text-ink-strong">No snapshots in this quarter</p>
+        <p className="text-[15px] font-bold text-ink-strong">No charts in this quarter</p>
         <p className="mt-1 text-[13px] text-ink-subtle">
-          Use New Snapshot on the Sheet tab to start one.
+          Use New Chart in the header to start one.
         </p>
       </div>
     );
@@ -166,19 +171,22 @@ export function VasaSnapshotList({
 
                 <span className="relative flex items-center justify-end gap-1.5">
                   <a
-                    href={downloadHref(s, "xlsx")}
+                    href={downloadHref(s)}
                     title={`Download ${labelOf(s)} as Excel`}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-2.5 py-1.5 text-[12.5px] font-bold text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red"
                   >
                     <Download size={14} strokeWidth={2.4} /> xlsx
                   </a>
-                  <a
-                    href={downloadHref(s, "csv")}
-                    title={`Download ${labelOf(s)} as CSV`}
+                  {/* OPEN — List view is the complete history, so it has to be
+                      able to put a chart back on the Sheet tab. */}
+                  <button
+                    type="button"
+                    onClick={() => onOpen(s)}
+                    title={`Open ${labelOf(s)}`}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-2.5 py-1.5 text-[12.5px] font-bold text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red"
                   >
-                    <FileText size={14} strokeWidth={2.4} /> csv
-                  </a>
+                    <ExternalLink size={14} strokeWidth={2.4} /> Open
+                  </button>
 
                   <button
                     type="button"
@@ -195,6 +203,17 @@ export function VasaSnapshotList({
                       <Share2 size={14} strokeWidth={2.4} />
                     )}{" "}
                     Share
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setMenu(null); setConfirming(s); }}
+                    disabled={deleting === s}
+                    title={`Delete ${labelOf(s)}`}
+                    aria-label={`Delete ${labelOf(s)}`}
+                    className="inline-flex items-center justify-center rounded-lg border border-hairline-strong bg-white px-2 py-1.5 text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red disabled:opacity-50"
+                  >
+                    {deleting === s ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} strokeWidth={2.4} />}
                   </button>
 
                   {menu === s && (
@@ -241,6 +260,45 @@ export function VasaSnapshotList({
                   )}
                 </span>
               </div>
+
+              {/* DELETE CONFIRMATION — inline, on the row being deleted, so there
+                  is no doubt which chart is about to go. The wording is fixed by
+                  the brief and must read exactly as written. Cancel leaves the
+                  chart untouched; nothing is called until Delete is pressed. */}
+              {confirming === s && (
+                <div
+                  role="alertdialog"
+                  aria-label={`Delete ${labelOf(s)}`}
+                  className="flex flex-wrap items-center gap-3 border-t border-hairline px-4 py-3"
+                  style={{ background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)" }}
+                >
+                  <AlertTriangle size={16} strokeWidth={2.4} aria-hidden style={{ color: "var(--color-altus-red)" }} />
+                  <p className="min-w-0 flex-1 text-[13px] font-bold text-ink-strong">
+                    Are you sure you want to permanently delete this chart? This cannot be undone
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setConfirming(null)}
+                    disabled={deleting === s}
+                    className="rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[12.5px] font-bold text-ink-soft disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleting(s);
+                      void onDelete(s).finally(() => { setDeleting(null); setConfirming(null); });
+                    }}
+                    disabled={deleting === s}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
+                    style={{ background: "var(--color-altus-red)" }}
+                  >
+                    {deleting === s ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} strokeWidth={2.6} />}
+                    Delete
+                  </button>
+                </div>
+              )}
 
               {expanded && (
                 <div
@@ -295,6 +353,7 @@ export function VasaSnapshotList({
                                 <td
                                   key={col}
                                   className="px-2.5 py-1.5 tabular-nums"
+                                  title={v === undefined || v === 0 ? undefined : inrTooltip(v)}
                                   style={{
                                     color:
                                       v === undefined || v === 0
@@ -304,12 +363,13 @@ export function VasaSnapshotList({
                                           : "var(--color-green-deep)",
                                   }}
                                 >
-                                  {v === undefined ? "" : fmt(v)}
+                                  {v === undefined ? "" : formatCompactInr(v)}
                                 </td>
                               );
                             })}
                             <td
                               className="px-2.5 py-1.5 font-bold tabular-nums"
+                              title={net === 0 ? undefined : inrTooltip(net)}
                               style={{
                                 color:
                                   net > 0
@@ -319,7 +379,7 @@ export function VasaSnapshotList({
                                       : "var(--color-ink-subtle)",
                               }}
                             >
-                              {net === 0 ? "—" : fmt(net)}
+                              {net === 0 ? "—" : formatCompactInr(net)}
                             </td>
                           </tr>
                         );

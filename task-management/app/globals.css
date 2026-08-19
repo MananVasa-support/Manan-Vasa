@@ -1902,8 +1902,27 @@ html[data-density="dense"] body {
    opaque background of its own or they show straight through. Sharing the
    selectors keeps one source of truth for the three row states below — a
    separate copy would drift the first time a tint changed. */
+/* LEFT-FROZEN COLUMNS (Client · Subject · Task · Action) — the sticky position
+   lives here, not inline, and only from `md` up.
+
+   The header <th> is already `sticky top-0` at every width for the vertical
+   freeze, so an inline `left` would take effect on phones too — where the body
+   cells are deliberately NOT frozen. The headers would then slide sideways
+   while their own columns stayed put. Gating both on one media query keeps the
+   two halves in step, and below `md` the whole block falls back to normal flow
+   (a ~790px frozen group leaves a phone nothing to scroll into).
+
+   `--frozen-left` is set per cell by the table (see frozenCell). */
+@media (min-width: 768px) {
+  .task-frozen-cell {
+    position: sticky;
+    left: var(--frozen-left, 0px);
+  }
+}
+
 .task-row > .task-actions-cell,
-.task-row > .task-timer-cell {
+.task-row > .task-timer-cell,
+.task-row > .task-frozen-cell {
   background: var(--color-surface-card);
 }
 
@@ -1913,7 +1932,8 @@ html[data-density="dense"] body {
    So the tint is painted as a gradient layer ON TOP of the opaque card surface
    — visually identical to the row, but with no transparency. */
 .task-row:hover > .task-actions-cell,
-.task-row:hover > .task-timer-cell {
+.task-row:hover > .task-timer-cell,
+.task-row:hover > .task-frozen-cell {
   background:
     linear-gradient(var(--task-row-hover-tint), var(--task-row-hover-tint)),
     var(--color-surface-card);
@@ -1922,7 +1942,8 @@ html[data-density="dense"] body {
 /* Keyboard/deep-link focus tint — matches the row's `bg-altus-red/[0.06]`,
    composited over the card surface so the cell stays fully opaque. */
 .task-row.is-focused > .task-actions-cell,
-.task-row.is-focused > .task-timer-cell {
+.task-row.is-focused > .task-timer-cell,
+.task-row.is-focused > .task-frozen-cell {
   background: color-mix(
     in srgb,
     var(--color-altus-red) 6%,

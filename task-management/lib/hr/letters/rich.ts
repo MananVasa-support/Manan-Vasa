@@ -29,7 +29,7 @@
 import { formatDate } from "@/lib/format";
 import { getEntity, type Entity, type EntityId } from "@/lib/hr/entities";
 import { applyPronouns, type Gender } from "@/lib/hr/pronouns";
-import { applyFirm, HR_CONTACT, HR_SIGNATORY } from "@/lib/hr/firm";
+import { applyFirm, HR_CONTACT, HR_SIGNATORY, HR_SIGNATURE_IMAGE } from "@/lib/hr/firm";
 import {
   type LetterTemplate,
   type Block,
@@ -180,7 +180,14 @@ function blockToHtml(
       const ownSignatory = Boolean(baked) || !isHr;
       const lines: string[] = [];
       if (block.forEntity) lines.push(`<p><strong>For ${esc(entity.displayName)}</strong></p>`);
-      if (baked) lines.push(`<p><img src="${esc(baked)}" alt="Signature" style="height:46px" /></p>`);
+      // The signature MARK, matching the PDF renderer's precedence: a per-block
+      // baked image first, then the HR desk's standing signature on HR letters.
+      // "(E-Sign)" used to stand in for a signature that was never actually
+      // applied — the letter went out with a typed placeholder where a mark
+      // belonged. Now the mark is real, and the placeholder is only a fallback
+      // for non-HR blocks that have no image of their own.
+      const mark = baked ?? (isHr ? HR_SIGNATURE_IMAGE : null);
+      if (mark) lines.push(`<p><img src="${esc(mark)}" alt="Signature" style="height:46px" /></p>`);
       else if (block.esign) lines.push(`<p>(E-Sign)</p>`);
       else lines.push("<p><br></p>");
       const name = ownSignatory ? spansToHtml(block.name, values) : esc(HR_SIGNATORY.name);

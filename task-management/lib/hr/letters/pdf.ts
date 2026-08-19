@@ -6,7 +6,7 @@ import PDFDocument from "pdfkit";
 import { formatDate } from "@/lib/format";
 import { getEntity, type EntityId, type Entity } from "@/lib/hr/entities";
 import { applyPronouns, type Gender } from "@/lib/hr/pronouns";
-import { applyFirm, HR_SIGNATORY } from "@/lib/hr/firm";
+import { applyFirm, HR_SIGNATORY, HR_SIGNATURE_IMAGE } from "@/lib/hr/firm";
 import {
   type LetterTemplate,
   type Block,
@@ -439,27 +439,32 @@ function renderSignature(
   const ownSignatory = Boolean(bakedRel) || !isHr;
 
   if (block.forEntity) line(`For ${entity.displayName}`, { bold: true, color: RED_DEEP });
-  // Signature image: an uploaded scanned signature wins; else a per-letter baked
-  // signature; else the proprietor signature for Director-signed letters. HR
-  // letters with none simply leave the signing space blank.
+  // Signature image, in precedence order: an uploaded scanned signature wins;
+  // else a per-letter baked signature (the Selection letter's founder block);
+  // else the standing signature for whoever signs this letter — the proprietor
+  // for Director letters, the HR desk for everything else.
+  //
+  // HR letters used to fall through to a BLANK strip here, which is why e-sign
+  // "wasn't automated": every HR letter needed a scan uploaded per issue or a
+  // wet signature on the printout. They now carry HR_SIGNATURE_IMAGE by default.
   void INK_FAINT;
   try {
     const uploaded = dataUrlToBuffer(ctx.signatureImage);
-    const bakedPath = bakedRel
-      ? path.join(process.cwd(), "public", ...bakedRel.replace(/^\//, "").split("/"))
-      : !isHr
-        ? path.join(process.cwd(), "public", "signatures", "proprietor-signature.jpg")
-        : null;
+    const standingRel = isHr ? HR_SIGNATURE_IMAGE : "/signatures/proprietor-signature.jpg";
+    const rel = bakedRel ?? standingRel;
+    const bakedPath = path.join(process.cwd(), "public", ...rel.replace(/^\//, "").split("/"));
     if (uploaded) {
       ctx.ensure(62);
       doc.image(uploaded, left, doc.y, { height: 46 });
       doc.y += 52;
-    } else if (bakedPath && existsSync(bakedPath)) {
+    } else if (existsSync(bakedPath)) {
       ctx.ensure(62);
       doc.image(bakedPath, left, doc.y, { height: 46 });
       doc.y += 52;
     } else if (isHr) {
-      doc.y += 30; // reserve a blank signing space on HR letters
+      // File missing at runtime — reserve the blank strip rather than collapsing
+      // the layout, so the letter can still be signed by hand.
+      doc.y += 30;
     } else {
       doc.y += 8;
     }

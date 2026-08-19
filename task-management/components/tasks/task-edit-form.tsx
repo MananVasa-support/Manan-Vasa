@@ -296,6 +296,7 @@ export function TaskEditForm({
             value={title}
             onChange={setTitle}
             clients={clients}
+            canAdd={isAdmin}
             className={inputClass}
             {...p}
           />
@@ -353,6 +354,7 @@ export function TaskEditForm({
             value={subject}
             onChange={setSubject}
             subjects={subjects}
+            canAdd={isAdmin}
             className={inputClass}
             placeholder="Select a subject…"
             {...p}

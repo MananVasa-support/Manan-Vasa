@@ -224,6 +224,51 @@ function colId(c: TaskCol): string {
  *  positional furniture, not data, and both are sticky-pinned to an edge. */
 const UNMOVABLE_COLUMNS = new Set(["select", "actions"]);
 
+/**
+ * LEFT-FROZEN COLUMNS and their widths in px (Sir).
+ *
+ * Client · Subject · Task stay visible while the table scrolls sideways, and
+ * the Action (Start/Stop) rail rides with them so work can be started from any
+ * row without scrolling back. `select` is in here too — it is not one of the
+ * three, but leaving it behind would hide the checkboxes the moment you scrolled,
+ * which quietly breaks every bulk action.
+ *
+ * The widths must be EXPLICIT. `left:` offsets are absolute, so they can only be
+ * computed if each frozen column's width is known — with `auto` layout a column
+ * sizes to its content and the offsets would drift row by row. This is also
+ * where the Task column gets its ~2/3 width: it was `max-w-[64ch]` (≈560px) and
+ * is now 360px, with ellipsis rather than wrapping so rows stay one line tall.
+ *
+ * Key order here is irrelevant — the running offset is computed from the LIVE
+ * column order at render time, so a user who reorders columns still gets
+ * correct positions.
+ */
+const FROZEN_LEFT_WIDTH: Record<string, number> = {
+  select: 44,
+  client: 150,
+  subject: 150,
+  title: 360,
+  timer: 92,
+};
+
+/**
+ * Cumulative `left` offset for each frozen column, in the order they are
+ * actually rendered. A column's offset is the sum of the widths of the frozen
+ * columns BEFORE it; anything not frozen scrolls underneath and contributes
+ * nothing.
+ */
+function frozenLeftOffsets(orderedIds: string[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  let acc = 0;
+  for (const id of orderedIds) {
+    const w = FROZEN_LEFT_WIDTH[id];
+    if (w === undefined) continue;
+    out[id] = acc;
+    acc += w;
+  }
+  return out;
+}
+
 
 function buildColumns(
   employees: { id: string; name: string }[],
@@ -234,36 +279,6 @@ function buildColumns(
   onOpenTask?: (id: string) => void,
 ): TaskCol[] {
   return [
-    // TIMER — takes the slot the Start Time / End Time columns held. Those two
-    // showed WHEN work happened; this lets you act on it, which is what the
-    // leading column of a work queue is for. Both timestamps are still on the
-    // row payload (and still stamped by the engine) — only their columns are
-    // gone.
-    {
-      id: "timer",
-      header: "Action",
-      enableSorting: false,
-      // `narrow` keeps it out of the flexible-width pool; the w-24/min-w-[90px]
-      // box is applied on the cells themselves (see the th/td below) because
-      // `meta` carries hints, not classes.
-      meta: { narrow: true, align: "center" },
-      cell: ({ row }) => (
-        // Explicit flex centring rather than leaning on the td's text-center:
-        // the button is the cell's only content and a fixed-width frozen column
-        // is exactly where an off-centre control is most obvious.
-        <div className="flex items-center justify-center">
-        <TaskTimerCell
-          taskId={row.original.id}
-          running={row.original.timerRunning}
-          // The engine allows admin, the doer, OR the doer's manager. The
-          // manager leg needs the org chart, which the table does not have, so
-          // the inline control shows for admin + doer and managers keep using
-          // the drawer. Better a missing button than one that always errors.
-          canOperate={me.isAdmin || me.id === row.original.doerId}
-        />
-        </div>
-      ),
-    },
     {
       id: "select",
       enableSorting: false,
@@ -336,6 +351,36 @@ function buildColumns(
       meta: { wide: true },
       cell: ({ row }) => (
         <TaskTitleCell row={row.original} onOpen={onOpenTask} />
+      ),
+    },
+    // TIMER — takes the slot the Start Time / End Time columns held. Those two
+    // showed WHEN work happened; this lets you act on it, which is what the
+    // leading column of a work queue is for. Both timestamps are still on the
+    // row payload (and still stamped by the engine) — only their columns are
+    // gone.
+    {
+      id: "timer",
+      header: "Action",
+      enableSorting: false,
+      // `narrow` keeps it out of the flexible-width pool; the w-24/min-w-[90px]
+      // box is applied on the cells themselves (see the th/td below) because
+      // `meta` carries hints, not classes.
+      meta: { narrow: true, align: "center" },
+      cell: ({ row }) => (
+        // Explicit flex centring rather than leaning on the td's text-center:
+        // the button is the cell's only content and a fixed-width frozen column
+        // is exactly where an off-centre control is most obvious.
+        <div className="flex items-center justify-center">
+        <TaskTimerCell
+          taskId={row.original.id}
+          running={row.original.timerRunning}
+          // The engine allows admin, the doer, OR the doer's manager. The
+          // manager leg needs the org chart, which the table does not have, so
+          // the inline control shows for admin + doer and managers keep using
+          // the drawer. Better a missing button than one that always errors.
+          canOperate={me.isAdmin || me.id === row.original.doerId}
+        />
+        </div>
       ),
     },
     {
@@ -807,9 +852,49 @@ export function TaskTable({
   const rendered = Math.min(shown, totalFiltered);
   const hasMore = rendered < totalFiltered;
 
+  /** Cell (body) alignment. Headers are ALWAYS left — see `headAlign` below. */
   function alignClass(c: TaskCol): string {
     const a = c.meta?.align;
     return a === "center" ? "text-center" : a === "right" ? "text-right" : "text-left";
+  }
+
+  // Frozen-column offsets, from the LIVE order — so a user who has reordered
+  // their columns still gets correct sticky positions. Recomputed only when the
+  // visible set or its order changes, not on every row.
+  const leafIds = table.getVisibleLeafColumns().map((c) => c.id);
+  const frozenLeft = React.useMemo(
+    () => frozenLeftOffsets(leafIds),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [leafIds.join("|")],
+  );
+  /** The right-hand edge of the frozen block — the only cell that draws the
+   *  drop shadow, so the group reads as one slab rather than stacked cards. */
+  const lastFrozenId = leafIds.filter((id) => id in FROZEN_LEFT_WIDTH).pop();
+
+  /**
+   * Sticky presentation for one column, shared by the <th> and the <td> so the
+   * two can never disagree about where a frozen column sits.
+   *
+   * `md:sticky`, not `sticky`: the frozen block is ~790px wide, which on a phone
+   * would leave no room for anything to scroll into. Below `md` the columns fall
+   * back to normal flow. The `left` value is harmless while position is static.
+   */
+  function frozenCell(id: string): { className: string; style: React.CSSProperties } | null {
+    const left = frozenLeft[id];
+    if (left === undefined) return null;
+    const w = FROZEN_LEFT_WIDTH[id];
+    return {
+      className: "task-frozen-cell",
+      // The offset travels as a CUSTOM PROPERTY, and `position: sticky` + `left`
+      // are applied by a min-width:768px rule in globals.css — not inline.
+      //
+      // It has to work that way because the header <th> is ALREADY
+      // `sticky top-0` at every width for the vertical freeze. An inline `left`
+      // would therefore also take effect on mobile, where the body <td>s are
+      // deliberately NOT frozen — the headers would slide sideways while their
+      // own columns stayed put. One media query keeps both halves in step.
+      style: { ["--frozen-left" as string]: `${left}px`, width: w, minWidth: w, maxWidth: w },
+    };
   }
 
   const selectedIds = table.getSelectedRowModel().rows.map((r) => r.original.id);
@@ -902,7 +987,7 @@ export function TaskTable({
                 const col = h.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = h.column.id === "actions";
-                const isTimer = h.column.id === "timer";
+                const frozen = frozenCell(h.column.id);
                 const canSort = h.column.getCanSort();
                 const sorted = h.column.getIsSorted(); // false | "asc" | "desc"
                 const headerNode = flexRender(h.column.columnDef.header, h.getContext());
@@ -958,8 +1043,12 @@ export function TaskTable({
                     // z-30 for BOTH frozen columns: they must paint above the
                     // z-20 of the ordinary sticky headers, or a header scrolling
                     // under them shows through.
-                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${col.meta?.wide ? "w-full" : ""} ${isTimer ? "task-timer-cell left-0 w-24 min-w-[90px]" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : isTimer ? "z-30" : "z-20"}`}
+                    // HEADERS ARE ALWAYS LEFT-ALIGNED (Sir) — `alignClass` still
+                    // governs the CELLS, so numeric columns keep their right-aligned
+                    // values under a left-aligned label.
+                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 text-left ${frozen ? `${frozen.className} z-30` : isActions ? "right-0 z-30" : "z-20"} ${!frozen && col.meta?.wide ? "w-full" : ""} ${hide ? "max-md:hidden" : ""}`}
                     style={{
+                      ...(frozen?.style ?? {}),
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
                       // with a hairline seat drawn as an inset shadow so it
@@ -972,7 +1061,9 @@ export function TaskTable({
                       boxShadow: [
                         isActions
                           ? "inset 0 -1px 0 var(--color-hairline-strong), -10px 0 14px -10px rgba(15,23,42,0.14)"
-                          : "inset 0 -1px 0 var(--color-hairline-strong)",
+                          : h.column.id === lastFrozenId
+                            ? "inset 0 -1px 0 var(--color-hairline-strong), 10px 0 14px -10px rgba(15,23,42,0.14)"
+                            : "inset 0 -1px 0 var(--color-hairline-strong)",
                         isDropTarget
                           ? `inset ${fromLeft ? "-3px" : "3px"} 0 0 var(--color-altus-red)`
                           : "",
@@ -1154,7 +1245,8 @@ export function TaskTable({
                 const col = cell.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = cell.column.id === "actions";
-                const isTimer = cell.column.id === "timer";
+                const frozen = frozenCell(cell.column.id);
+                const isLastFrozen = cell.column.id === lastFrozenId;
                 // Columns now size to their CONTENT and the table scrolls
                 // sideways, rather than every value being squeezed to ~32ch and
                 // truncated. The ONE exception is the free-text Task title: a
@@ -1175,18 +1267,34 @@ export function TaskTable({
                 // min-w-[280px] still guarantees a floor when the table is
                 // scrolling; max-w-[64ch] (was 52ch) is the ceiling that keeps
                 // one 250-character title from stretching the row past 2000px.
-                const maxW = isActions ? "" : col.meta?.wide ? "w-full max-w-[64ch]" : "";
+                // A FROZEN column has an exact width, so it always clips with an
+                // ellipsis — that is what keeps a long Task title one line tall
+                // instead of growing the row. Unfrozen columns keep the old
+                // behaviour: size to content, never clip, and let the table scroll.
+                const maxW = frozen
+                  ? "overflow-hidden text-ellipsis"
+                  : isActions
+                    ? ""
+                    : col.meta?.wide
+                      ? "w-full max-w-[64ch] overflow-hidden text-ellipsis"
+                      : "";
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""} ${isTimer ? "task-timer-cell sticky left-0 z-10 w-24 min-w-[90px]" : ""}`}
+                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${!frozen && col.meta?.wide ? "min-w-[280px]" : ""} ${frozen ? `${frozen.className} z-10` : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
                     style={
                       isActions
                         ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" }
-                        : isTimer
-                          ? // Mirrored: the edge shadow falls to the RIGHT, so the
-                            // columns sliding under it read as being behind it.
-                            { boxShadow: "10px 0 14px -10px rgba(15,23,42,0.14)" }
+                        : frozen
+                          ? {
+                              ...frozen.style,
+                              // The edge shadow is drawn ONLY by the last frozen
+                              // column, so the block reads as one raised slab
+                              // rather than five stacked cards with seams.
+                              boxShadow: isLastFrozen
+                                ? "10px 0 14px -10px rgba(15,23,42,0.14)"
+                                : undefined,
+                            }
                           : undefined
                     }
                   >

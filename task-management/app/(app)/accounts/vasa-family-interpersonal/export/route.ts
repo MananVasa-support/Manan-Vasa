@@ -5,20 +5,24 @@ import { listAccountsLookups } from "@/lib/accounts/lookups";
 import {
   buildMatrix,
   snapshotXlsx,
-  snapshotCsv,
   snapshotFilename,
+  applyInrFormat,
 } from "@/lib/accounts/vasa-report";
 
 /**
  * GET /accounts/vasa-family-interpersonal/export
  *
- *   (no params)                  → every snapshot, stacked, as .xlsx  (unchanged)
- *   ?asOn=dd/mm/yyyy             → THAT snapshot only, as .xlsx
- *   ?asOn=dd/mm/yyyy&format=csv  → THAT snapshot only, as .csv
+ *   (no params)       → every chart, stacked, as .xlsx
+ *   ?asOn=dd/mm/yyyy  → THAT chart only, as .xlsx
  *
- * The per-snapshot form is what the List view's Download uses, so a row always
- * yields ITS OWN report — never whichever snapshot happens to be open in the
- * Sheet view. Both forms build their grid with the shared `buildMatrix`, so the
+ * CSV IS GONE (Sir). It was the one export that could not carry a number format
+ * — every figure arrived as a bare integer with no grouping and no red — so it
+ * quietly produced the least readable copy of a sheet whose whole point is
+ * readability. Excel and the emailed PDF cover both jobs.
+ *
+ * The per-chart form is what the List view's Download uses, so a row always
+ * yields ITS OWN report — never whichever chart happens to be open in the Sheet
+ * view. Both forms build their grid with the shared `buildMatrix`, so the
  * downloaded file and the emailed file cannot drift apart.
  */
 export const runtime = "nodejs";
@@ -33,7 +37,6 @@ export async function GET(req: Request): Promise<Response> {
 
   const url = new URL(req.url);
   const asOn = url.searchParams.get("asOn");
-  const format = url.searchParams.get("format") === "csv" ? "csv" : "xlsx";
 
   const [cells, snapshots, partyOpts] = await Promise.all([
     listVasaCells(),
@@ -47,17 +50,7 @@ export async function GET(req: Request): Promise<Response> {
     // Only a date that actually exists — otherwise a hand-edited URL would
     // return an empty grid that looks like a real, all-zero report.
     if (!snapshots.includes(asOn)) {
-      return new Response("No such snapshot", { status: 404 });
-    }
-    if (format === "csv") {
-      const csv = snapshotCsv(cells, parties, asOn);
-      return new Response(csv, {
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename="${snapshotFilename(asOn, "csv")}"`,
-          "Cache-Control": "no-store",
-        },
-      });
+      return new Response("No such chart", { status: 404 });
     }
     const buf = snapshotXlsx(cells, parties, asOn);
     return new Response(new Uint8Array(buf), {
@@ -77,7 +70,10 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch: 18 }, ...Array(parties.length + 1).fill({ wch: 13 })];
+  ws["!cols"] = [{ wch: 20 }, ...Array(parties.length + 1).fill({ wch: 15 })];
+  // Same Indian currency format as the per-chart file — the stacked export used
+  // to be the one place figures came out unformatted.
+  applyInrFormat(ws, aoa);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Interpersonal Balances");
   const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;

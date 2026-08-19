@@ -21,6 +21,8 @@ type Options = {
   clients: string[];
   subjects: string[];
   projectNodes: { id: string; label: string }[];
+  /** Admin-only: may create a new client/subject from the pickers. */
+  canAddRoster: boolean;
 };
 
 /** Window event any out-of-tree trigger can fire to open this dialog.
@@ -215,6 +217,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
                 clients={opts.clients}
                 subjects={opts.subjects}
                 projectNodes={opts.projectNodes}
+                canAddRoster={opts.canAddRoster}
                 onSuccess={onSuccess}
                 defaults={{ initiatorId: defaultInitiatorId }}
               />

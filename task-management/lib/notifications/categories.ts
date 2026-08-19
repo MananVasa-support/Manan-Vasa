@@ -227,6 +227,27 @@ export function formatShortDate(d: Date): string {
   return `${day}-${m}-${(y ?? "").slice(-2)}`;
 }
 
+/**
+ * `4:05 pm` — the exact time the notification was SENT, shown under its date.
+ *
+ * Lives here beside `formatShortDate` and reads the same `TZ` deliberately: a
+ * date rendered in IST next to a time rendered in the browser's zone would
+ * disagree across midnight, and the row would claim a notification arrived on a
+ * day it did not. Both come off `notifications.created_at`, so this is the
+ * stored send time, never "now".
+ */
+export function formatShortTime(d: Date): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: TZ,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+    .format(d)
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 /** Whole days between `d` and now, floored at 0. Drives "N days ago". */
 export function daysAgo(d: Date, now: Date = new Date()): number {
   const ms = dayOf(now).getTime() - dayOf(d).getTime();

@@ -32,6 +32,12 @@ interface Props {
   subjects: string[];
   /** Project tree nodes (path-labelled) for the optional Project link. */
   projectNodes?: { id: string; label: string }[];
+  /**
+   * May this user add a NEW client / subject from the pickers? Admin only
+   * (Sir). Defaults to false, so a caller that forgets it hides the affordance
+   * rather than offering an action quickAddClient/quickAddSubject will refuse.
+   */
+  canAddRoster?: boolean;
   /** Called after a successful create. Default: navigate to /tasks/[id]. */
   onSuccess?: (taskId: string) => void;
   /** Optional defaults for the form (used by the canonical route + the
@@ -76,7 +82,7 @@ interface PreviewFile {
   url: string;
 }
 
-export function NewTaskForm({ employees, clients, subjects, projectNodes = [], onSuccess, defaults }: Props) {
+export function NewTaskForm({ employees, clients, subjects, projectNodes = [], canAddRoster = false, onSuccess, defaults }: Props) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
 
@@ -311,6 +317,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
                 value={field.value}
                 onChange={field.onChange}
                 clients={clients}
+                canAdd={canAddRoster}
                 className="nt-input"
               />
             )}
@@ -326,6 +333,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
                 value={field.value}
                 onChange={field.onChange}
                 subjects={subjects}
+                canAdd={canAddRoster}
                 className="nt-input"
                 placeholder="Select a subject…"
               />

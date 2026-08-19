@@ -20,6 +20,14 @@ interface Props {
   placeholder?: string;
   onFocus?: () => void;
   onBlur?: () => void;
+  /**
+   * May this user create a new client? ADMIN ONLY (Sir).
+   *
+   * Defaults to FALSE so a caller that forgets to pass it hides the
+   * affordance rather than offering an action the server will refuse.
+   * The real check lives in quickAddClient — this only removes the row.
+   */
+  canAdd?: boolean;
 }
 
 /**
@@ -39,6 +47,7 @@ export function ClientSelect({
   placeholder = "Select a client…",
   onFocus,
   onBlur,
+  canAdd = false,
 }: Props) {
   const [options, setOptions] = React.useState<string[]>(clients);
   const [adding, setAdding] = React.useState(false);
@@ -72,9 +81,16 @@ export function ClientSelect({
   }, [options, value]);
 
   const filtered = React.useMemo(() => {
+
     const q = query.trim().toLowerCase();
     return q ? sorted.filter((c) => c.toLowerCase().includes(q)) : sorted;
   }, [sorted, query]);
+
+  // The highlightable range. The "Add new" row is the one past the last
+  // option — but only for an admin, so for everyone else the keyboard must
+  // stop at the final real option instead of landing on a row that is not
+  // rendered.
+  const lastIndex = canAdd ? filtered.length : Math.max(0, filtered.length - 1);
 
   // Reset the highlight + query each time the menu opens (Radix focuses the
   // search box for us).
@@ -86,8 +102,11 @@ export function ClientSelect({
   }, [open]);
 
   React.useEffect(() => {
-    setHi((h) => Math.min(h, filtered.length)); // filtered.length = the "Add new" row
-  }, [filtered.length]);
+    // Clamp the highlight whenever the highlightable RANGE changes — which is
+    // `lastIndex`, not the raw option count: for a non-admin the range stops one
+    // short because the "Add new" row is not rendered.
+    setHi((h) => Math.min(h, lastIndex));
+  }, [lastIndex]);
   React.useEffect(() => {
     if (!open) return;
     (listRef.current?.children[hi] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
@@ -100,6 +119,7 @@ export function ClientSelect({
   }
 
   function startAdd() {
+    if (!canAdd) return;
     setOpen(false);
     setError(null);
     setDraft(query.trim());
@@ -135,13 +155,13 @@ export function ClientSelect({
   function searchKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHi((h) => Math.min(h + 1, filtered.length)); // include the Add-new row
+      setHi((h) => Math.min(h + 1, lastIndex)); // include the Add-new row
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHi((h) => Math.max(h - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (hi === filtered.length) startAdd();
+      if (canAdd && hi === filtered.length) startAdd();
       else if (filtered[hi]) choose(filtered[hi]);
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -152,7 +172,7 @@ export function ClientSelect({
       setHi(0);
     } else if (e.key === "End") {
       e.preventDefault();
-      setHi(filtered.length); // the Add-new row
+      setHi(lastIndex);
     } else if (e.key === "Tab") {
       // Forward Tab commits the highlighted client, then advances to the next
       // field. Backward Tab (Shift+Tab) must NEVER silent-select — just close
@@ -365,23 +385,29 @@ export function ClientSelect({
               </li>
             );
           })}
-          <li
-            id={`${listId}-opt-${filtered.length}`}
-            role="option"
-            aria-selected={hi === filtered.length}
-            onMouseEnter={() => setHi(filtered.length)}
-            onClick={() => startAdd()}
-            className="flex items-center gap-2 mx-1.5 mt-1 px-3 py-2 rounded-lg cursor-pointer font-bold transition-colors"
-            style={{
-              background: hi === filtered.length ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" : "transparent",
-              color: "var(--color-altus-red-deep)",
-              borderTop: "1px solid var(--color-hairline)",
-              fontSize: 14,
-            }}
-          >
-            <Plus size={15} strokeWidth={2.6} />
-            Add New Client…
-          </li>
+          {/* ADMIN ONLY (Sir): creating a client grows a roster every task
+              form picks from, so it is not an ordinary employee's action.
+              Removed rather than disabled — a greyed row that always
+              refuses is worse than no row. quickAddClient enforces it. */}
+          {canAdd && (
+            <li
+              id={`${listId}-opt-${filtered.length}`}
+              role="option"
+              aria-selected={hi === filtered.length}
+              onMouseEnter={() => setHi(filtered.length)}
+              onClick={() => startAdd()}
+              className="flex items-center gap-2 mx-1.5 mt-1 px-3 py-2 rounded-lg cursor-pointer font-bold transition-colors"
+              style={{
+                background: hi === filtered.length ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" : "transparent",
+                color: "var(--color-altus-red-deep)",
+                borderTop: "1px solid var(--color-hairline)",
+                fontSize: 14,
+              }}
+            >
+              <Plus size={15} strokeWidth={2.6} />
+              Add New Client…
+            </li>
+          )}
         </ul>
       </PopoverContent>
     </Popover>

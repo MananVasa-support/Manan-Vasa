@@ -138,6 +138,7 @@ export default async function NewTaskPage({ searchParams }: PageProps) {
             clients={clients}
             subjects={subjects}
             projectNodes={projectNodes}
+            canAddRoster={me.isAdmin}
             defaults={defaults}
           />
         </div>

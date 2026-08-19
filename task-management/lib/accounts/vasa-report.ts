@@ -106,23 +106,53 @@ export function buildMatrix(
   return aoa;
 }
 
-/** One snapshot as an .xlsx buffer. */
+/**
+ * INDIAN CURRENCY NUMBER FORMAT for Excel.
+ *
+ * A FORMAT, not a text conversion (Sir). The cell keeps its real number, so the
+ * figures still add up, sort and feed formulas — Excel only paints them with
+ * Indian grouping (`##,##,##0`) and red-in-brackets for negatives, matching the
+ * red the screen and the PDF use. Writing "₹25.00 Lakh" as a string instead
+ * would look right and be useless: every downstream SUM would return zero.
+ */
+const INR_FMT = '#,##,##0;[Red](#,##,##0);"—"';
+
+/** One chart as an .xlsx buffer, values numeric and formatted. */
 export function snapshotXlsx(cells: VasaCell[], parties: string[], asOn: string): Buffer {
-  const ws = XLSX.utils.aoa_to_sheet(buildMatrix(cells, parties, asOn));
-  ws["!cols"] = [{ wch: 18 }, ...Array(parties.length + 1).fill({ wch: 13 })];
+  const aoa = buildMatrix(cells, parties, asOn);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{ wch: 20 }, ...Array(parties.length + 1).fill({ wch: 15 })];
+  applyInrFormat(ws, aoa);
   const wb = XLSX.utils.book_new();
   // Sheet names are capped at 31 chars by the format and cannot contain / \ ? * [ ]
   XLSX.utils.book_append_sheet(wb, ws, snapshotLabel(asOn).slice(0, 31));
   return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 
-/** One snapshot as CSV text. */
-export function snapshotCsv(cells: VasaCell[], parties: string[], asOn: string): string {
-  const ws = XLSX.utils.aoa_to_sheet(buildMatrix(cells, parties, asOn));
-  return XLSX.utils.sheet_to_csv(ws);
+/**
+ * Stamp the currency format onto every NUMERIC cell of a written sheet.
+ *
+ * Walks the grid we just built rather than the sheet's `!ref` range, so it can
+ * never format a header or a party name by accident — only the cells that hold
+ * a balance. Exported because the all-charts export builds its own stacked
+ * sheet and must format it identically.
+ */
+export function applyInrFormat(
+  ws: XLSX.WorkSheet,
+  aoa: (string | number)[][],
+  rowOffset = 0,
+): void {
+  aoa.forEach((line, r) => {
+    line.forEach((val, c) => {
+      if (typeof val !== "number") return;
+      const addr = XLSX.utils.encode_cell({ r: r + rowOffset, c });
+      const cell = ws[addr] as XLSX.CellObject | undefined;
+      if (cell && cell.t === "n") cell.z = INR_FMT;
+    });
+  });
 }
 
-/** A filesystem-safe base name for a snapshot's download. */
-export function snapshotFilename(asOn: string, ext: "xlsx" | "csv"): string {
+/** A filesystem-safe base name for a chart's download. */
+export function snapshotFilename(asOn: string, ext: "xlsx" | "pdf"): string {
   return `Vasa-Interpersonal-${snapshotLabel(asOn).replace(/[^A-Za-z0-9-]/g, "")}.${ext}`;
 }

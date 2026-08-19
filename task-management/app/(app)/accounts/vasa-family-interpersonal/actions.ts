@@ -11,7 +11,6 @@ import { parseAmount } from "@/lib/accounts/amounts";
 import { listVasaCells, listVasaSnapshots } from "@/lib/queries/accounts-vasa";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
 import {
-  snapshotXlsx,
   snapshotFilename,
   snapshotLabel,
   quarterOf,
@@ -179,7 +178,7 @@ export async function addVasaSnapshot(input: unknown): Promise<ActionResult> {
       .from(accountsVasaBalances)
       .where(eq(accountsVasaBalances.asOn, newAsOn))
       .limit(1);
-    if (exists.length) return fail(`A snapshot dated "${newAsOn}" already exists.`);
+    if (exists.length) return fail(`A chart dated "${newAsOn}" already exists.`);
 
     const [maxRow] = (await db
       .select({ next: sql<number>`COALESCE(MAX(${accountsVasaBalances.sortOrder}), 0) + 1` })
@@ -216,7 +215,7 @@ export async function deleteVasaSnapshot(input: unknown): Promise<ActionResult> 
 }
 
 /**
- * MANUAL SAVE — mail the currently open snapshot as .xlsx.
+ * EMAIL — mail the currently open chart as a PDF.
  *
  * Cells already persist as they are edited (each blur writes through
  * saveVasaCell), so there is nothing left to flush: "save" here means "capture
@@ -245,18 +244,27 @@ export async function emailVasaSnapshot(input: unknown): Promise<ActionResult<{ 
       listVasaSnapshots(),
       listAccountsLookups("vasa_party"),
     ]);
-    if (!snapshots.includes(asOn)) return fail("That snapshot no longer exists.");
+    if (!snapshots.includes(asOn)) return fail("That chart no longer exists.");
 
     const parties = partyOpts.map((o) => o.name);
-    const xlsx = snapshotXlsx(cells, parties, asOn);
     const q = quarterOf(asOn);
+
+    // pdfkit is imported LAZILY — it carries a large font payload, and this
+    // module is a "use server" file reachable from the client graph.
+    const { renderVasaPdf } = await import("@/lib/accounts/vasa-pdf");
+    const pdf = await renderVasaPdf({
+      cells,
+      parties,
+      asOn,
+      senderName: me.name ?? null,
+    });
 
     const res = await sendVasaReportEmail({
       to: VASA_REPORT_RECIPIENT,
       snapshotLabel: snapshotLabel(asOn),
       quarter: q ? quarterKey(q.q, q.year) : "—",
-      filename: snapshotFilename(asOn, "xlsx"),
-      xlsx,
+      filename: snapshotFilename(asOn, "pdf"),
+      pdf,
       senderName: me.name ?? null,
       partyCount: parties.length,
     });

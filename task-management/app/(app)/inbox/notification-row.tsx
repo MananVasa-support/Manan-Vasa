@@ -12,6 +12,7 @@ import {
   formatDaysAgo,
   formatPeriod,
   formatShortDate,
+  formatShortTime,
   notificationPeriod,
 } from "@/lib/notifications/categories";
 import { markNotificationRead } from "./actions";
@@ -112,7 +113,7 @@ function StatusPill({
  * COLUMN TEMPLATE, shared with the header strip in `inbox-list.tsx` so the two
  * can never drift:
  *
- *   [tick] Date · Category/Source · Notification · Period · Days ago · Actions
+ *   [tick] Date · Category · Source · Notification · Period · Days ago · Actions
  *
  * The old row was a Gmail-style "sender — subject … when" line. It read fine but
  * it could not answer the two questions this list is actually for: WHEN was this
@@ -120,8 +121,14 @@ function StatusPill({
  * now their own columns, and the coloured per-kind icon is gone — the category
  * name says the same thing in words that match the filter bar above.
  */
+// Category and Source are SEPARATE columns (Sir) — they used to share one cell,
+// stacked. Splitting them costs ~70px, taken from the Notification column, which
+// is `minmax(0,1fr)` and absorbs it. The two narrow breakpoints below drop both
+// columns together (their cells carry `max-lg:hidden`), so the template's column
+// count and the rendered cell count always agree — get that wrong and every
+// column after the gap shifts one place left.
 export const ROW_GRID =
-  "grid items-center gap-x-3 grid-cols-[20px_74px_150px_minmax(0,1fr)_186px_92px_40px] max-xl:grid-cols-[20px_74px_128px_minmax(0,1fr)_150px_84px_40px] max-lg:grid-cols-[20px_74px_minmax(0,1fr)_92px_40px] max-md:grid-cols-[20px_74px_minmax(0,1fr)_40px]";
+  "grid items-center gap-x-3 grid-cols-[20px_78px_112px_118px_minmax(0,1fr)_186px_92px_40px] max-xl:grid-cols-[20px_78px_98px_104px_minmax(0,1fr)_150px_84px_40px] max-lg:grid-cols-[20px_78px_minmax(0,1fr)_92px_40px] max-md:grid-cols-[20px_78px_minmax(0,1fr)_40px]";
 
 /**
  * One inbox row.
@@ -151,6 +158,7 @@ export function NotificationRow({
   const meta = parseBody(row.body);
   const category = CATEGORY_LABELS[categoryOfKind(row.kind)];
   const sharedOn = formatShortDate(row.createdAt);
+  const sentAt = formatShortTime(row.createdAt);
   const period = formatPeriod(notificationPeriod(row));
   const ago = formatDaysAgo(row.createdAt);
 
@@ -194,7 +202,7 @@ export function NotificationRow({
         onClick={onActivate}
         disabled={isPending}
         className="flex items-center gap-1.5 py-2 text-left"
-        title={`Open — sent ${sharedOn}`}
+        title={`Open — sent ${sharedOn} at ${sentAt}`}
       >
         <span aria-hidden className="flex w-2 shrink-0 justify-center">
           {unread && (
@@ -204,19 +212,29 @@ export function NotificationRow({
             />
           )}
         </span>
-        <span
-          className="whitespace-nowrap text-[12.5px] tabular-nums"
-          style={{
-            fontWeight: unread ? 700 : 500,
-            color: unread ? "var(--color-ink-strong)" : "var(--color-ink-soft)",
-          }}
-        >
-          {sharedOn}
+        <span className="min-w-0">
+          <span
+            className="block whitespace-nowrap text-[12.5px] tabular-nums"
+            style={{
+              fontWeight: unread ? 700 : 500,
+              color: unread ? "var(--color-ink-strong)" : "var(--color-ink-soft)",
+            }}
+          >
+            {sharedOn}
+          </span>
+          {/* The exact SENT time, from notifications.created_at — the same
+              instant the date above is derived from, so the two can never
+              disagree. Set as a second line inside the existing cell rather
+              than a new column: it is 11px on the row's existing leading, so
+              the row does not grow. */}
+          <span className="block whitespace-nowrap text-[11px] tabular-nums text-ink-subtle">
+            {sentAt}
+          </span>
         </span>
       </button>
 
-      {/* Category · source. Replaces the coloured per-kind glyph: the category
-          is the same vocabulary the filter bar uses, spelled out. */}
+      {/* CATEGORY — its own column (Sir). Same vocabulary as the filter bar
+          above, spelled out; it replaced the coloured per-kind glyph. */}
       <button
         type="button"
         onClick={onActivate}
@@ -226,7 +244,19 @@ export function NotificationRow({
         <span className="block truncate text-[12.5px] font-semibold text-ink-strong">
           {category}
         </span>
-        <span className="block truncate text-[11.5px] text-ink-muted">{who}</span>
+      </button>
+
+      {/* SOURCE — who sent it, or "System" for anything the app raised itself.
+          Previously stacked under the category in one cell; it is now a column
+          of its own so both can be scanned down the list independently. */}
+      <button
+        type="button"
+        onClick={onActivate}
+        disabled={isPending}
+        className="min-w-0 py-2 text-left max-lg:hidden"
+        title={who}
+      >
+        <span className="block truncate text-[12.5px] text-ink-soft">{who}</span>
       </button>
 
       {/* The notification itself. */}

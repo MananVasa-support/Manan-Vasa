@@ -118,7 +118,11 @@ export function InboxList({
           />
         </span>
         <span className="py-2 pl-3.5">Date</span>
-        <span className="py-2 max-lg:hidden">Category / Source</span>
+        {/* Two columns now, not one "Category / Source" cell. Both carry
+            `max-lg:hidden` to match their cells in NotificationRow — the narrow
+            grid templates drop exactly this pair. */}
+        <span className="py-2 max-lg:hidden">Category</span>
+        <span className="py-2 max-lg:hidden">Source</span>
         <span className="py-2">Notification</span>
         <span className="py-2 max-lg:hidden">Period</span>
         <span className="py-2 text-right max-md:hidden">Days ago</span>
