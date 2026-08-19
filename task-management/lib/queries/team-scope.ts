@@ -73,3 +73,27 @@ async function descendantsIncluding(rootId: string): Promise<string[]> {
   }
   return [...out];
 }
+
+/**
+ * Resolve SEVERAL team selections to one id set — their UNION.
+ *
+ * Union, not intersection: the selections are alternatives ("Sales or App
+ * Dev"), and since nobody belongs to two departments the intersection would be
+ * empty for every multi-pick, which is never what ticking two boxes means.
+ *
+ * Selections that resolve to null (unrecognised, or "mine" with no viewer) are
+ * SKIPPED rather than collapsing the whole scope, so one stale value in a
+ * shared link cannot silently widen the list back to the entire org. If every
+ * selection is unrecognised the result is null = no team scoping, matching the
+ * single-value behaviour.
+ */
+export async function resolveTeamScopes(
+  teams: string[],
+  viewerId: string | null,
+): Promise<string[] | null> {
+  if (teams.length === 0) return null;
+  const resolved = await Promise.all(teams.map((t) => resolveTeamScope(t, viewerId)));
+  const usable = resolved.filter((r): r is string[] => r !== null);
+  if (usable.length === 0) return null;
+  return Array.from(new Set(usable.flat()));
+}

@@ -1,8 +1,12 @@
 "use client";
 
 import * as React from "react";
+import * as Tooltip from "@radix-ui/react-tooltip";
+import Link from "next/link";
+import type { Route } from "next";
 import {
   FINE_BUCKET_STYLES,
+  FINE_BUCKET_SLUGS,
   type FineBucketCount,
 } from "@/lib/transforms/aging-buckets-fine";
 
@@ -27,6 +31,9 @@ export function FineBucketBars({
   heading,
   showLegend = true,
   scaleMax,
+  linkStatuses,
+  statusBreakdown,
+  percentBase,
 }: {
   buckets: FineBucketCount[];
   earlyLabel?: string;
@@ -39,8 +46,22 @@ export function FineBucketBars({
    *  40-count bar on the other and the comparison the split exists for is a
    *  lie. Falls back to this list's own max when standalone. */
   scaleMax?: number;
+  /** Statuses a click should carry into /tasks. Omit to leave rows inert —
+   *  a row that navigates somewhere it cannot describe is worse than a row
+   *  that does nothing. */
+  linkStatuses?: string[];
+  /** Status split shown in the tooltip. Every task in a given chart shares a
+   *  status here (this panel is all sent-back work, the other is all done), so
+   *  the caller states it once rather than the chart guessing per row. */
+  statusBreakdown?: (count: number) => { label: string; value: number }[];
+  /** Denominator for the tooltip percentage. Defaults to this list's own
+   *  total; pass the full distribution's when the list is one half of a split. */
+  percentBase?: number;
 }) {
   const total = buckets.reduce((s, b) => s + b.count, 0);
+  // Percentages are of the WHOLE distribution, not of the half a split shows,
+  // so "64% of total" means the same thing on either side of a split.
+  const pctBase = Math.max(percentBase ?? total, 1);
   const max = Math.max(scaleMax ?? 0, ...buckets.map((b) => b.count), 1);
 
   if (total === 0) {
@@ -52,7 +73,8 @@ export function FineBucketBars({
   }
 
   return (
-    <div>
+    <Tooltip.Provider delayDuration={120}>
+    <div className="flex h-full flex-col">
       {heading ? (
         <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-gray-500">
           {heading}
@@ -65,16 +87,24 @@ export function FineBucketBars({
         </div>
       ) : null}
 
-      <ul className="flex flex-col gap-2">
+      {/* flex-1 + the rows' own flex-1 is what removes the dead white band at
+          the bottom of the card: the list grows to whatever height the taller
+          neighbouring panel sets, and the nine rows divide it evenly instead of
+          stacking at their natural height and leaving the remainder empty. */}
+      <ul className="flex flex-1 flex-col justify-between gap-2">
         {buckets.map((b) => {
           const style = FINE_BUCKET_STYLES[b.key];
           const w = (b.count / max) * 100;
           const empty = b.count === 0;
-          return (
-            <li key={b.key} className="flex items-center gap-3">
+          const pct = Math.round((b.count / pctBase) * 100);
+          const clickable = Boolean(linkStatuses) && b.count > 0;
+          const href = clickable
+            ? (`/tasks?age_range=${FINE_BUCKET_SLUGS[b.key]}&status=${linkStatuses!.join(",")}` as Route)
+            : null;
+          const rowInner = (
+            <>
               <span
                 className="w-[34%] max-md:w-[42%] shrink-0 truncate text-[13px] font-bold text-gray-900"
-                title={b.key}
               >
                 {b.key}
               </span>
@@ -105,10 +135,67 @@ export function FineBucketBars({
               >
                 {b.count}
               </span>
+            </>
+          );
+
+          // An empty bucket is not clickable: there is nothing on the other
+          // side of the link, and a row that navigates to an empty table reads
+          // as a broken filter rather than an honest zero.
+          const row = href ? (
+            <Link
+              href={href}
+              className="flex flex-1 items-center gap-3 rounded-lg px-2 -mx-2 py-2 transition-colors hover:bg-slate-50"
+            >
+              {rowInner}
+            </Link>
+          ) : (
+            <div
+              className={`flex flex-1 items-center gap-3 rounded-lg px-2 -mx-2 py-2 ${
+                b.count > 0 ? "transition-colors hover:bg-slate-50" : ""
+              }`}
+            >
+              {rowInner}
+            </div>
+          );
+
+          return (
+            <li key={b.key} className="flex flex-1 items-stretch">
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>{row}</Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="top"
+                    align="center"
+                    sideOffset={6}
+                    collisionPadding={12}
+                    className="z-[90] rounded-lg px-3 py-2 shadow-lg"
+                    style={{ background: "#0F172A", color: "#fff", maxWidth: 260 }}
+                  >
+                    <p className="text-[12.5px] font-bold">{b.key}</p>
+                    <p className="mt-0.5 text-[12px] font-semibold" style={{ opacity: 0.85 }}>
+                      {b.count} {b.count === 1 ? "task" : "tasks"} ({pct}% of total)
+                    </p>
+                    {statusBreakdown && (
+                      <p className="mt-1 text-[11.5px] font-medium" style={{ opacity: 0.7 }}>
+                        {statusBreakdown(b.count)
+                          .map((x) => `${x.label}: ${x.value}`)
+                          .join("  |  ")}
+                      </p>
+                    )}
+                    {clickable && (
+                      <p className="mt-1 text-[11px] font-semibold" style={{ opacity: 0.6 }}>
+                        Click to open these in Tasks
+                      </p>
+                    )}
+                    <Tooltip.Arrow style={{ fill: "#0F172A" }} />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
             </li>
           );
         })}
       </ul>
     </div>
+    </Tooltip.Provider>
   );
 }

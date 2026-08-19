@@ -1,3 +1,4 @@
+import { FINE_BUCKET_SLUGS } from "@/lib/transforms/aging-buckets-fine";
 import { Suspense } from "react";
 import { DashboardHeader } from "@/components/layout/header";
 import { FilterBar } from "@/components/layout/filter-bar";
@@ -140,6 +141,8 @@ export default async function TasksPage({ searchParams }: PageProps) {
           status: filters.archived ? [...filters.statuses, "archived"] : filters.statuses,
           client: filters.clients,
           overdue: filters.overdue,
+          ageRange: filters.ageRange ? FINE_BUCKET_SLUGS[filters.ageRange] : null,
+          team: filters.teams,
         }}
       />
       <TaskListPage

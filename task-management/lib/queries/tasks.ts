@@ -1,3 +1,7 @@
+import {
+  FINE_BUCKET_OFFSETS,
+  type FineBucketKey,
+} from "@/lib/transforms/aging-buckets-fine";
 import { and, eq, gte, inArray, lt, or, asc, desc, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { unstable_cache } from "next/cache";
@@ -5,7 +9,7 @@ import { db, employees, tasks, taskTimeRollup } from "@/lib/db";
 import { TASK_STATUSES, TASK_PRIORITIES, PENDING_STATUSES } from "@/db/enums";
 import type { TaskStatus, ApprovalStatus } from "@/db/enums";
 import { employeeIdsInDepartments } from "@/lib/queries/departments";
-import { resolveTeamScope } from "@/lib/queries/team-scope";
+import { resolveTeamScopes } from "@/lib/queries/team-scope";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import type { TaskListFilters, TaskListRow } from "@/lib/types";
@@ -41,6 +45,34 @@ function overdueOpenStatuses() {
  * overdue at 6pm, and comparing against the current instant would flip it to
  * overdue partway through its own due date.
  */
+/**
+ * `?age_range=<slug>` — narrow to one of the nine fine aging buckets.
+ *
+ * The bucket is a window on `effectiveDue − today` in whole days (negative =
+ * overdue), and FINE_BUCKET_OFFSETS is the single source for those bounds —
+ * the same table `bucketForOffset` is tested against, so a row selected here is
+ * provably the same row the chart counted into that bar.
+ *
+ * Bounds become HALF-OPEN date comparisons. `offset <= max` means "due on or
+ * before today+max", and since effective_due_at is a TIMESTAMP rather than a
+ * date, "on that day" has to be expressed as `< the following midnight` — a
+ * plain `<=` against midnight would drop every task due later that same day.
+ */
+function ageRangeConditions(key: FineBucketKey) {
+  const { min, max } = FINE_BUCKET_OFFSETS[key];
+  const todayUtc = new Date();
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  const dayAfter = (offset: number) =>
+    new Date(todayUtc.getTime() + (offset + 1) * MS_PER_DAY);
+  const dayStart = (offset: number) =>
+    new Date(todayUtc.getTime() + offset * MS_PER_DAY);
+
+  const out = [];
+  if (min !== null) out.push(gte(effectiveDueAtSql(), dayStart(min)));
+  if (max !== null) out.push(lt(effectiveDueAtSql(), dayAfter(max)));
+  return out;
+}
+
 function overdueConditions() {
   const todayUtc = new Date();
   todayUtc.setUTCHours(0, 0, 0, 0);
@@ -164,6 +196,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
   if (filters.overdue)               conditions.push(...overdueConditions());
+  if (filters.ageRange)              conditions.push(...ageRangeConditions(filters.ageRange));
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {
@@ -174,13 +207,24 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     conditions.push(inArray(tasks.doerId, ids));
   }
 
-  // Team scope narrows by DOER, and stacks with the department filter above
-  // rather than replacing it — the two answer different questions and a user
-  // who sets both means the intersection.
-  const teamIds = await resolveTeamScope(filters.team, filters.viewerId);
+  // Team scope matches DOER **or** INITIATOR — a task a team member raised is
+  // that team's work even when someone outside it is doing it, and the previous
+  // doer-only rule made "my team" silently under-report exactly the delegation
+  // a manager opens this filter to see.
+  //
+  // It stacks with the department filter above rather than replacing it: the
+  // two answer different questions, and a user who sets both means the
+  // intersection.
+  const teamIds = await resolveTeamScopes(filters.teams, filters.viewerId);
   if (teamIds !== null) {
+    // An empty resolved set is a real answer (an empty department), so it must
+    // match nothing rather than fall through to the whole org.
     if (teamIds.length === 0) return [];
-    conditions.push(inArray(tasks.doerId, teamIds));
+    const scoped = or(
+      inArray(tasks.doerId, teamIds),
+      inArray(tasks.initiatorId, teamIds),
+    );
+    if (scoped) conditions.push(scoped);
   }
 
   // Single query with both doer + initiator joined inline. The previous
@@ -217,6 +261,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
       // "Start Time" — when the doer first hit Start on the timer. LEFT join, so
       // a task nobody has started simply has no rollup row and reads null.
       startedAt: taskTimeRollup.firstStartedAt,
+      openSessions: taskTimeRollup.openSessionCount,
       completedAt: tasks.completedAt,
     })
     .from(tasks)
@@ -255,6 +300,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     approvalStatus: r.approvalStatus,
     firstReadAt: r.firstReadAt,
     startedAt: r.startedAt ?? null,
+    timerRunning: (r.openSessions ?? 0) > 0,
     completedAt: r.completedAt,
   }));
 }
@@ -395,6 +441,21 @@ async function listTasksPageUncached(
   if (filters.subjects.length > 0) conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.taskId) conditions.push(eq(tasks.id, filters.taskId));
   if (filters.overdue) conditions.push(...overdueConditions());
+  if (filters.ageRange) conditions.push(...ageRangeConditions(filters.ageRange));
+
+  // Team scope, matching the flat path above. This path IGNORED it entirely
+  // before — a pre-existing gap, harmless only because the Tasks page still
+  // uses listTasks(); anything that adopted the cursor path would have silently
+  // dropped the filter.
+  const teamIds = await resolveTeamScopes(filters.teams, filters.viewerId);
+  if (teamIds !== null) {
+    if (teamIds.length === 0) return { rows: [], nextCursor: null };
+    const scoped = or(
+      inArray(tasks.doerId, teamIds),
+      inArray(tasks.initiatorId, teamIds),
+    );
+    if (scoped) conditions.push(scoped);
+  }
 
   if (filters.departments.length > 0) {
     const ids = await employeeIdsInDepartments(filters.departments);
@@ -444,6 +505,7 @@ async function listTasksPageUncached(
       firstReadAt: tasks.firstReadAt,
       // "Start Time" — see the note on the same join in listTasksUncached.
       startedAt: taskTimeRollup.firstStartedAt,
+      openSessions: taskTimeRollup.openSessionCount,
       completedAt: tasks.completedAt,
     })
     .from(tasks)
@@ -484,6 +546,7 @@ async function listTasksPageUncached(
     approvalStatus: r.approvalStatus,
     firstReadAt: r.firstReadAt,
     startedAt: r.startedAt ?? null,
+    timerRunning: (r.openSessions ?? 0) > 0,
     completedAt: r.completedAt,
   }));
 
@@ -689,6 +752,7 @@ export async function listTasksForExport(
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
   if (filters.overdue)               conditions.push(...overdueConditions());
+  if (filters.ageRange)              conditions.push(...ageRangeConditions(filters.ageRange));
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {

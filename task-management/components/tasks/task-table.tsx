@@ -16,7 +16,7 @@ import {
   type Updater,
   type Table as TableInstance,
 } from "@tanstack/react-table";
-import { differenceInCalendarDays, format } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 
 // Classic numbered pagination: a rows-per-page selector (default 25) with
 // First « · Prev · 1 2 3 … N · Next · Last » controls.
@@ -36,18 +36,6 @@ function safeFormat(value: unknown): string {
   if (!value) return "—";
   const d = value instanceof Date ? value : new Date(value as string);
   return Number.isNaN(d.getTime()) ? "—" : formatDate(d);
-}
-
-// "18 Aug 2026, 04:35 PM" for the Start/End timestamp columns. Same null/invalid
-// guard as safeFormat — one bad row must degrade to a dash, not throw during
-// render and take the whole table with it. These two columns are the only place
-// the list shows a TIME as well as a date, so the format lives here rather than
-// in lib/format's date-only helper.
-function safeFormatDateTime(value: unknown): string {
-  if (!value) return "—";
-  const d = value instanceof Date ? value : new Date(value as string);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${format(d, "dd MMM yyyy")}, ${format(d, "hh:mm a")}`;
 }
 
 // Due-date urgency for the list. Terminal/finished tasks never read as overdue
@@ -146,6 +134,7 @@ const PRIORITY_RANK: Record<string, number> = Object.fromEntries(
 );
 import type { TaskListRow } from "@/lib/types";
 import { TaskRowActions } from "./task-row-actions";
+import { TaskTimerCell } from "./task-timer-cell";
 import { BulkActionBar } from "./bulk-action-bar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -178,8 +167,7 @@ import {
 
 // Friendly labels for the column show/hide menu (#11).
 const COLUMN_LABELS: Record<string, string> = {
-  startedAt: "Start Time",
-  completedAt: "End Time",
+  timer: "Action",
   taskNo: "ID No.",
   client: "Client",
   doerName: "Doer",
@@ -267,42 +255,27 @@ function buildColumns(
         />
       ),
     },
-    // Start / End lead the table: they are the first two columns after the
-    // select checkbox. Both come from the time engine — startedAt is
-    // task_time_rollup.first_started_at (the first Start press) and completedAt
-    // is the task's own completion stamp — so a task that has never been
-    // started, or is still open, reads "—" rather than guessing from createdAt.
+    // TIMER — takes the slot the Start Time / End Time columns held. Those two
+    // showed WHEN work happened; this lets you act on it, which is what the
+    // leading column of a work queue is for. Both timestamps are still on the
+    // row payload (and still stamped by the engine) — only their columns are
+    // gone.
     {
-      accessorKey: "startedAt",
-      header: "Start Time",
-      meta: { narrow: true },
-      cell: (info) => {
-        const v = info.getValue<Date | null>();
-        return (
-          <span
-            className={`tabular-nums ${v ? "text-ink-soft" : "text-ink-subtle"}`}
-            style={{ fontSize: 13 }}
-          >
-            {safeFormatDateTime(v)}
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: "completedAt",
-      header: "End Time",
-      meta: { narrow: true },
-      cell: (info) => {
-        const v = info.getValue<Date | null>();
-        return (
-          <span
-            className={`tabular-nums ${v ? "text-ink-soft" : "text-ink-subtle"}`}
-            style={{ fontSize: 13 }}
-          >
-            {safeFormatDateTime(v)}
-          </span>
-        );
-      },
+      id: "timer",
+      header: "Action",
+      enableSorting: false,
+      meta: { narrow: true, align: "center" },
+      cell: ({ row }) => (
+        <TaskTimerCell
+          taskId={row.original.id}
+          running={row.original.timerRunning}
+          // The engine allows admin, the doer, OR the doer's manager. The
+          // manager leg needs the org chart, which the table does not have, so
+          // the inline control shows for admin + doer and managers keep using
+          // the drawer. Better a missing button than one that always errors.
+          canOperate={me.isAdmin || me.id === row.original.doerId}
+        />
+      ),
     },
     {
       accessorKey: "taskNo",

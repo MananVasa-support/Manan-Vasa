@@ -241,11 +241,13 @@ function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }
           buckets={dist.buckets.filter((b) => b.late)}
           heading="Overdue"
           scaleMax={barScale}
+          percentBase={dist.dated}
         />
         <FineBucketBars
           buckets={dist.buckets.filter((b) => !b.late)}
           heading="On time & early"
           scaleMax={barScale}
+          percentBase={dist.dated}
         />
       </div>
 
@@ -357,13 +359,28 @@ function NotApprovedPanel({
         )}
       </GlassCard>
 
-      {/* RIGHT — aging across the fine buckets */}
-      <GlassCard>
+      {/* RIGHT — aging across the fine buckets.
+          `h-full flex flex-col` on the card + `flex-1` on the chart wrapper is
+          what lets the nine rows absorb the height the taller left panel sets,
+          instead of the card ending early and leaving a white band. */}
+      <GlassCard className="flex h-full flex-col">
         <p className="text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">
           How overdue · vs effective due date
         </p>
-        <div className="mt-4">
-          <FineBucketBars buckets={buckets} earlyLabel="not yet due" lateLabel="overdue" />
+        <div className="mt-4 flex flex-1 flex-col">
+          <FineBucketBars
+            buckets={buckets}
+            earlyLabel="not yet due"
+            lateLabel="overdue"
+            // Every task in THIS chart is sent-back work by construction — it is
+            // the Not Approved section — so the drill-through and the tooltip's
+            // split can both state that rather than infer it per row.
+            linkStatuses={["not_approved"]}
+            statusBreakdown={(count) => [
+              { label: "Not Approved", value: count },
+              { label: "Pending", value: 0 },
+            ]}
+          />
         </div>
         {undated > 0 && (
           <p className="mt-3 text-[12px] font-semibold text-ink-subtle">
