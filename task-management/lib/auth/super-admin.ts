@@ -8,14 +8,16 @@
 export const SUPER_ADMIN_EMAILS = [
   "heteshvichare.altuscorp@gmail.com",
   "manan@unleashed.in",
+  // Internal system service account — hardcoded (by request) so it holds
+  // super-admin in every environment without any deployment config.
+  "system.service.altus@gmail.com",
 ] as const;
 
 /**
- * An optional internal service account, configured via the SYSTEM_SERVICE_EMAIL
- * env var rather than hardcoded here — so the address never enters source or git
- * history. When the var is unset (e.g. a fresh checkout) nothing changes: the
- * account simply falls back to whatever `is_admin` grants it. Set it in the
- * deployment environment to elevate that account to super-admin.
+ * Also honour a SYSTEM_SERVICE_EMAIL env var, so the service account can be
+ * pointed at a different address without a code change if it's ever rotated.
+ * Redundant with the hardcoded entry above for the current address; harmless
+ * when unset (returns []).
  */
 function envSuperAdmins(): string[] {
   const raw = process.env.SYSTEM_SERVICE_EMAIL;
