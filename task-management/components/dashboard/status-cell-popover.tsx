@@ -112,44 +112,43 @@ export function StatusCellPopover({
             </div>
 
             <ul className="flex flex-col border-t" style={{ borderColor: "var(--color-hairline)" }}>
-              {tasks.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex items-start gap-2 px-3.5 py-2 border-b last:border-b-0"
-                  style={{ borderColor: "var(--color-hairline)" }}
-                >
-                  <span className="mt-px shrink-0 tabular-nums text-[10.5px] font-black text-ink-subtle">
-                    {t.taskNo != null ? `#${t.taskNo}` : "—"}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    {/* Description, not `title` — see StatusCellTask: `title`
-                        is the client name, which is already shown as the chip
-                        directly below this line. */}
+              {tasks.map((t) => {
+                // description -> subject -> title, the same ladder the
+                // drill-down tables use. `title` in this schema is the CLIENT
+                // NAME, so it is the last resort, never the lead.
+                const text = t.description?.trim() || t.subject?.trim() || t.title;
+                // The identifiers that used to occupy the row -- the #number
+                // gutter and the client chip -- moved in here. Nothing is lost;
+                // they just stop competing with the description for the two
+                // lines the reader actually scans.
+                const hover = [
+                  text,
+                  t.taskNo != null ? `Task #${t.taskNo}` : null,
+                  t.client ? `Client: ${t.client}` : null,
+                ]
+                  .filter(Boolean)
+                  .join("\n");
+                return (
+                  <li
+                    key={t.id}
+                    className="flex items-start gap-2 rounded-lg p-2.5 border-b last:border-b-0 transition-colors hover:bg-slate-50"
+                    style={{ borderColor: "var(--color-hairline)" }}
+                  >
+                    {/* Two lines, not one: these are full task descriptions and
+                        a single-line truncate turned most of them into a stub.
+                        `title` still carries the untruncated text. */}
                     <span
-                      className="block truncate text-[12px] font-bold leading-snug text-ink-strong"
-                      title={t.description?.trim() || t.title}
+                      className="min-w-0 flex-1 line-clamp-2 text-[12px] font-bold leading-snug text-ink-strong"
+                      title={hover}
                     >
-                      {t.description?.trim() || t.subject?.trim() || t.title}
+                      {text}
                     </span>
-                    <span className="mt-0.5 flex items-center gap-1.5">
-                      {(t.client || t.subject) && (
-                        <span
-                          className="truncate rounded-chip px-1.5 py-px text-[10px] font-bold"
-                          style={{
-                            maxWidth: 150,
-                            background:
-                              "color-mix(in srgb, var(--color-altus-red) 8%, transparent)",
-                            color: "var(--color-altus-red-deep)",
-                          }}
-                        >
-                          {t.client ?? t.subject}
-                        </span>
-                      )}
-                      <DueChip dueAt={t.dueAt} />
-                    </span>
-                  </span>
-                </li>
-              ))}
+                    {/* Urgency is the only metadata left, pinned right so the
+                        description gets the full width of the row. */}
+                    <DueChip dueAt={t.dueAt} />
+                  </li>
+                );
+              })}
             </ul>
 
             <div className="border-t px-3.5 py-2" style={{ borderColor: "var(--color-hairline)" }}>
