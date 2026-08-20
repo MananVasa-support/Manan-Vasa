@@ -1,0 +1,282 @@
+import "server-only";
+import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { db, employees, tasks, weeklyGoals, dailyChecklist } from "@/lib/db";
+import { withRetry } from "@/lib/db/with-timeout";
+import { istYmd } from "@/lib/weekly-goals/week";
+
+const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
+
+/**
+ * MANAGER ACTIVITY BOARD — one row per manager across the three activity
+ * families the business actually tracks (weekly goals, WMS tasks, daily
+ * commitments), each row expanding to a per-member breakdown.
+ *
+ * ── WHERE THE DELEGATE / COUNTERPART SPLIT COMES FROM ────────────────────
+ * Every item has an ORIGINATOR — the person who put the work on someone's
+ * plate. It is a different column per family, which is why this lives in one
+ * place instead of three:
+ *
+ *   tasks        → `tasks.initiatorId`. Explicit; this is what the existing
+ *                  initiator scorecard already classifies.
+ *   weekly goals → `weeklyGoals.createdById`. Populated on EVERY insert path
+ *                  (self-authored goals carry the author, cascaded goals carry
+ *                  the cascading manager — see lib/goals/cascade.ts), so a goal
+ *                  written for you by your manager is distinguishable from one
+ *                  you wrote yourself without any schema change.
+ *   commitments  → NOT stored, but derivable. A My Day row links back to the
+ *                  work it came from: `taskId` → that task's initiator,
+ *                  `goalId` → that goal's creator. A `standalone` row has
+ *                  neither, and that is not missing data — a standalone
+ *                  commitment IS self-authored by definition.
+ *
+ * Given an originator, the split against manager M is:
+ *
+ *   DELEGATE (A)    — originator IS M. M put this on the member's plate.
+ *                     On the Self row this is M's own self-authored work.
+ *   COUNTERPART (B) — originator is anyone else: the member themselves, a peer,
+ *                     or someone outside M's line.
+ *
+ * A and B PARTITION the member's items — every row lands in exactly one — so
+ * `G.T. = A + B` is a true total rather than a sum of two overlapping cuts.
+ * That property is what lets the manager row be a plain sum of its members.
+ */
+
+/** Flat target baselines. Per Sir's spec: goals 15, tasks 25, commitments 15. */
+export const ACTIVITY_TARGETS = { goals: 15, tasks: 25, commitments: 15 } as const;
+
+export interface ActivitySplit {
+  /** A — originated by this row's manager. */
+  delegate: number;
+  /** B — originated by anyone else (the member included). */
+  counterpart: number;
+  /** A + B. Every item counts once, so this is the member's real total. */
+  total: number;
+}
+
+export interface MemberActivityRow {
+  employeeId: string;
+  employeeName: string;
+  /** True for the manager's own row, which always sorts first. */
+  isSelf: boolean;
+  goals: ActivitySplit;
+  tasks: ActivitySplit;
+  commitments: ActivitySplit;
+  /** Grand total across all three families. */
+  grandTotal: number;
+}
+
+export interface ManagerActivityRow {
+  managerId: string;
+  managerName: string;
+  directReports: number;
+  /** Family totals across Self + every direct report. */
+  goals: number;
+  tasks: number;
+  commitments: number;
+  /** goals + tasks + commitments. */
+  total: number;
+  members: MemberActivityRow[];
+}
+
+export interface ManagerActivityBoard {
+  windowDays: number;
+  /** Inclusive IST date bounds the counts were taken over, as YYYY-MM-DD. */
+  from: string;
+  to: string;
+  rows: ManagerActivityRow[];
+}
+
+const emptySplit = (): ActivitySplit => ({ delegate: 0, counterpart: 0, total: 0 });
+
+/** Add one item to a member's split, attributed against `managerId`. */
+function credit(split: ActivitySplit, originatorId: string | null, managerId: string) {
+  if (originatorId && originatorId === managerId) split.delegate += 1;
+  else split.counterpart += 1;
+  split.total += 1;
+}
+
+/** `n` whole days back from `ymd`, inclusive of both ends. */
+function windowStart(ymd: string, days: number): string {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - (days - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+export async function managerActivityBoard(
+  windowDays: number,
+  now: Date = new Date(),
+): Promise<ManagerActivityBoard> {
+  const to = istYmd(now);
+  const from = windowStart(to, windowDays);
+
+  const people = await withRetry(
+    () =>
+      db
+        .select({
+          id: employees.id,
+          name: employees.name,
+          managerId: employees.managerId,
+        })
+        .from(employees)
+        .where(eq(employees.isActive, true)),
+    RETRY,
+  );
+
+  // manager -> direct reports. A "manager" here is anyone with at least one
+  // active direct report; the board has nothing to say about individual
+  // contributors.
+  const reportsOf = new Map<string, { id: string; name: string }[]>();
+  for (const p of people) {
+    if (!p.managerId) continue;
+    const list = reportsOf.get(p.managerId) ?? [];
+    list.push({ id: p.id, name: p.name });
+    reportsOf.set(p.managerId, list);
+  }
+  const managers = people
+    .filter((p) => (reportsOf.get(p.id)?.length ?? 0) > 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (managers.length === 0) {
+    return { windowDays, from, to, rows: [] };
+  }
+
+  // Everyone who can appear on the board: every manager plus every direct
+  // report of a manager. Scoping the three queries to this set keeps them off
+  // the rest of the org.
+  const scope = new Set<string>();
+  for (const m of managers) {
+    scope.add(m.id);
+    for (const r of reportsOf.get(m.id) ?? []) scope.add(r.id);
+  }
+  const scopeIds = [...scope];
+
+  const [goalRows, taskRows, commitRows] = await Promise.all([
+    // Weekly goals whose week OVERLAPS the window. `weekStart` is the Monday,
+    // so a week is live for the six days after it — comparing weekStart to the
+    // window directly would miss a week that began before the window opened.
+    withRetry(
+      () =>
+        db
+          .select({
+            employeeId: weeklyGoals.employeeId,
+            originatorId: weeklyGoals.createdById,
+          })
+          .from(weeklyGoals)
+          .where(
+            and(
+              inArray(weeklyGoals.employeeId, scopeIds),
+              eq(weeklyGoals.archived, false),
+              gte(weeklyGoals.weekStart, windowStart(from, 7)),
+              lte(weeklyGoals.weekStart, to),
+            ),
+          ),
+      RETRY,
+    ),
+    withRetry(
+      () =>
+        db
+          .select({
+            employeeId: tasks.doerId,
+            originatorId: tasks.initiatorId,
+          })
+          .from(tasks)
+          .where(
+            and(
+              inArray(tasks.doerId, scopeIds),
+              gte(sql`(${tasks.createdAt} AT TIME ZONE 'Asia/Kolkata')::date`, from),
+              lte(sql`(${tasks.createdAt} AT TIME ZONE 'Asia/Kolkata')::date`, to),
+            ),
+          ),
+      RETRY,
+    ),
+    // Commitments carry no originator column, so it is resolved through the
+    // row's own links: the task's initiator, else the goal's creator, else the
+    // owner (a standalone My Day row is self-authored by definition).
+    withRetry(
+      () =>
+        db
+          .select({
+            employeeId: dailyChecklist.employeeId,
+            taskInitiatorId: tasks.initiatorId,
+            goalCreatorId: weeklyGoals.createdById,
+          })
+          .from(dailyChecklist)
+          .leftJoin(tasks, eq(dailyChecklist.taskId, tasks.id))
+          .leftJoin(weeklyGoals, eq(dailyChecklist.goalId, weeklyGoals.id))
+          .where(
+            and(
+              inArray(dailyChecklist.employeeId, scopeIds),
+              gte(dailyChecklist.planDate, from),
+              lte(dailyChecklist.planDate, to),
+            ),
+          ),
+      RETRY,
+    ),
+  ]);
+
+  // Bucket by employee once, then read each bucket per manager. A member can
+  // only report to one manager, but the manager also appears as their OWN Self
+  // row, so the same rows are read from two places.
+  const byEmployee = new Map<
+    string,
+    { goals: (string | null)[]; tasks: (string | null)[]; commitments: (string | null)[] }
+  >();
+  const bucket = (id: string) => {
+    let b = byEmployee.get(id);
+    if (!b) {
+      b = { goals: [], tasks: [], commitments: [] };
+      byEmployee.set(id, b);
+    }
+    return b;
+  };
+  for (const r of goalRows) bucket(r.employeeId).goals.push(r.originatorId ?? r.employeeId);
+  for (const r of taskRows) bucket(r.employeeId).tasks.push(r.originatorId);
+  for (const r of commitRows) {
+    bucket(r.employeeId).commitments.push(
+      r.taskInitiatorId ?? r.goalCreatorId ?? r.employeeId,
+    );
+  }
+
+  const rows: ManagerActivityRow[] = managers.map((m) => {
+    const reports = (reportsOf.get(m.id) ?? []).sort((a, b) => a.name.localeCompare(b.name));
+    const roster = [{ id: m.id, name: m.name, isSelf: true }, ...reports.map((r) => ({ ...r, isSelf: false }))];
+
+    const members: MemberActivityRow[] = roster.map((p) => {
+      const b = byEmployee.get(p.id);
+      const goals = emptySplit();
+      const tasksSplit = emptySplit();
+      const commitments = emptySplit();
+      for (const o of b?.goals ?? []) credit(goals, o, m.id);
+      for (const o of b?.tasks ?? []) credit(tasksSplit, o, m.id);
+      for (const o of b?.commitments ?? []) credit(commitments, o, m.id);
+      return {
+        employeeId: p.id,
+        employeeName: p.name,
+        isSelf: p.isSelf,
+        goals,
+        tasks: tasksSplit,
+        commitments,
+        grandTotal: goals.total + tasksSplit.total + commitments.total,
+      };
+    });
+
+    const sum = (pick: (x: MemberActivityRow) => number) =>
+      members.reduce((s, x) => s + pick(x), 0);
+    const goals = sum((x) => x.goals.total);
+    const tasksTotal = sum((x) => x.tasks.total);
+    const commitments = sum((x) => x.commitments.total);
+
+    return {
+      managerId: m.id,
+      managerName: m.name,
+      directReports: reports.length,
+      goals,
+      tasks: tasksTotal,
+      commitments,
+      total: goals + tasksTotal + commitments,
+      members,
+    };
+  });
+
+  return { windowDays, from, to, rows };
+}

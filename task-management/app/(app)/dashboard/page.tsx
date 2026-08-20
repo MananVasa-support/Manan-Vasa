@@ -4,6 +4,7 @@ import { BarChart3, ArrowRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { KpiStrip } from "@/components/dashboard/kpi-strip";
+import { ManagerActivityTable } from "@/components/dashboard/exec/manager-activity-table";
 import { StatusTable } from "@/components/dashboard/status-table";
 import { StatusDistributionChart } from "@/components/dashboard/status-distribution";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
@@ -297,6 +298,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                           avatarById={avatarById}
                         />
                         <ExecDelegationSection />
+                        {/* Sits directly under the initiation scorecards: the
+                            two read the same manager hierarchy, one asking who
+                            DELEGATES tasks and this one asking what each team
+                            is actually CARRYING across goals, tasks and daily
+                            commitments. Fetches its own data on mount so the
+                            dashboard payload does not grow three aggregations
+                            for a widget below the fold. */}
+                        <ManagerActivityTable avatarById={avatarById} />
                       </div>
                     }
                     performance={

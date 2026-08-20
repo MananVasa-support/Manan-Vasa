@@ -338,6 +338,9 @@ export interface TaskListFilters {
   clients: string[];
   taskId: string | null;
   archived: boolean;
+  /** `?type=goals|tasks|commitments` -- which activity family a manager-board
+   *  click came from. Null when absent or unrecognised. */
+  activityType: import("@/lib/task-filters").ActivityType | null;
   /** `?overdue=true` — only OPEN tasks whose effective due date is already
    *  past. A cross-cut, not a status: it narrows within whatever statuses are
    *  selected rather than replacing them. Terminal work is excluded because a

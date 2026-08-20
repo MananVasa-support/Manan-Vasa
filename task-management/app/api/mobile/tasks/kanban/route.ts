@@ -58,6 +58,7 @@ export async function GET(req: Request) {
     clients: [],
     taskId: null,
     archived: false,
+    activityType: null,
     overdue: false,
     ageRange: null,
     assigneeMode: "specific",
