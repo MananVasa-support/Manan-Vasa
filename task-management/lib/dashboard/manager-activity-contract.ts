@@ -88,9 +88,11 @@ export interface ActivityPreviewItem {
   title: string;
   /** Badge line: owner name, priority label, or Done/Pending. */
   meta: string | null;
-  /** Right-aligned date or SLA note. */
+  /** Right-aligned SLA note — "6d overdue", "Due today", "Due 21 Aug". */
   trailing: string | null;
   tone: ActivityPreviewTone;
+  /** Colours the SLA pill. Null renders it neutral. */
+  trailingTone: "overdue" | "today" | null;
 }
 
 export interface ActivityPreview {

@@ -37,6 +37,32 @@ function inSplit(originatorId: string | null, managerId: string, split: Activity
   return split === "delegate" ? isDelegate : !isDelegate;
 }
 
+/**
+ * The SLA line for a deadline: how late it is, or when it falls.
+ *
+ * Real day maths rather than a bare date, because "21 Aug" makes the reader do
+ * the subtraction and "6d overdue" does not. Compared on whole IST days so a
+ * task due today never reads as overdue by a few hours.
+ */
+function slaFor(
+  due: string | Date | null,
+  todayYmd: string,
+): { text: string | null; tone: "overdue" | "today" | null } {
+  if (!due) return { text: null, tone: null };
+  const d = due instanceof Date ? due : new Date(`${due}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return { text: null, tone: null };
+  const dueYmd = d.toISOString().slice(0, 10);
+  const days = Math.round(
+    (Date.parse(`${dueYmd}T00:00:00Z`) - Date.parse(`${todayYmd}T00:00:00Z`)) / 86400000,
+  );
+  if (days < 0) {
+    const n = Math.abs(days);
+    return { text: `${n}d overdue`, tone: "overdue" };
+  }
+  if (days === 0) return { text: "Due today", tone: "today" };
+  return { text: `Due ${ymdLabel(due)}`, tone: null };
+}
+
 function ymdLabel(v: string | Date | null): string | null {
   if (!v) return null;
   const d = v instanceof Date ? v : new Date(`${v}T00:00:00Z`);
@@ -95,7 +121,13 @@ export async function managerActivityPreview(input: {
         meta: r.ownerName ?? null,
         // Target date when the goal has one, else the week it belongs to —
         // "no date" on every row would make the column pointless.
-        trailing: ymdLabel(r.targetDate) ?? ymdLabel(r.weekStart),
+        ...(() => {
+          const sla = slaFor(r.targetDate, to);
+          return {
+            trailing: sla.text ?? ymdLabel(r.weekStart),
+            trailingTone: sla.tone,
+          };
+        })(),
         tone: null,
       }));
   } else if (category === "tasks") {
@@ -105,8 +137,6 @@ export async function managerActivityPreview(input: {
           .select({
             id: tasks.id,
             description: tasks.description,
-            subject: tasks.subject,
-            title: tasks.title,
             priority: tasks.priority,
             dueAt: tasks.dueAt,
             originatorId: tasks.initiatorId,
@@ -124,17 +154,26 @@ export async function managerActivityPreview(input: {
     );
     items = rows
       .filter((r) => inSplit(r.originatorId, managerId, split))
-      .map((r) => ({
-        id: r.id,
-        // description -> subject -> title, the ladder every other WMS list
-        // uses. `title` is the CLIENT NAME in this schema, so it is last.
-        title: r.description?.trim() || r.subject?.trim() || r.title,
-        meta: PRIORITY_LABELS[r.priority] ?? null,
-        trailing: ymdLabel(r.dueAt) ? `Due ${ymdLabel(r.dueAt)}` : null,
-        // Critical is the only priority worth a red badge; the rest are noise
-        // if they all shout.
-        tone: r.priority === "imp_urgent" ? "urgent" : null,
-      }));
+      .map((r) => {
+        const sla = slaFor(r.dueAt, to);
+        return {
+          id: r.id,
+          // DESCRIPTION ONLY. This used to fall back through `subject` and then
+          // `title`, and both fallbacks were the problem: `subject` is a
+          // category ("WMS App", "App"), so a run of rows all read the same,
+          // and `title` in this schema is the CLIENT NAME — the New Task form's
+          // "Client Name" field writes straight to tasks.title. Neither says
+          // what the work is. A task with no description says so plainly
+          // instead of borrowing a label that misleads.
+          title: r.description?.trim() || "Untitled task",
+          meta: PRIORITY_LABELS[r.priority] ?? null,
+          trailing: sla.text,
+          trailingTone: sla.tone,
+          // Critical is the only priority worth a red badge; the rest are noise
+          // if they all shout.
+          tone: r.priority === "imp_urgent" ? ("urgent" as const) : null,
+        };
+      });
   } else {
     const rows = await withRetry(
       () =>
@@ -174,7 +213,9 @@ export async function managerActivityPreview(input: {
         // The time log: when it was closed if it is closed, else the day it was
         // committed to. Both are real timestamps, so neither is invented.
         trailing: ymdLabel(r.closedAt ?? r.committedAt ?? r.planDate),
-        tone: r.done ? "done" : "pending",
+        // A time log is not a deadline — nothing here can be "overdue".
+        trailingTone: null,
+        tone: r.done ? ("done" as const) : ("pending" as const),
       }));
   }
 

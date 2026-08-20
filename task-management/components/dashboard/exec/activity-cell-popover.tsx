@@ -83,6 +83,23 @@ function ToneBadge({ item }: { item: ActivityPreviewItem }) {
   );
 }
 
+/** The SLA line as a pill — red when late, amber on the day, plain otherwise. */
+function SlaPill({ text, tone }: { text: string; tone: "overdue" | "today" | null }) {
+  const cls =
+    tone === "overdue"
+      ? "text-red-600 bg-red-50"
+      : tone === "today"
+        ? "text-amber-700 bg-amber-50"
+        : "text-slate-500 bg-slate-50";
+  return (
+    <span
+      className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${cls}`}
+    >
+      {text}
+    </span>
+  );
+}
+
 export function ActivityCellPopover({
   children,
   managerId,
@@ -132,11 +149,15 @@ export function ActivityCellPopover({
           align="center"
           sideOffset={6}
           collisionPadding={12}
-          className="z-50 w-[320px] overflow-hidden rounded-xl border shadow-lg"
+          /* 380px, not the old 320. Note the spec's `w-[320px] max-w-[380px]`
+             would NOT have widened anything — a max above a fixed width never
+             binds — and widening is the point, so the fixed width is the number
+             that moved. The viewport clamp still wins on a narrow screen. */
+          className="z-50 w-[380px] max-w-[380px] overflow-hidden rounded-xl border shadow-lg"
           style={{
             background: "var(--color-surface-card)",
             borderColor: "var(--color-hairline-strong)",
-            maxWidth: "calc(100vw - 32px)",
+            maxWidth: "min(380px, calc(100vw - 32px))",
           }}
         >
           <div className="px-3 pt-2.5 pb-1.5">
@@ -174,21 +195,22 @@ export function ActivityCellPopover({
                   key={item.id}
                   className="rounded-lg border border-slate-100 p-2.5 transition-colors hover:bg-slate-50"
                 >
-                  {/* Two lines, not one: these are real titles and a single
-                      truncate turns most of them into a stub. */}
+                  {/* The description gets the FULL row width and wraps to two
+                      lines. It used to share its line with the SLA, which left
+                      a long description about half the card to work with;
+                      `break-words` keeps an unbroken token (a URL, a long ref)
+                      from forcing a horizontal overflow instead of wrapping. */}
                   <span
-                    className="line-clamp-2 text-[12px] font-bold leading-snug text-ink-strong"
+                    className="block line-clamp-2 break-words text-xs font-semibold leading-snug text-slate-900"
                     title={item.title}
                   >
                     {item.title}
                   </span>
                   {(item.meta || item.trailing) && (
-                    <span className="mt-1 flex items-center gap-1.5">
+                    <span className="mt-1.5 flex items-center gap-1.5">
                       <ToneBadge item={item} />
                       {item.trailing && (
-                        <span className="ml-auto shrink-0 whitespace-nowrap text-[10px] font-bold tabular-nums text-ink-subtle">
-                          {item.trailing}
-                        </span>
+                        <SlaPill text={item.trailing} tone={item.trailingTone} />
                       )}
                     </span>
                   )}
