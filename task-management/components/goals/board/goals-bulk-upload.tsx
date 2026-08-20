@@ -391,14 +391,14 @@ export function GoalsBulkUpload(props: Props) {
           setOpen(true);
           reset();
         }}
-        className={`wg-btn inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-[13px] font-bold transition-colors cursor-pointer ${FOCUS_RING}`}
+        className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3.5 text-[13px] font-bold transition-all cursor-pointer hover:border-hairline-strong hover:text-ink-strong ${FOCUS_RING}`}
         style={{
           background: "var(--color-surface-card)",
-          borderColor: "var(--color-hairline-strong)",
+          borderColor: "var(--color-hairline)",
           color: "var(--color-ink-soft)",
         }}
       >
-        <Upload size={15} strokeWidth={2.4} />
+        <Upload size={14} strokeWidth={2.4} />
         Bulk Upload
       </button>
 

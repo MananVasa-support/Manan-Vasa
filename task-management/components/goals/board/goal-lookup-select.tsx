@@ -210,13 +210,13 @@ export function GoalLookupSelect({
           ref={triggerRef}
           type="button"
           className={cn(
-            "group/gdd flex w-full items-center justify-center gap-1.5 text-center text-ink-strong",
+            "group/gdd flex w-full items-center justify-between text-left text-ink-strong",
             compact
               ? cn(
-                  "h-9 rounded-lg px-2 text-[13px] transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_7%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--color-altus-red)_9%,transparent)]",
+                  "h-5 gap-1 rounded-md px-1 text-[11px] font-semibold transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_7%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--color-altus-red)_9%,transparent)]",
                   FOCUS_RING,
                 )
-              : "gdd-trigger h-10 rounded-xl px-3 text-[14px] font-semibold",
+              : "gdd-trigger h-10 gap-1.5 rounded-xl px-3 text-[14px] font-semibold",
             className,
           )}
         >
@@ -224,7 +224,7 @@ export function GoalLookupSelect({
             {safeValue || placeholder || `Choose a ${noun}`}
           </span>
           <ChevronDown
-            size={15}
+            size={compact ? 11 : 15}
             className={cn(
               "shrink-0 text-ink-subtle transition-transform duration-200 group-hover/gdd:text-altus-red",
               open && "rotate-180 text-altus-red",

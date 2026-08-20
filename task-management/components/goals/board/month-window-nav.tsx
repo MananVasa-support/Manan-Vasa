@@ -85,28 +85,28 @@ export function MonthWindowNav({
     // `group`, not `tablist`: the FY box and the quarter caption sit between the
     // container and its buttons, and a tablist may only contain tabs. The pills
     // keep the board's existing `aria-pressed` convention.
-    <div className="flex flex-wrap items-start gap-x-4 gap-y-3" role="group" aria-label="Pick a month">
+    <div className="flex flex-wrap items-start gap-x-3 gap-y-2" role="group" aria-label="Pick a month">
       {groups.map((group) => (
         <div
           key={group.fy}
           role="group"
           aria-label={fyLabel(group.fy)}
-          // `pt-4` clears the notched legend; the box is only a hairline so the
+          // `pt-3.5` clears the notched legend; the box is only a hairline so the
           // pills stay the loudest thing in the row.
-          className="relative rounded-xl border border-hairline px-3 pb-2.5 pt-4"
+          className="relative rounded-lg border border-hairline px-1.5 pb-1 pt-2.5"
           style={{ background: "color-mix(in srgb, var(--color-surface-soft) 55%, transparent)" }}
         >
           <span
             aria-hidden
             // Sits ON the top border and paints the band's own card background
             // behind itself, which is what cuts the hairline into a bracket.
-            className="absolute -top-[7px] left-3 px-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink-subtle"
+            className="absolute -top-[5px] left-2 px-1 text-[9px] font-bold uppercase tracking-[0.1em] text-ink-subtle"
             style={{ background: "var(--color-surface-card)" }}
           >
             {fyLabel(group.fy)}
           </span>
 
-          <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
+          <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
             {group.keys.map((quarterKeyStr) => {
               const months = monthsOfQuarterKey(quarterKeyStr);
               // A quarter is spent only once EVERY month in it has closed — one
@@ -120,13 +120,13 @@ export function MonthWindowNav({
                 >
                   <div
                     aria-hidden
-                    className={`mb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] ${
+                    className={`mb-0.5 text-[9px] font-bold uppercase tracking-[0.08em] ${
                       spent ? "text-ink-subtle opacity-60" : "text-ink-muted"
                     }`}
                   >
                     {periodKeyLabel(quarterKeyStr)}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
                     {months.map((monthKeyStr) => (
                       <MonthPill
                         key={monthKeyStr}
@@ -213,7 +213,7 @@ function MonthPill({
         (count === null ? "" : ` — ${count} goal${count === 1 ? "" : "s"}`)
       }
       aria-current={live ? "date" : undefined}
-      className={`wg-btn inline-flex min-w-[52px] items-center justify-center rounded-full border px-3 py-1.5 text-[13px] font-bold whitespace-nowrap transition-all cursor-pointer ${FOCUS_RING}`}
+      className={`wg-btn inline-flex min-w-[34px] items-center justify-center rounded-full border px-1.5 py-0.5 text-[10.5px] font-bold whitespace-nowrap transition-all cursor-pointer ${FOCUS_RING}`}
       style={tone}
     >
       {periodKeyShort(monthKeyStr)}

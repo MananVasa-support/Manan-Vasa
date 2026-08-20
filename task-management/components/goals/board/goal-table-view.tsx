@@ -14,8 +14,10 @@
  */
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import * as Dialog from "@radix-ui/react-dialog";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   ArrowRightLeft,
   CalendarDays,
@@ -35,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import { GoalDetailRow } from "@/components/goals/board/goal-detail-row";
+import { NotesCell, AttachmentsCell } from "@/components/goals/board/notes-files-cell";
 import { GoalEditDialog } from "@/components/goals/cascade/goal-edit-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -49,6 +52,7 @@ import {
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { GoalPreview } from "@/components/goals/shared/goal-preview";
+import { GoalDetailPopup } from "@/components/goals/shared/goal-detail-popup";
 import { useGoalGridEngine, type GridColumn } from "@/components/goals/board/goal-grid";
 import { Select } from "@/components/ui/select";
 import { ADMIN_TASK_STATUSES, USER_TASK_STATUSES, GOAL_TYPES, GOAL_TYPE_LABELS, type TaskStatus, type GoalType } from "@/db/enums";
@@ -125,6 +129,22 @@ export interface GoalTableViewProps {
   actions?: GoalTableActions;
   /** Detail row (Notes/Attachments) node kind — "cascade" (default) or "weekly". */
   detailKind?: "cascade" | "weekly";
+  /** Which OPTIONAL columns to show — the toolbar's Columns picker. Keys:
+   *  "measure" | "actual" | "teamPct" | "weight" | "delegate" | "type" | "notes".
+   *  Omitted → falls back to the simplified table's original fixed set
+   *  (type + notes visible, the rest hidden) so every other caller is
+   *  unaffected. Area / Goal are never optional — they're structural,
+   *  not pickable. */
+  visibleCols?: Set<string>;
+  /** Left-to-right order for every column after Area/Goal (Target and
+   *  % Done included) — the ColumnsPicker's drag order. Omitted →
+   *  REORDERABLE_COLUMNS' declared order (today's fixed layout). */
+  colOrder?: string[];
+  /** Called with the new column order when a HEADER CELL is dragged to a
+   *  new position — dragging the actual table headers, not just the
+   *  Columns picker's list, reorders live the same way. Omitted → headers
+   *  aren't draggable (read-only order). */
+  onColOrderChange?: (next: string[]) => void;
 }
 
 type ActionRes = { ok: true } | { ok: false; error: string };
@@ -229,7 +249,7 @@ function NumBox({
         }
       }}
       className={cn(
-        "h-9 rounded-md border-0 bg-transparent px-2 text-center text-[13.5px] font-semibold text-ink-strong tabular-nums transition-colors hover:bg-black/[0.04] focus:bg-black/[0.06]",
+        "h-6 rounded-md border-0 bg-transparent px-1.5 text-left text-[12.5px] font-semibold text-ink-strong tabular-nums transition-colors hover:bg-black/[0.04] focus:bg-black/[0.06]",
         "disabled:cursor-not-allowed disabled:opacity-60",
         "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
         FOCUS_RING,
@@ -290,13 +310,13 @@ function TextCell({
     "aria-label": ariaLabel,
     placeholder,
     onBlur: commit,
-    style: { borderColor: "var(--color-hairline-strong)" },
   } as const;
 
   if (multiline) {
     return (
       <textarea
         {...shared}
+        style={{ borderColor: "var(--color-hairline-strong)" }}
         ref={taRef}
         rows={1}
         onChange={(e) => setDraft(e.target.value)}
@@ -313,7 +333,7 @@ function TextCell({
           }
         }}
         className={cn(
-          "w-full resize-none overflow-hidden rounded-md border bg-white px-2 py-1 text-[14px] font-bold leading-snug text-ink-strong focus:border-altus-red disabled:opacity-60",
+          "w-full resize-none overflow-hidden rounded-md border bg-white px-2 py-0.5 text-[13px] font-bold leading-snug text-ink-strong focus:border-altus-red disabled:opacity-60 [font-family:var(--font-display)]",
           FOCUS_RING,
           className,
         )}
@@ -337,7 +357,10 @@ function TextCell({
         }
       }}
       className={cn(
-        "w-full rounded-md border bg-white px-2 py-1 text-[14px] font-bold text-ink-strong focus:border-altus-red disabled:opacity-60",
+        // Plain text until focused — no boxed input chrome for a value that's
+        // read far more often than it's edited. A border + white fill appear
+        // only while actually typing, so it still reads as an editable cell.
+        "w-full rounded-md border border-transparent bg-transparent px-2 py-0.5 text-[13px] font-bold text-ink-strong focus:border-altus-red focus:bg-white disabled:opacity-60 [font-family:var(--font-display)]",
         FOCUS_RING,
         className,
       )}
@@ -497,12 +520,12 @@ function PctCell({
   if (auto) {
     return (
       <div
-        className="flex items-baseline justify-center gap-0.5"
+        className="flex items-baseline justify-start gap-0.5"
         title="Auto-calculated from Actual ÷ Target"
       >
         <span
           className="tabular-nums font-black leading-none"
-          style={{ color: tone.color, fontFamily: "var(--font-display)", fontSize: 20 }}
+          style={{ color: tone.color, fontFamily: "var(--font-display)", fontSize: 13 }}
         >
           {pct}
         </span>
@@ -514,7 +537,7 @@ function PctCell({
   }
 
   return (
-    <div className="flex items-center justify-center gap-0.5">
+    <div className="flex items-center justify-start gap-0.5">
       <NumBox
         value={String(pct)}
         min={0}
@@ -525,10 +548,10 @@ function PctCell({
           const n = Math.max(0, Math.min(100, Math.round(Number(raw) || 0)));
           if (n !== pct) onCommit(n);
         }}
-        className="w-[40px]"
+        className="w-[46px]"
       />
       <span
-        className="inline-flex h-6 min-w-7 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums"
+        className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[12px] font-bold tabular-nums"
         style={{ color: tone.color, background: tone.bg }}
       >
         %
@@ -818,11 +841,7 @@ function BulkMembers({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg border bg-surface-card px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red",
-            FOCUS_RING,
-          )}
-          style={{ borderColor: "var(--color-hairline-strong)" }}
+          className={cn(MENU_BTN, FOCUS_RING)}
         >
           <Users size={13} /> + Members
         </button>
@@ -1040,11 +1059,6 @@ function DelegatesCell({
             className={cn(
               "inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
               "disabled:cursor-not-allowed disabled:opacity-60",
-              // #30 — no delegate affordance until the goal is actually delegated:
-              // when the list is empty the trigger is hidden, revealed only on row
-              // hover / keyboard focus (or while its own picker is open).
-              list.length === 0 && !open &&
-                "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
               FOCUS_RING,
             )}
             style={{ borderColor: "var(--color-hairline-strong)" }}
@@ -1182,11 +1196,7 @@ function BulkDelegate({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg border bg-surface-card px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red",
-            FOCUS_RING,
-          )}
-          style={{ borderColor: "var(--color-hairline-strong)" }}
+          className={cn(MENU_BTN, FOCUS_RING)}
         >
           <UserPlus size={13} /> + Delegate
         </button>
@@ -1287,7 +1297,7 @@ function TargetDateInline({
     if (!has) return null;
     return (
       <span
-        className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-[1px] text-[11px] font-bold tabular-nums"
+        className="inline-flex items-center gap-1 rounded-full px-2 py-[1px] text-[12px] font-bold tabular-nums"
         style={{ background: `color-mix(in srgb, ${st.color} 12%, transparent)`, color: st.color }}
         title={`Target date ${fmtTargetDate(iso)} · ${st.label}`}
       >
@@ -1298,7 +1308,7 @@ function TargetDateInline({
   }
 
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <input
         type="date"
         defaultValue={iso ?? ""}
@@ -1309,14 +1319,14 @@ function TargetDateInline({
           if (v !== (iso ?? null)) onCommit(v);
         }}
         className={cn(
-          "h-7 rounded-md border bg-white px-1.5 text-[12px] font-semibold text-ink-strong focus:border-altus-red disabled:opacity-60",
+          "h-8 rounded-md border bg-white px-1.5 text-[13px] font-semibold text-ink-strong focus:border-altus-red disabled:opacity-60",
           FOCUS_RING,
         )}
         style={{ borderColor: has ? st.color : "var(--color-hairline-strong)" }}
       />
       {has && (
         <span
-          className="inline-flex items-center gap-1 rounded-full px-1.5 py-[1px] text-[10.5px] font-bold tabular-nums"
+          className="inline-flex items-center gap-1 rounded-full px-1.5 py-[1px] text-[11px] font-bold tabular-nums"
           style={{ background: `color-mix(in srgb, ${st.color} 12%, transparent)`, color: st.color }}
           title={st.label}
         >
@@ -1420,7 +1430,7 @@ function siblingTargets(level: Level, periodKey: string | undefined): PeriodTarg
 }
 
 const MENU_BTN =
-  "inline-flex items-center gap-1.5 rounded-lg border bg-surface-card px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red";
+  "inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong bg-surface-card px-3 py-1.5 text-[13px] font-bold text-ink-soft shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:border-altus-red hover:text-altus-red hover:bg-altus-red/[0.04] transition-colors";
 
 /** Context-aware "Copy to" — a checkable list of the current level's child
  *  periods; copy the selected goals into ONE OR MORE of them in a single go. */
@@ -1753,12 +1763,215 @@ function DupCollisionDialog({
 /* ------------------------------------------------------------------ */
 
 const TH =
-  "px-2 py-4 text-left text-[12.5px] font-black uppercase tracking-[0.07em] text-ink-strong whitespace-nowrap";
+  "px-2 py-1.5 text-left text-table-head whitespace-nowrap max-md:px-1.5 max-md:py-1.5";
+
+/** Header cell metadata (not JSX — the component attaches live drag handlers
+ *  itself) for one REORDERABLE_COLUMNS key, in the table's fixed per-column
+ *  styling. "notes" is the one key that covers two physical columns (Notes +
+ *  Attachments), which is why this always returns an array — both drag as
+ *  one unit under the caller's own `key` (the REORDERABLE_COLUMNS key, not
+ *  either cell's own React key). */
+function headerCellsFor(key: string): { reactKey: string; label: string; className: string }[] {
+  switch (key) {
+    case "srno":
+      return [{ reactKey: "srno", label: "#", className: cn(TH, "w-px") }];
+    case "area":
+      return [{ reactKey: "area", label: "Area", className: cn(TH, "px-1.5 min-w-[68px]") }];
+    case "title":
+      return [{ reactKey: "title", label: "Goal", className: cn(TH, "min-w-[320px]") }];
+    case "measure":
+      return [{ reactKey: "measure", label: "Measure", className: cn(TH, "px-1.5 min-w-[68px]") }];
+    case "actual":
+      return [{ reactKey: "actual", label: "Actual", className: cn(TH, "px-1.5 w-[70px]") }];
+    case "target":
+      return [{ reactKey: "target", label: "Target", className: cn(TH, "px-1.5 w-[70px]") }];
+    case "pct":
+      return [{ reactKey: "pct", label: "% Done", className: cn(TH, "px-1.5 w-[74px]") }];
+    case "teamPct":
+      return [{ reactKey: "teamPct", label: "Team %", className: cn(TH, "px-1.5 w-[54px]") }];
+    case "weight":
+      return [{ reactKey: "weight", label: "Weight", className: cn(TH, "px-1.5 w-[58px]") }];
+    case "delegate":
+      return [{ reactKey: "delegate", label: "Delegated", className: cn(TH, "px-1.5 min-w-[118px]") }];
+    case "targetDate":
+      return [{ reactKey: "targetDate", label: "Target Date", className: cn(TH, "min-w-[190px]") }];
+    case "owner":
+      return [{ reactKey: "owner", label: "Owner", className: cn(TH, "px-1.5 min-w-[84px]") }];
+    case "type":
+      return [{ reactKey: "type", label: "Type", className: cn(TH, "px-1.5 min-w-[68px]") }];
+    case "notes":
+      return [
+        { reactKey: "notes", label: "Notes", className: cn(TH, "px-1.5 min-w-[100px]") },
+        { reactKey: "attachments", label: "Attachments", className: cn(TH, "px-1.5 min-w-[140px]") },
+      ];
+    default:
+      return [];
+  }
+}
 
 // #10 — the fixed Goal Type taxonomy labels for the inline Type selector
 // (KPI / Branding / Strategic / Operational / Essential). NOT admin-extensible,
 // unlike the legacy free-text `category` lookups.
 const GOAL_TYPE_OPTIONS: string[] = GOAL_TYPES.map((t) => GOAL_TYPE_LABELS[t]);
+
+/** The simplified table's own fixed Type list — deliberately narrower than the
+ *  full GOAL_TYPES taxonomy. "Incentive" has no built-in code, so it
+ *  round-trips through the custom-raw-label path in the "type" grid column's
+ *  parse() below. */
+export const QUARTER_TYPE_OPTIONS: string[] = ["Incentive", "KPI", "Strategic", "Operational"];
+
+/** Every optional column the Columns picker can show/hide, in table order —
+ *  the single source of truth both the picker's checklist and the table's
+ *  own render gates read from. */
+export const OPTIONAL_COLUMNS: { key: string; label: string }[] = [
+  { key: "measure", label: "Measure" },
+  { key: "actual", label: "Actual" },
+  { key: "teamPct", label: "Team %" },
+  { key: "weight", label: "Weight" },
+  { key: "delegate", label: "Delegated" },
+  { key: "owner", label: "Owner" },
+  { key: "type", label: "Type" },
+  { key: "notes", label: "Notes" },
+];
+
+/** The simplified table's original fixed column set, unchanged for any
+ *  caller that doesn't pass `visibleCols` (the Columns picker). */
+export const DEFAULT_VISIBLE_COLS = new Set(["actual", "weight", "delegate", "owner", "type"]);
+
+/** Every optional column shown — used where the caller wants the Columns
+ *  picker to start fully expanded (the level board defaults to this). */
+export const ALL_VISIBLE_COLS = new Set(OPTIONAL_COLUMNS.map((c) => c.key));
+
+/** Every data column, in the table's DEFAULT left-to-right order — the
+ *  ColumnsPicker's drag-reorder list AND what a header-cell drag splices.
+ *  Sr No / Area / Goal / Target / % Done are here too (their position is
+ *  draggable) but `pickable: false` means they have no checkbox — they can
+ *  move, never hide. Notes covers both the Notes and Attachments cells as
+ *  one draggable unit. The checkbox column is the one thing NOT here — pure
+ *  UI (row selection), not data, so it always stays leftmost. */
+export const REORDERABLE_COLUMNS: { key: string; label: string; pickable: boolean }[] = [
+  { key: "srno", label: "#", pickable: false },
+  { key: "area", label: "Area", pickable: false },
+  { key: "title", label: "Goal", pickable: false },
+  { key: "measure", label: "Measure", pickable: true },
+  { key: "actual", label: "Actual", pickable: true },
+  { key: "target", label: "Target", pickable: false },
+  { key: "pct", label: "% Done", pickable: false },
+  { key: "teamPct", label: "Team %", pickable: true },
+  { key: "weight", label: "Weight", pickable: true },
+  { key: "delegate", label: "Delegated", pickable: true },
+  { key: "targetDate", label: "Target Date", pickable: false },
+  { key: "owner", label: "Owner", pickable: true },
+  { key: "type", label: "Type", pickable: true },
+  { key: "notes", label: "Notes", pickable: true },
+];
+
+/** Reconciles a (possibly stale) saved column order against
+ *  REORDERABLE_COLUMNS' CURRENT declared order: drops unknown/duplicate
+ *  keys, and — this is the part a naive "just append what's missing" gets
+ *  wrong — inserts any column missing from the save (e.g. one added to the
+ *  set after the user's last visit) at its DECLARED position relative to the
+ *  columns around it, not blindly at the end. A plain append is what shoved
+ *  Sr No/Area/Goal to the far right the first time they joined this list:
+ *  a save from before they existed had no slot for them, so they landed
+ *  after every other column instead of staying up front. */
+export function reconcileColOrder(stored: string[] | undefined): string[] {
+  const declared = REORDERABLE_COLUMNS.map((c) => c.key);
+  if (!stored) return declared;
+  const declaredIndex = new Map(declared.map((k, i) => [k, i]));
+  const known = new Set(declared);
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const k of stored) {
+    if (known.has(k) && !seen.has(k)) {
+      kept.push(k);
+      seen.add(k);
+    }
+  }
+  for (const k of declared) {
+    if (seen.has(k)) continue;
+    const idx = declaredIndex.get(k) as number;
+    let insertAt = kept.length;
+    for (let i = 0; i < kept.length; i++) {
+      const di = declaredIndex.get(kept[i] as string) as number;
+      if (di > idx) {
+        insertAt = i;
+        break;
+      }
+    }
+    kept.splice(insertAt, 0, k);
+  }
+  return kept;
+}
+
+/** Grid-nav-participating keys among REORDERABLE_COLUMNS (the ones with an
+ *  editable/readable spreadsheet cell) — Sr No, Owner, Target Date and Notes
+ *  have no grid cell, so they never enter the keyboard-nav column array. */
+const NAV_COLUMN_KEYS = new Set([
+  "area",
+  "title",
+  "measure",
+  "actual",
+  "target",
+  "pct",
+  "teamPct",
+  "weight",
+  "delegate",
+  "type",
+]);
+
+/** Pointer-based header-cell drag reorder — NOT the native HTML5 `draggable`
+ *  attribute (dragstart never reliably fires from inside a Radix Popover's
+ *  portal, per the Columns-picker's own cousin of this hook; kept consistent
+ *  here for the same feel even though the table isn't portaled). Tracks the
+ *  pointer held down on a header cell, splices `order` live as it crosses
+ *  another header cell, and ends on the next pointerup anywhere. A no-op
+ *  (draggable=false) when `onOrderChange` is omitted. */
+function useColumnHeaderDrag(order: string[], onOrderChange?: (next: string[]) => void) {
+  const draggable = !!onOrderChange;
+  const [dragKey, setDragKey] = React.useState<string | null>(null);
+  const orderRef = React.useRef(order);
+  React.useEffect(() => {
+    orderRef.current = order;
+  }, [order]);
+  const dragKeyRef = React.useRef<string | null>(null);
+
+  const startDrag = React.useCallback(
+    (key: string) => {
+      if (!draggable) return;
+      dragKeyRef.current = key;
+      setDragKey(key);
+    },
+    [draggable],
+  );
+  const crossCol = React.useCallback(
+    (targetKey: string) => {
+      const from0 = dragKeyRef.current;
+      if (!onOrderChange || !from0 || from0 === targetKey) return;
+      const cur = orderRef.current;
+      const from = cur.indexOf(from0);
+      const to = cur.indexOf(targetKey);
+      if (from < 0 || to < 0) return;
+      const next = [...cur];
+      next.splice(from, 1);
+      next.splice(to, 0, from0);
+      orderRef.current = next;
+      onOrderChange(next);
+    },
+    [onOrderChange],
+  );
+  React.useEffect(() => {
+    if (!draggable) return;
+    function endDrag() {
+      dragKeyRef.current = null;
+      setDragKey(null);
+    }
+    window.addEventListener("pointerup", endDrag);
+    return () => window.removeEventListener("pointerup", endDrag);
+  }, [draggable]);
+
+  return { draggable, dragKey, startDrag, crossCol };
+}
 
 export function GoalTableView(props: GoalTableViewProps) {
   const {
@@ -1779,8 +1992,39 @@ export function GoalTableView(props: GoalTableViewProps) {
   const weekly = props.variant === "weekly";
   const A = props.actions ?? CASCADE_ACTIONS;
   const detailKind = props.detailKind ?? "cascade";
+  const visibleCols = props.visibleCols ?? DEFAULT_VISIBLE_COLS;
+
+  // The FULL column order (every REORDERABLE_COLUMNS key, hidden ones
+  // included), reconciled against a possibly-stale `props.colOrder`. Drag-
+  // reorder splices THIS array (so a hidden column keeps its relative
+  // place); orderedColumnKeys below is the filtered projection that's
+  // actually rendered.
+  const mergedColOrder = React.useMemo(() => reconcileColOrder(props.colOrder), [props.colOrder]);
+
+  // Every column after Area/Goal, left-to-right, filtered to what's actually
+  // shown here: a `pickable` column drops out when hidden via visibleCols,
+  // Target Date only exists on the Month/Week levels, and Target/% Done
+  // always stay (their POSITION moves, but they can't be hidden).
+  const orderedColumnKeys = React.useMemo(
+    () =>
+      mergedColOrder.filter((k) => {
+        if (k === "targetDate") return level === "month" || level === "week";
+        const col = REORDERABLE_COLUMNS.find((c) => c.key === k);
+        return col?.pickable ? visibleCols.has(k) : true;
+      }),
+    [mergedColOrder, visibleCols, level],
+  );
+
+  // Header-cell drag reorder — isolated in its own hook (see
+  // useColumnHeaderDrag below) so its extra state/effects don't perturb the
+  // React Compiler's memoization analysis of the rest of this (very large)
+  // component.
+  const { draggable: draggableCols, dragKey: dragColKey, startDrag: startColDrag, crossCol } =
+    useColumnHeaderDrag(mergedColOrder, props.onColOrderChange);
 
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [, startTransition] = React.useTransition();
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
 
@@ -1803,6 +2047,49 @@ export function GoalTableView(props: GoalTableViewProps) {
   const allSelected = rows.length > 0 && rows.every((g) => selected.has(g.id));
   const someSelected = selected.size > 0 && !allSelected;
   const locked = !canWrite;
+  // Every level gets the same slimmer table: Measure / Actual / Team % /
+  // Weight / Delegated drop out of the grid, Notes gets its own column
+  // (attachments listed inline), and selecting a row opens a centered
+  // summary popup (instead of the corner hover tooltip) that hands off to
+  // the standalone full-detail screen. Originally Quarterly-only; now
+  // applied everywhere (Yearly/Monthly/Weekly included) so every level
+  // behaves identically.
+  const simplified = true;
+  // Selecting a row opens the Edit popup directly — no separate read-only
+  // summary step and no standalone full-detail screen anymore.
+  const [previewGoal, setPreviewGoal] = React.useState<GoalDTO | null>(null);
+
+  // The code badge (JuQ1, Y1, …) is a real link carrying `?focus=<id>` so
+  // right-click → "Open link in new tab" / ctrl-click / middle-click all work
+  // natively — a normal left click still opens the popup in place (below).
+  const focusHref = React.useCallback(
+    (id: string) => {
+      const qs = new URLSearchParams(searchParams?.toString());
+      qs.set("focus", id);
+      return `${pathname}?${qs.toString()}`;
+    },
+    [pathname, searchParams],
+  );
+
+  // A tab opened via that link (or a shared `?focus=` URL) auto-opens the
+  // matching goal's popup once its row has loaded.
+  React.useEffect(() => {
+    const id = searchParams?.get("focus");
+    if (!id) return;
+    const g = rows.find((r) => r.id === id);
+    if (g) setPreviewGoal(g);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, rows]);
+
+  const closePreview = React.useCallback(() => {
+    setPreviewGoal(null);
+    if (searchParams?.get("focus")) {
+      const qs = new URLSearchParams(searchParams.toString());
+      qs.delete("focus");
+      const suffix = qs.toString();
+      router.replace((suffix ? `${pathname}?${suffix}` : pathname) as Route, { scroll: false });
+    }
+  }, [pathname, router, searchParams]);
 
   // Debounced background reconcile — coalesces a burst of edits into ONE server
   // re-fetch instead of one heavy refresh per keystroke-commit (the old 7–10 s
@@ -2121,9 +2408,28 @@ export function GoalTableView(props: GoalTableViewProps) {
         },
       },
     );
+    // The simplified table drops whatever the Columns picker has hidden from
+    // the grid entirely (not just visually) so keyboard nav / copy / paste
+    // stay aligned with what's on screen — no phantom columns. It also has no
+    // rendered cell for "project" (a Members-style non-round-trippable column
+    // in the FULL table only), so that entry is always dropped here.
+    if (simplified) {
+      const optionalGridKeys = ["measure", "actual", "teamPct", "weight", "delegate", "type"];
+      const hidden = new Set(optionalGridKeys.filter((k) => !visibleCols.has(k)));
+      const byKey = new Map(cols.map((c) => [c.key, c]));
+      // Reorder to match the rendered DOM order (orderedColumnKeys) so
+      // arrow-nav / copy / paste stay aligned with what's actually on screen.
+      const ordered: GridColumn[] = [];
+      for (const k of orderedColumnKeys) {
+        if (!NAV_COLUMN_KEYS.has(k) || hidden.has(k)) continue;
+        const c = byKey.get(k);
+        if (c) ordered.push(c);
+      }
+      return ordered;
+    }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roster, locked, isAdmin, weekly, props.projects, props.vendors]);
+  }, [roster, locked, isAdmin, weekly, props.projects, props.vendors, simplified, visibleCols, orderedColumnKeys]);
 
   const grid = useGoalGridEngine({
     rows,
@@ -2131,6 +2437,295 @@ export function GoalTableView(props: GoalTableViewProps) {
     enabled: !locked,
     applyEdit: editField,
   });
+
+  /** Body <td>(s) for one REORDERABLE_COLUMNS key, for row `g` at index `i` —
+   *  the counterpart to headerCellsFor() above. `t`/`a` are that row's
+   *  already-parsed Target/Actual numbers (the size-threshold sub-label under
+   *  each). Always returns an array; "notes" returns two cells. */
+  function bodyCellsFor(key: string, g: GoalDTO, i: number, t: number | null, a: number | null): React.ReactNode[] {
+    switch (key) {
+      case "srno":
+        return [
+          <td key="srno" className="px-1.5 py-0 align-middle">
+            <div className="flex flex-col items-start gap-1">
+              {/* The goal CODE is the select/click handle. It is the one cell
+                  in the row that is not an inline editor, so making it the
+                  trigger opens the Edit popup without competing with typing
+                  in the title, target or notes. */}
+              {simplified ? (
+                <a
+                  href={focusHref(g.id)}
+                  onClick={(e) => {
+                    // Plain left click stays instant (no page reload) —
+                    // ctrl/cmd/middle-click and "open in new tab" fall
+                    // through to the real href.
+                    if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                      e.preventDefault();
+                      setPreviewGoal(g);
+                    }
+                  }}
+                  aria-label={`Goal: ${g.title || "Untitled goal"} — view details`}
+                  className="whitespace-nowrap text-[13px] font-bold text-ink-soft tabular-nums underline decoration-transparent underline-offset-2 transition-colors hover:text-altus-red hover:decoration-current outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/50 rounded-md"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  {codeOf ? codeOf(g) : goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
+                </a>
+              ) : (
+                <GoalPreview goal={g} ownerName={ownerNameOf?.(g) ?? null}>
+                  <span
+                    className="whitespace-nowrap text-[13px] font-bold text-ink-soft tabular-nums underline decoration-transparent underline-offset-2 transition-colors hover:text-altus-red hover:decoration-current"
+                    style={{ fontFamily: "var(--font-display)" }}
+                  >
+                    {codeOf ? codeOf(g) : goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
+                  </span>
+                </GoalPreview>
+              )}
+            </div>
+          </td>,
+        ];
+      case "area":
+        return [
+          <td key="area" {...grid.cellProps(i, grid.ci("area"), "px-1.5 py-0 align-middle")}>
+            <div className={cn(locked && "pointer-events-none opacity-60")}>
+              <GoalLookupSelect
+                kind="area"
+                noun="Area"
+                compact
+                placeholder="Area"
+                className="[font-family:var(--font-display)]"
+                value={g.area ?? ""}
+                options={areaOptions}
+                custom={customLookups.areas}
+                isAdmin={isAdmin}
+                onChange={(v) => grid.commit("area", g, v)}
+              />
+            </div>
+          </td>,
+        ];
+      case "title":
+        return [
+          <td key="title" {...grid.cellProps(i, grid.ci("title"), "px-1.5 py-0 align-middle")}>
+            {/* Single-line, truncated — keeps every row one line tall (dense
+                table, column stays narrow) — but a hover tooltip always shows
+                the FULL goal text, so nothing is ever actually hidden. */}
+            <Tooltip.Provider delayDuration={250}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <div className="min-w-0">
+                    <TextCell
+                      value={g.title}
+                      disabled={locked}
+                      ariaLabel="Goal title"
+                      placeholder="Goal…"
+                      className="truncate"
+                      // Title is required — the "title" column's parse rejects a
+                      // blank commit (returns null), so the row is never left
+                      // without a name.
+                      onCommit={(v) => grid.commit("title", g, v)}
+                    />
+                  </div>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="bottom"
+                    align="start"
+                    sideOffset={6}
+                    collisionPadding={16}
+                    className="z-[70]"
+                    style={{
+                      maxWidth: 420,
+                      background: "var(--color-surface-card)",
+                      border: "1px solid var(--color-hairline-strong)",
+                      borderRadius: 12,
+                      boxShadow: "0 16px 40px rgba(15,23,42,0.18)",
+                      padding: 12,
+                    }}
+                  >
+                    <p
+                      className="whitespace-pre-wrap"
+                      style={{ fontSize: 13.5, lineHeight: 1.5, fontWeight: 700, color: "var(--color-ink-strong)" }}
+                    >
+                      {g.title}
+                    </p>
+                    <Tooltip.Arrow style={{ fill: "var(--color-surface-card)" }} />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+            {/* Per Sir: when the Notes column is hidden (Columns picker), Notes
+                stays fully out of the table — no fallback trigger under the
+                Goal cell either. It's still reachable via the row's Edit
+                popup. */}
+          </td>,
+        ];
+      case "measure":
+        return [
+          <td key="measure" {...grid.cellProps(i, grid.ci("measure"), "px-1.5 py-0 align-middle")}>
+            <div className={cn(locked && "pointer-events-none opacity-60")}>
+              <GoalLookupSelect
+                kind="measure"
+                noun="Measure"
+                compact
+                placeholder="Measure"
+                className="[font-family:var(--font-display)]"
+                value={g.uom ?? ""}
+                options={measureOptions}
+                custom={customLookups.measures}
+                isAdmin={isAdmin}
+                onChange={(v) => grid.commit("measure", g, v)}
+              />
+            </div>
+          </td>,
+        ];
+      case "actual":
+        return [
+          <td key="actual" {...grid.cellProps(i, grid.ci("actual"), "px-1.5 py-0 align-middle")}>
+            <NumBox
+              value={trimDecimal(g.actualQty)}
+              disabled={locked}
+              ariaLabel="Actual"
+              placeholder="Actual"
+              className="w-[64px]"
+              onCommit={(raw) => grid.commit("actual", g, raw)}
+            />
+            {Math.abs(a ?? 0) >= 1000 && (
+              <p className="mt-0.5 pl-0.5 text-[10.5px] font-semibold text-ink-subtle tabular-nums">
+                {fmtNum(g.actualQty)}
+              </p>
+            )}
+          </td>,
+        ];
+      case "target":
+        return [
+          <td key="target" {...grid.cellProps(i, grid.ci("target"), "px-1.5 py-0 align-middle")}>
+            <NumBox
+              value={trimDecimal(g.targetQty)}
+              disabled={locked}
+              ariaLabel="Target"
+              placeholder="Target"
+              className="w-[64px]"
+              onCommit={(raw) => grid.commit("target", g, raw)}
+            />
+            {Math.abs(t ?? 0) >= 1000 && (
+              <p className="mt-0.5 pl-0.5 text-[10.5px] font-semibold text-ink-subtle tabular-nums">
+                {fmtNum(g.targetQty)}
+              </p>
+            )}
+          </td>,
+        ];
+      case "pct":
+        return [
+          <td key="pct" {...grid.cellProps(i, grid.ci("pct"), "px-1.5 py-0 align-middle")}>
+            {(() => {
+              const auto = autoPctDone(g.targetQty, g.actualQty);
+              return (
+                <PctCell
+                  pct={auto ?? g.pctDone}
+                  disabled={locked}
+                  auto={auto !== null}
+                  onCommit={(p) => grid.commit("pct", g, String(p))}
+                />
+              );
+            })()}
+          </td>,
+        ];
+      case "teamPct":
+        return [
+          <td key="teamPct" {...grid.cellProps(i, grid.ci("teamPct"), "px-1.5 py-0 align-middle")}>
+            <NumBox
+              value={g.teamDependencyPct == null ? "" : String(g.teamDependencyPct)}
+              min={0}
+              max={100}
+              disabled={locked}
+              ariaLabel="Team participation percent"
+              className="w-[56px]"
+              onCommit={(raw) => grid.commit("teamPct", g, raw)}
+            />
+          </td>,
+        ];
+      case "weight":
+        return [
+          <td key="weight" {...grid.cellProps(i, grid.ci("weight"), "px-1.5 py-0 align-middle")}>
+            <NumBox
+              value={String(g.weight ?? 100)}
+              min={0}
+              max={1000}
+              disabled={locked}
+              ariaLabel="Goal weightage"
+              className="w-[60px]"
+              onCommit={(raw) => grid.commit("weight", g, raw)}
+            />
+          </td>,
+        ];
+      case "delegate":
+        return [
+          <td key="delegate" {...grid.cellProps(i, grid.ci("delegate"), "px-1.5 py-0 align-middle")}>
+            <DelegatesCell
+              delegates={g.delegatedTo ?? null}
+              roster={roster}
+              disabled={locked}
+              onCommit={(next) => editField(g.id, { delegatedTo: next }, () => A.editGoal({ id: g.id, delegatedTo: next }))}
+            />
+          </td>,
+        ];
+      case "targetDate":
+        return [
+          <td key="targetDate" className="px-1.5 py-0 align-middle">
+            <TargetDateInline
+              iso={g.targetDate}
+              editable={level === "month" && !weekly}
+              disabled={locked}
+              onCommit={(v) => editField(g.id, { targetDate: v }, () => A.editGoal({ id: g.id, targetDate: v }))}
+            />
+          </td>,
+        ];
+      case "owner":
+        return [
+          level !== "day" ? (
+            <td key="owner" className="px-1.5 py-0 align-middle">
+              <AssignmentChip goal={g} />
+            </td>
+          ) : (
+            <td key="owner" className="px-1.5 py-0 align-middle" />
+          ),
+        ];
+      case "type":
+        return [
+          <td key="type" {...grid.cellProps(i, grid.ci("type"), "px-1.5 py-0 align-middle")}>
+            <div className={cn(locked && "pointer-events-none opacity-60")}>
+              <GoalLookupSelect
+                kind="goaltype"
+                noun="Type"
+                compact
+                placeholder="Type"
+                className="[font-family:var(--font-display)]"
+                value={g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? g.goalType : ""}
+                options={simplified ? QUARTER_TYPE_OPTIONS : (goaltypeOptions ?? GOAL_TYPE_OPTIONS)}
+                custom={simplified ? [] : (customLookups.goaltypes ?? [])}
+                isAdmin={simplified ? false : isAdmin && goaltypeOptions !== undefined}
+                onChange={(v) => grid.commit("type", g, v)}
+              />
+            </div>
+          </td>,
+        ];
+      case "notes":
+        return [
+          <td key="notes" className="px-1.5 py-0 align-top">
+            <NotesCell
+              goalId={g.id}
+              hasNotes={(g.notes?.trim()?.length ?? 0) > 0}
+              expanded={expanded.has(g.id)}
+              onToggle={() => toggleExpand(g.id)}
+            />
+          </td>,
+          <td key="attachments" className="px-1.5 py-0 align-top">
+            <AttachmentsCell goalId={g.id} expanded={expanded.has(g.id)} onToggle={() => toggleExpand(g.id)} />
+          </td>,
+        ];
+      default:
+        return [];
+    }
+  }
 
   /* ---------- bulk actions ---------- */
   const ids = React.useMemo(() => [...selected], [selected]);
@@ -2344,34 +2939,54 @@ export function GoalTableView(props: GoalTableViewProps) {
       <style>{`
         /* No vertical dividers — a clean list feel with only horizontal rules. */
         .gtv-table th, .gtv-table td { border-right: none; }
-        /* Frozen header — stays put while the rows scroll. */
+        /* Frozen header — the same crisp glass strip as the Tasks table, at a
+           smaller size than the shared text-table-head utility (dense table). */
         .gtv-table thead th {
           position: sticky;
           top: 0;
           z-index: 6;
-          background-image: linear-gradient(180deg,
-            color-mix(in srgb, #6b7280 13%, var(--color-surface-card)),
-            color-mix(in srgb, #6b7280 8%, var(--color-surface-card)));
-          box-shadow: 0 2px 0 color-mix(in srgb, #6b7280 24%, var(--color-hairline-strong));
+          background-image: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(244,246,249,0.90));
+          backdrop-filter: blur(10px) saturate(140%);
+          -webkit-backdrop-filter: blur(10px) saturate(140%);
+          box-shadow: inset 0 -1px 0 var(--color-hairline-strong);
+          font-size: 11px;
+          padding-top: 6px;
+          padding-bottom: 6px;
         }
       `}</style>
 
       {/* ---------- sticky bulk-actions bar ---------- */}
       {selected.size > 0 && (
         <div
-          className="wg-rise sticky top-2 z-30 mb-3 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 backdrop-blur-md"
+          className="wg-rise sticky top-2 z-30 mb-3 flex flex-wrap items-center gap-2 overflow-hidden rounded-section border px-4 py-2.5"
           style={{
-            borderColor: redTint(35),
-            background: `linear-gradient(120deg, ${redTint(10)}, color-mix(in srgb, var(--color-surface-card) 82%, transparent))`,
-            boxShadow: `0 14px 34px -16px ${redTint(45)}, 0 2px 8px -4px rgba(15,23,42,0.15)`,
+            borderColor: "color-mix(in srgb, var(--color-altus-red) 22%, var(--color-hairline-strong))",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(250,251,252,0.86))",
+            backdropFilter: "blur(16px) saturate(150%)",
+            WebkitBackdropFilter: "blur(16px) saturate(150%)",
+            boxShadow: "0 12px 32px -12px rgba(225, 6, 0, 0.18), 0 6px 20px -8px rgba(15,23,42,0.16)",
           }}
         >
+          {/* Brand accent rail — marks the bar as a live, armed control strip. */}
           <span
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13px] font-bold text-white tabular-nums"
-            style={{ background: "var(--color-altus-red)", fontFamily: "var(--font-display)" }}
-          >
-            {selected.size} selected
+            aria-hidden
+            className="absolute inset-y-0 left-0 w-[3px]"
+            style={{ background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+          />
+          <span className="inline-flex items-center gap-2 text-[14px] font-bold text-ink-strong">
+            <span
+              className="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full text-white tabular-nums text-[12.5px] font-black"
+              style={{
+                background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                boxShadow: "0 3px 8px -3px rgba(225, 6, 0, 0.5)",
+              }}
+            >
+              {selected.size}
+            </span>
+            selected
           </span>
+
+          <span className="mx-1 h-5 w-px bg-hairline" aria-hidden />
 
           {/* Edit — only when EXACTLY one row is selected (single-goal edit). */}
           {!weekly && selected.size === 1 && (
@@ -2381,13 +2996,9 @@ export function GoalTableView(props: GoalTableViewProps) {
                 const g = rows.find((r) => selected.has(r.id));
                 if (g) setEditingGoal(g);
               }}
-              className={cn(
-                "wg-sheen inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red",
-                FOCUS_RING,
-              )}
-              style={{ borderColor: "var(--color-hairline-strong)" }}
+              className={cn(MENU_BTN, FOCUS_RING)}
             >
-              <Pencil size={13} strokeWidth={2.6} /> Edit
+              <Pencil size={14} strokeWidth={2.2} /> Edit
             </button>
           )}
 
@@ -2395,12 +3006,12 @@ export function GoalTableView(props: GoalTableViewProps) {
             type="button"
             onClick={bulkDelete}
             className={cn(
-              "wg-sheen inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] font-bold text-altus-red transition-colors hover:bg-altus-red hover:text-white",
+              "inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[13px] font-bold text-altus-red bg-surface-card shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-altus-red/8 transition-colors",
               FOCUS_RING,
             )}
-            style={{ borderColor: "var(--color-altus-red)" }}
+            style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 35%, transparent)" }}
           >
-            <Trash2 size={13} strokeWidth={2.6} /> Delete
+            <Trash2 size={14} strokeWidth={2.2} /> Delete
           </button>
 
           {level === "year" && (
@@ -2411,12 +3022,12 @@ export function GoalTableView(props: GoalTableViewProps) {
                 onClick={bulkDivide}
                 title="Divide each selected yearly goal into 4 quarters + 12 months"
                 className={cn(
-                  "wg-sheen inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] font-bold text-altus-red transition-colors hover:bg-altus-red hover:text-white",
+                  "inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[13px] font-bold text-altus-red bg-surface-card shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-altus-red/8 transition-colors",
                   FOCUS_RING,
                 )}
-                style={{ borderColor: "var(--color-altus-red)" }}
+                style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 35%, transparent)" }}
               >
-                <Split size={13} strokeWidth={2.6} /> Divide into 4Q + 12M
+                <Split size={14} strokeWidth={2.2} /> Divide into 4Q + 12M
               </button>
             </>
           )}
@@ -2426,8 +3037,14 @@ export function GoalTableView(props: GoalTableViewProps) {
           <BulkMembers roster={roster} count={selected.size} onApply={bulkSetMembers} />
           {!weekly && <BulkDelegate roster={roster} count={selected.size} onApply={bulkSetDelegate} />}
 
-          <span className="mx-0.5 hidden h-5 w-px sm:block" style={{ background: "var(--color-hairline-strong)" }} />
-          <BulkStatusMenu onPick={bulkStatus} />
+          {/* Status bulk-action — dropped from Quarterly's bar (goal status here
+              is tracked via % Done + the Type taxonomy, not a status verdict). */}
+          {!simplified && (
+            <>
+              <span className="mx-0.5 hidden h-5 w-px sm:block" style={{ background: "var(--color-hairline-strong)" }} />
+              <BulkStatusMenu onPick={bulkStatus} />
+            </>
+          )}
 
           {!weekly && (
             <>
@@ -2454,18 +3071,18 @@ export function GoalTableView(props: GoalTableViewProps) {
             type="button"
             onClick={clearSelection}
             className={cn(
-              "ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12.5px] font-bold text-ink-subtle transition-colors hover:text-ink-strong",
+              "ml-auto inline-flex items-center gap-1.5 rounded-pill bg-surface-card px-3 py-1.5 text-[13px] font-semibold text-ink-subtle transition-colors hover:text-ink-strong",
               FOCUS_RING,
             )}
           >
-            <X size={13} strokeWidth={2.6} /> Clear
+            <X size={14} strokeWidth={2.4} /> Clear
           </button>
         </div>
       )}
 
       {/* ---------- the table ---------- */}
       <div
-        className="wg-rise max-h-[74vh] overflow-auto rounded-2xl border"
+        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-x-auto overflow-y-auto overscroll-x-contain max-h-[calc(100vh-260px)]"
         onKeyDown={grid.onKeyDown}
         onBlur={(e) => {
           // Clear the active-cell highlight when focus leaves the table entirely
@@ -2473,20 +3090,13 @@ export function GoalTableView(props: GoalTableViewProps) {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) grid.blur();
         }}
         style={{
-          borderColor: "var(--color-hairline-strong)",
-          background: "var(--color-surface-card)",
-          boxShadow: "0 1px 2px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(15,23,42,0.28)",
+          boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 40px -24px rgba(15, 23, 42, 0.20)",
         }}
       >
-        <table className="gtv-table w-full border-collapse text-[13.5px]">
+        <table className="gtv-table w-full border-collapse text-[13px]">
           <thead>
-            <tr
-              style={{
-                background: `linear-gradient(180deg, color-mix(in srgb, #6b7280 13%, var(--color-surface-card)), color-mix(in srgb, #6b7280 8%, var(--color-surface-card)))`,
-                borderBottom: "2px solid color-mix(in srgb, #6b7280 24%, var(--color-hairline-strong))",
-              }}
-            >
-              <th className={cn(TH, "w-9 pl-3")}>
+            <tr className="border-b border-hairline-strong">
+              <th className={cn(TH, "w-7 pl-2 pr-1")}>
                 <BrandCheck
                   checked={allSelected}
                   indeterminate={someSelected}
@@ -2494,20 +3104,30 @@ export function GoalTableView(props: GoalTableViewProps) {
                   label="Select all goals"
                 />
               </th>
-              <th className={cn(TH, "w-px text-center")}>#</th>
-              <th className={cn(TH, "min-w-[104px] text-center")}>Area</th>
-              <th className={cn(TH, "min-w-[280px]")}>Goal</th>
-              <th className={cn(TH, "min-w-[104px] text-center")}>Measure</th>
-              <th className={cn(TH, "text-center")}>Actual</th>
-              <th className={cn(TH, "text-center")}>Target</th>
-              <th className={cn(TH, "w-[64px] text-center")}>% Done</th>
-              <th className={cn(TH, "w-[60px] text-center")}>Team %</th>
-              <th className={cn(TH, "w-[64px] text-center")}>Weight</th>
-              <th className={cn(TH, "min-w-[150px]")}>Delegated</th>
-              {(level === "month" || level === "week") && (
-                <th className={cn(TH, "min-w-[132px] text-center")}>Target Date</th>
+              {orderedColumnKeys.flatMap((k) =>
+                headerCellsFor(k).map((cell) => (
+                  <th
+                    key={cell.reactKey}
+                    className={cn(
+                      cell.className,
+                      draggableCols && "cursor-grab touch-none select-none",
+                      dragColKey === k && "opacity-40",
+                    )}
+                    onPointerDown={
+                      draggableCols
+                        ? (e) => {
+                            e.preventDefault();
+                            startColDrag(k);
+                          }
+                        : undefined
+                    }
+                    onPointerEnter={draggableCols ? () => crossCol(k) : undefined}
+                    onPointerUp={draggableCols ? () => crossCol(k) : undefined}
+                  >
+                    {cell.label}
+                  </th>
+                )),
               )}
-              <th className={cn(TH, "min-w-[104px] text-center")}>Type</th>
             </tr>
           </thead>
           <tbody>
@@ -2518,251 +3138,28 @@ export function GoalTableView(props: GoalTableViewProps) {
               return (
                 <React.Fragment key={g.id}>
                 <tr
-                  className="group transition-colors"
+                  className={cn(
+                    "group border-b border-gray-200 transition-colors",
+                    !isSel && "hover:bg-slate-50/80",
+                  )}
                   style={{
-                    borderBottom: i === rows.length - 1 ? undefined : "1px solid color-mix(in srgb, var(--color-ink-strong) 12%, transparent)",
-                    background: isSel ? "color-mix(in srgb, var(--color-ink-strong) 5%, transparent)" : undefined,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSel) e.currentTarget.style.background = "color-mix(in srgb, var(--color-ink-strong) 3.5%, transparent)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = isSel ? "color-mix(in srgb, var(--color-ink-strong) 5%, transparent)" : "";
+                    background: isSel ? redTint(6) : undefined,
                   }}
                 >
-                  {/* select */}
-                  <td className="py-4 pl-3 pr-1 align-middle">
-                    <BrandCheck checked={isSel} onToggle={() => toggleRow(g.id)} label={`Select "${g.title}"`} />
-                  </td>
-
-                  {/* Sr. No — auto-code Y1 / AQ1 / AprM1 + Mine/Assigned pill */}
-                  <td className="px-2 py-4 align-middle">
-                    <div className="flex flex-col items-start gap-1">
-                      {/* The goal CODE is the hover/click handle. It is the one
-                          cell in the row that is not an inline editor, so making
-                          it the trigger adds the preview + details without
-                          competing with typing in the title, target or notes. */}
-                      <GoalPreview goal={g} ownerName={ownerNameOf?.(g) ?? null}>
-                        <span
-                          className="whitespace-nowrap text-[13px] font-bold text-ink-soft tabular-nums underline decoration-transparent underline-offset-2 transition-colors hover:text-altus-red hover:decoration-current"
-                          style={{ fontFamily: "var(--font-display)" }}
-                        >
-                          {codeOf ? codeOf(g) : goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
-                        </span>
-                      </GoalPreview>
-                      {/* Assignment Type — Self / Assigned (assigned carries a
-                          by · on · source tooltip). Every level can be assigned. */}
-                      {level !== "day" && <AssignmentChip goal={g} />}
-                    </div>
-                  </td>
-
-                  {/* Area */}
-                  <td {...grid.cellProps(i, grid.ci("area"), "px-2 py-4 align-middle")}>
-                    <div className={cn(locked && "pointer-events-none opacity-60")}>
-                      <GoalLookupSelect
-                        kind="area"
-                        noun="Area"
-                        compact
-                        placeholder="Area"
-                        value={g.area ?? ""}
-                        options={areaOptions}
-                        custom={customLookups.areas}
-                        isAdmin={isAdmin}
-                        onChange={(v) => grid.commit("area", g, v)}
-                      />
-                    </div>
-                  </td>
-
-                  {/* Goal title (inline in BOTH engines now) + Notes/Files expander */}
-                  <td {...grid.cellProps(i, grid.ci("title"), "px-2.5 py-4 align-top")}>
-                    {/* Multiline so the FULL goal is always visible — the cell wraps
-                        and auto-grows instead of truncating (no hover-peek needed). */}
-                    <TextCell
-                      multiline
-                      value={g.title}
-                      disabled={locked}
-                      ariaLabel="Goal title"
-                      placeholder="Goal…"
-                      // Title is required — the "title" column's parse rejects a blank
-                      // commit (returns null), so the row is never left without a name.
-                      onCommit={(v) => grid.commit("title", g, v)}
-                    />
-                    {/* Notes stay inline-editable in the expandable detail row below
-                        (a textarea + attachments that commits via editGoal({notes})
-                        through patchNotes) — no separate Notes column needed. The
-                        Target Date moved out to its own column (after Delegated). */}
-                    <button
-                      type="button"
-                      onClick={() => toggleExpand(g.id)}
-                      aria-expanded={expanded.has(g.id)}
-                      // `data-cell-expander` lets the grid open this from the title
-                      // cell via Shift+Enter; `data-notes-toggle` lets the detail
-                      // row return focus here on Esc — both keyboard-only paths.
-                      data-cell-expander
-                      data-notes-toggle={g.id}
-                      className={cn(
-                        "mt-1.5 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10.5px] font-black uppercase tracking-[0.04em] transition-colors hover:bg-altus-red hover:text-white",
-                        FOCUS_RING,
-                      )}
-                      style={{
-                        borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)",
-                        background: "color-mix(in srgb, var(--color-altus-red) 7%, transparent)",
-                        color: "var(--color-altus-red-deep)",
+                  {/* select — checking the box also opens the Edit popup
+                      automatically (unchecking just deselects). */}
+                  <td className="py-0 pl-2 pr-1 align-middle">
+                    <BrandCheck
+                      checked={isSel}
+                      onToggle={() => {
+                        toggleRow(g.id);
+                        if (simplified && !isSel) setPreviewGoal(g);
                       }}
-                    >
-                      <ChevronDown
-                        size={12}
-                        strokeWidth={2.6}
-                        className={cn("transition-transform", expanded.has(g.id) && "rotate-180")}
-                      />
-                      Notes &amp; Files
-                      {(g.notes?.trim()?.length ?? 0) > 0 && (
-                        <span
-                          aria-label="has notes"
-                          className="ml-0.5 inline-block size-1.5 rounded-full"
-                          style={{ background: "var(--color-altus-red)" }}
-                        />
-                      )}
-                    </button>
-                  </td>
-
-                  {/* Measure */}
-                  <td {...grid.cellProps(i, grid.ci("measure"), "px-2 py-4 align-middle text-center")}>
-                    <div className={cn(locked && "pointer-events-none opacity-60")}>
-                      <GoalLookupSelect
-                        kind="measure"
-                        noun="Measure"
-                        compact
-                        placeholder="Measure"
-                        value={g.uom ?? ""}
-                        options={measureOptions}
-                        custom={customLookups.measures}
-                        isAdmin={isAdmin}
-                        onChange={(v) => grid.commit("measure", g, v)}
-                      />
-                    </div>
-                  </td>
-
-                  {/* Actual — its own grid cell (was half of "Actual / Target") */}
-                  <td {...grid.cellProps(i, grid.ci("actual"), "px-2 py-4 align-middle text-center")}>
-                    <NumBox
-                      value={trimDecimal(g.actualQty)}
-                      disabled={locked}
-                      ariaLabel="Actual"
-                      placeholder="Actual"
-                      className="w-[64px]"
-                      onCommit={(raw) => grid.commit("actual", g, raw)}
-                    />
-                    {Math.abs(a ?? 0) >= 1000 && (
-                      <p className="mt-0.5 pl-0.5 text-[10.5px] font-semibold text-ink-subtle tabular-nums">
-                        {fmtNum(g.actualQty)}
-                      </p>
-                    )}
-                  </td>
-
-                  {/* Target — its own grid cell */}
-                  <td {...grid.cellProps(i, grid.ci("target"), "px-2 py-4 align-middle text-center")}>
-                    <NumBox
-                      value={trimDecimal(g.targetQty)}
-                      disabled={locked}
-                      ariaLabel="Target"
-                      placeholder="Target"
-                      className="w-[64px]"
-                      onCommit={(raw) => grid.commit("target", g, raw)}
-                    />
-                    {Math.abs(t ?? 0) >= 1000 && (
-                      <p className="mt-0.5 pl-0.5 text-[10.5px] font-semibold text-ink-subtle tabular-nums">
-                        {fmtNum(g.targetQty)}
-                      </p>
-                    )}
-                  </td>
-
-                  {/* % Done — auto-derived from Target ÷ Actual when both drive it */}
-                  <td {...grid.cellProps(i, grid.ci("pct"), "px-2 py-4 align-middle text-center")}>
-                    {(() => {
-                      const auto = autoPctDone(g.targetQty, g.actualQty);
-                      return (
-                        <PctCell
-                          pct={auto ?? g.pctDone}
-                          disabled={locked}
-                          auto={auto !== null}
-                          onCommit={(p) => grid.commit("pct", g, String(p))}
-                        />
-                      );
-                    })()}
-                  </td>
-
-                  {/* Team % */}
-                  <td {...grid.cellProps(i, grid.ci("teamPct"), "px-2 py-4 align-middle text-center")}>
-                    <NumBox
-                      value={g.teamDependencyPct == null ? "" : String(g.teamDependencyPct)}
-                      min={0}
-                      max={100}
-                      disabled={locked}
-                      ariaLabel="Team participation percent"
-                      className="w-[56px]"
-                      onCommit={(raw) => grid.commit("teamPct", g, raw)}
+                      label={`Select "${g.title}"`}
                     />
                   </td>
 
-                  {/* Weight — #14: editable inline at every level, incl. inherited */}
-                  <td {...grid.cellProps(i, grid.ci("weight"), "px-2 py-4 align-middle text-center")}>
-                    <NumBox
-                      value={String(g.weight ?? 100)}
-                      min={0}
-                      max={1000}
-                      disabled={locked}
-                      ariaLabel="Goal weightage"
-                      className="w-[60px]"
-                      onCommit={(raw) => grid.commit("weight", g, raw)}
-                    />
-                  </td>
-
-                  {/* Delegated — accountability hand-off with per-delegate %.
-                      A navigable (non-typeable) grid cell: arrow-nav lands here and
-                      Enter/type opens the picker with its search auto-focused. */}
-                  <td {...grid.cellProps(i, grid.ci("delegate"), "px-2 py-4 align-middle")}>
-                    <DelegatesCell
-                      delegates={g.delegatedTo ?? null}
-                      roster={roster}
-                      disabled={locked}
-                      onCommit={(next) => editField(g.id, { delegatedTo: next }, () => A.editGoal({ id: g.id, delegatedTo: next }))}
-                    />
-                  </td>
-
-                  {/* Target Date — moved out of the Goal cell into its own column.
-                      Month goals are editable; week goals show a read-only chip. */}
-                  {(level === "month" || level === "week") && (
-                    <td className="px-2 py-4 align-middle text-center">
-                      <TargetDateInline
-                        iso={g.targetDate}
-                        editable={level === "month" && !weekly}
-                        disabled={locked}
-                        onCommit={(v) =>
-                          editField(g.id, { targetDate: v }, () => A.editGoal({ id: g.id, targetDate: v }))
-                        }
-                      />
-                    </td>
-                  )}
-
-                  {/* Type — fixed Goal Type taxonomy (goalType), not free-text category */}
-                  <td {...grid.cellProps(i, grid.ci("type"), "px-2 py-4 align-middle text-center")}>
-                    <div className={cn(locked && "pointer-events-none opacity-60")}>
-                      <GoalLookupSelect
-                        kind="goaltype"
-                        noun="Type"
-                        compact
-                        placeholder="Type"
-                        // Built-in codes render via their label; an admin-added
-                        // custom type is stored raw, so fall back to the value.
-                        value={g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? g.goalType : ""}
-                        options={goaltypeOptions ?? GOAL_TYPE_OPTIONS}
-                        custom={customLookups.goaltypes ?? []}
-                        isAdmin={isAdmin && goaltypeOptions !== undefined}
-                        onChange={(v) => grid.commit("type", g, v)}
-                      />
-                    </div>
-                  </td>
+                  {orderedColumnKeys.flatMap((k) => bodyCellsFor(k, g, i, t, a))}
 
                 </tr>
                 {expanded.has(g.id) && (
@@ -2770,9 +3167,23 @@ export function GoalTableView(props: GoalTableViewProps) {
                     goalId={g.id}
                     notes={g.notes}
                     canWrite={!locked}
-                    colSpan={level === "month" || level === "week" ? 13 : 12}
+                    colSpan={
+                      simplified
+                        ? // "notes" is one key in visibleCols but now renders TWO
+                          // physical columns (Notes + Attachments) — count it twice.
+                          6 +
+                          visibleCols.size +
+                          (visibleCols.has("notes") ? 1 : 0) +
+                          (level === "month" || level === "week" ? 1 : 0)
+                        : level === "month" || level === "week"
+                          ? 13
+                          : 12
+                    }
                     nodeKind={detailKind}
                     assignment={assignmentInfo(g)}
+                    // No View button on the table itself (first screen) — only
+                    // on the standalone /goals/[id] full-detail screen.
+                    showAttachmentView={false}
                     onSaveNotes={(n) => patchNotes(g.id, n)}
                     onClose={() => {
                       toggleExpand(g.id);
@@ -2789,21 +3200,15 @@ export function GoalTableView(props: GoalTableViewProps) {
         </table>
       </div>
 
-      {/* footer count + spreadsheet keyboard hint */}
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pl-1">
-        <p className="text-[11.5px] font-semibold text-ink-subtle tabular-nums">
-          {rows.length} goal{rows.length === 1 ? "" : "s"}
-          {selected.size > 0 && <> · {selected.size} selected</>}
-        </p>
-        {!locked && (
-          <p className="text-[11px] font-medium text-ink-subtle">
-            <span className="font-bold text-ink-soft">Grid:</span> click a cell · arrows to move ·
-            Shift+arrows to select · Enter/type to edit ·{" "}
-            <span className="tabular-nums">Ctrl/⌘</span>+C/V copy·paste · Ctrl/⌘+D fill down ·
-            Ctrl/⌘+Z undo
-          </p>
-        )}
-      </div>
+      {/* Select-a-row flow: click the code badge (or check its row) opens a
+          VIEW-ONLY popup — no inputs, no Save. Editing stays on the table's
+          own inline cells (Area/Goal/Target/% Done/Type). */}
+      {previewGoal && (
+        <GoalDetailPopup
+          goal={previewGoal}
+          onClose={closePreview}
+        />
+      )}
 
       {editingGoal && (
         <GoalEditDialog

@@ -69,28 +69,28 @@ export function QuarterWindowNav({
     // `group`, not `tablist`: an FY box sits between the container and its
     // buttons, and a tablist may only contain tabs. The pills keep the board's
     // existing `aria-pressed` convention instead of tab semantics.
-    <div className="flex flex-wrap items-start gap-x-4 gap-y-3" role="group" aria-label="Pick a quarter">
+    <div className="flex flex-wrap items-start gap-x-3 gap-y-2" role="group" aria-label="Pick a quarter">
       {groups.map((group) => (
         <div
           key={group.fy}
           role="group"
           aria-label={fyLabel(group.fy)}
-          // `pt-3.5` clears the notched legend; the box is only a hairline so the
+          // `pt-3` clears the notched legend; the box is only a hairline so the
           // pills stay the loudest thing in the row.
-          className="relative rounded-xl border border-hairline px-2.5 pb-2.5 pt-3.5"
+          className="relative rounded-lg border border-hairline px-1.5 pb-1 pt-2"
           style={{ background: "color-mix(in srgb, var(--color-surface-soft) 55%, transparent)" }}
         >
           <span
             aria-hidden
             // Sits ON the top border and paints the band's own card background
             // behind itself, which is what cuts the hairline into a bracket.
-            className="absolute -top-[7px] left-2.5 px-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink-subtle"
+            className="absolute -top-[5px] left-1.5 px-1 text-[9px] font-bold uppercase tracking-[0.1em] text-ink-subtle"
             style={{ background: "var(--color-surface-card)" }}
           >
             {fyLabel(group.fy)}
           </span>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1">
             {group.keys.map((key) => (
               <QuarterPill
                 key={key}
@@ -146,7 +146,7 @@ function QuarterPill({
       // name each tab with its year — "Q1 · Apr–Jun" alone is ambiguous once the
       // window straddles two FYs.
       aria-label={name}
-      className={`wg-btn inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-bold whitespace-nowrap transition-all cursor-pointer ${FOCUS_RING}`}
+      className={`wg-btn inline-flex items-center justify-center gap-1 rounded-full border px-1.5 py-0.5 text-[10.5px] font-bold whitespace-nowrap transition-all cursor-pointer ${FOCUS_RING}`}
       style={
         active
           ? {

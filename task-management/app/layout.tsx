@@ -151,9 +151,10 @@ export default async function RootLayout({
         <NuqsAdapter>
           <Providers>{children}</Providers>
         </NuqsAdapter>
-        {/* Single-window lock (WhatsApp-Web style) — the WMS runs in one window
-            at a time for a signed-in user. Public/login pages pass enabled=false. */}
-        <SingleWindowGuard enabled={!!me} />
+        {/* Single-window lock (WhatsApp-Web style) — disabled per request so
+            goal links can open in a new tab without the "in another window"
+            takeover prompt interrupting either tab. */}
+        <SingleWindowGuard enabled={false} />
         <AppToaster />
         <RegisterSW />
         {/* Phase 0.3 — Vercel Speed Insights. Auto-no-ops outside Vercel
