@@ -20,8 +20,8 @@ import {
  *
  * The enterprise Tasks bulk-import workbook (exceljs) — the Tasks twin of the
  * Goals template. Four sheets:
- *   1. "Tasks"     — branded entry grid (frozen header + identifier columns,
- *                    premium slate header, banded rows, autoFilter, protected
+ *   1. "Tasks"     — branded entry grid (no frozen panes — the sheet scrolls as
+ *                    one, premium slate header, banded rows, autoFilter, protected
  *                    read-only columns, dynamic dropdown validation). Import
  *                    reads THIS sheet.
  *   2. "Examples"  — same columns, two pre-filled example rows (kept off the
@@ -110,7 +110,7 @@ export async function GET(): Promise<Response> {
   /* Sheet 1: "Tasks" — the entry grid                                */
   /* ================================================================ */
   const sheet = wb.addWorksheet("Tasks", {
-    views: [{ state: "frozen", xSplit: 4, ySplit: HEADER_ROW, showGridLines: false }],
+    views: [{ showGridLines: false }],
     pageSetup: {
       orientation: "landscape",
       fitToPage: true,
@@ -246,7 +246,7 @@ export async function GET(): Promise<Response> {
       if (e % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BAND_FILL } };
     });
   }
-  ex.views = [{ state: "frozen", ySplit: 1, showGridLines: false }];
+  ex.views = [{ showGridLines: false }];
 
   /* ================================================================ */
   /* Sheet 3: "How to use" — glossary                                 */

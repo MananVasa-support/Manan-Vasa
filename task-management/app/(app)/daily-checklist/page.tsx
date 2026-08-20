@@ -9,5 +9,5 @@ export const dynamic = "force-dynamic";
  * bookmarks, and the `c` shortcut all land on the single surface.
  */
 export default function DailyChecklistPage() {
-  redirect("/goals/plan" as Route);
+  redirect("/my-day" as Route);
 }

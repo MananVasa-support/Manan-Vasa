@@ -5,7 +5,8 @@ import { revalidatePath, updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { indexSections, indexLinks } from "@/db/schema";
 import { CACHE_TAGS } from "@/lib/cache-tags";
-import { requireAdmin } from "@/lib/auth/current";
+import { requireAdmin, requireUser } from "@/lib/auth/current";
+import { canDeleteIndexHub } from "@/lib/index-hub/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   AddSectionSchema,
@@ -23,6 +24,16 @@ type ActionResult<T = undefined> = ActionOk<T> | { ok: false; error: string };
 function revalidateIndex() {
   revalidatePath("/index-hub");
   updateTag(CACHE_TAGS.indexHub);
+}
+
+/**
+ * Deleting a section or a button is Manan Vasa's call alone — every other admin
+ * keeps add / rename / reorder. See lib/index-hub/access.ts.
+ */
+async function requireIndexHubDeleter() {
+  const me = await requireUser();
+  if (!canDeleteIndexHub(me.email)) throw new Error("Forbidden");
+  return me;
 }
 
 /** max(sort_order)+10 so new rows append to the end, leaving gaps to reorder. */
@@ -86,7 +97,7 @@ export async function renameIndexSection(
 }
 
 export async function deleteIndexSection(input: { id: string }): Promise<ActionResult> {
-  const me = await requireAdmin();
+  const me = await requireIndexHubDeleter();
   void me;
   const parsed = DeleteSectionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid id" };
@@ -151,7 +162,7 @@ export async function editIndexLink(
 }
 
 export async function deleteIndexLink(input: { id: string }): Promise<ActionResult> {
-  const me = await requireAdmin();
+  const me = await requireIndexHubDeleter();
   void me;
   const parsed = DeleteLinkSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid id" };

@@ -71,6 +71,34 @@ export async function listMyAttendance(
   return foldByDay(rows);
 }
 
+/**
+ * Has this employee already clocked IN on `ymd`?
+ *
+ * Used by the Attendance page lock as proof the day was legitimately started.
+ * A check-in row can only exist if the clock-in gate passed (Start My Day +
+ * MIN_ATTENDANCE_ITEMS), so it is a durable record of that — unlike
+ * `daily_plan_day.started_at`, which `reopenPlan` sets back to NULL.
+ *
+ * That distinction is the whole point: re-opening your plan to change tasks
+ * mid-day must NOT take the attendance page away from someone already clocked
+ * in, or they cannot reach the button to clock out. Clocking OUT still requires
+ * "Finish Day" — this only governs whether the page opens.
+ */
+export async function hasCheckedInOn(employeeId: string, ymd: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: attendanceLogs.id })
+    .from(attendanceLogs)
+    .where(
+      and(
+        eq(attendanceLogs.employeeId, employeeId),
+        eq(attendanceLogs.logDate, ymd),
+        eq(attendanceLogs.kind, "in"),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
 export interface TeamAttendanceRow {
   employeeId: string;
   name: string;

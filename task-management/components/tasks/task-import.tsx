@@ -97,7 +97,7 @@ export function TaskImport({
   }
 
   function downloadTemplate() {
-    // The enterprise exceljs workbook (branded, validated dropdowns, frozen
+    // The enterprise exceljs workbook (branded, validated dropdowns, no frozen
     // panes, Examples + How-to sheets) — every task column, generated server-side.
     const a = document.createElement("a");
     a.href = "/tasks/template.xlsx";

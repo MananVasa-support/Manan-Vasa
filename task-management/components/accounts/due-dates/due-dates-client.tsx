@@ -181,7 +181,7 @@ export function DueDatesChecklist({
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-hairline-strong bg-white px-3">
           <Search size={17} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search bills, area, notes…" className="w-full bg-transparent py-2.5 text-[15px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Local search — bills, area, notes" title="Local search — filters only the list on this page" aria-label="Local search — bills, area, notes — this page only" className="w-full bg-transparent py-2.5 text-[15px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle" />
         </div>
         <select className={CHIP} value={fArea} onChange={(e) => setFArea(e.target.value)} aria-label="Filter by area">
           <option value="">All Areas</option>

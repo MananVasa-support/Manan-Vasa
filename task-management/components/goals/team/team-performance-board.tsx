@@ -535,8 +535,7 @@ export function TeamPerformanceBoard({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search employee…"
-            aria-label="Search employee"
+            placeholder="Local search — employee" title="Local search — filters only the list on this page" aria-label="Local search — employee — this page only"
             className={`h-9 w-[210px] rounded-lg border border-hairline-strong bg-surface-card pl-8 pr-7 text-[13px] font-medium text-ink-strong outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/40 max-md:w-full`}
           />
           {query && (

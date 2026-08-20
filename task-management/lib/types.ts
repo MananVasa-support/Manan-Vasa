@@ -1,3 +1,4 @@
+import type { FineBucketKey } from "@/lib/transforms/aging-buckets-fine";
 import type { TaskStatus, AgeBucketId, Department } from "@/db/enums";
 
 export type ViewMode = "doer" | "initiator";
@@ -76,7 +77,10 @@ export type StatusCellBucket =
 export interface StatusCellTask {
   id: string;
   taskNo: number | null;
+  /** CLIENT NAME — the New Task form's "Client Name" writes to tasks.title.
+   *  Use `description` to label a row; this is context, not the task. */
   title: string;
+  description: string | null;
   client: string | null;
   subject: string | null;
   dueAt: Date | null;
@@ -334,13 +338,27 @@ export interface TaskListFilters {
   clients: string[];
   taskId: string | null;
   archived: boolean;
-  /** Team scope from the toolbar's Team dropdown.
-   *  - null      : no team scoping
+  /** `?overdue=true` — only OPEN tasks whose effective due date is already
+   *  past. A cross-cut, not a status: it narrows within whatever statuses are
+   *  selected rather than replacing them. Terminal work is excluded because a
+   *  task that is done is no longer late, it is finished. */
+  overdue: boolean;
+  /** `?age_range=<slug>` — one of the nine fine aging buckets, as a signed
+   *  day-window around the effective due date. Null when unset. Stored as the
+   *  bucket KEY (the human label) because that is what the chart, the chip and
+   *  FINE_BUCKET_OFFSETS all key on; the slug exists only for the URL. */
+  ageRange: FineBucketKey | null;
+  /** Team scope from the toolbar's Team dropdown. Comma-separated in the URL,
+   *  and a UNION when several are picked — "Sales or App Dev", not the
+   *  intersection, because nobody is in two teams at once and an intersection
+   *  would always be empty.
+   *  - []        : no team scoping
    *  - "mine"    : the viewer + everyone below them in the org chart
    *  - a Department name : that department group
-   *  Resolved to concrete doer ids in lib/queries/tasks.ts, because expanding
-   *  "mine" needs the org tree and the parser is intentionally DB-free. */
-  team: string | null;
+   *  Resolved to concrete employee ids in lib/queries/tasks.ts, because
+   *  expanding "mine" needs the org tree and the parser is intentionally
+   *  DB-free. */
+  teams: string[];
   /** The signed-in employee, carried so `team=mine` can be expanded server-side. */
   viewerId: string | null;
   /** How the assignee filter was resolved.
@@ -377,5 +395,15 @@ export interface TaskListRow {
   updatedAt: Date;
   approvalStatus: "approved" | "not_approved" | "cancelled" | "transferred" | null;
   firstReadAt: Date | null;
+  /** When work was FIRST started on this task — task_time_rollup.first_started_at,
+   *  i.e. the first `work_started` time event. Null until someone hits Start.
+   *  Distinct from createdAt (when it was raised) and firstReadAt (when the doer
+   *  opened it): a task can sit read-but-untouched for days. */
+  startedAt: Date | null;
   completedAt: Date | null;
+  /** A work session is open right now — task_time_rollup.open_session_count > 0.
+   *  Drives the inline Start/Stop control in the table. Read from the rollup
+   *  rather than task_work_sessions so it costs no extra join: the rollup is
+   *  already joined for `startedAt`. */
+  timerRunning: boolean;
 }

@@ -21,24 +21,13 @@ import { differenceInCalendarDays } from "date-fns";
 // Classic numbered pagination: a rows-per-page selector (default 25) with
 // First « · Prev · 1 2 3 … N · Next · Last » controls.
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
-const DEFAULT_PAGE_SIZE = 25;
+// Progressive disclosure replaces paging: the grid opens at 13 rows and grows
+// by 13 on each Load More. TanStack's pagination row model still does the
+// slicing — pageIndex is pinned at 0 and pageSize IS the visible count — so
+// sorting, grouping and the phone card list all stay on the same slice for free.
+const INITIAL_ROWS = 13;
+const LOAD_MORE_STEP = 13;
 
-// Up to ~12 numbered buttons: first + a 10-wide window around the current
-// page + last, with an ellipsis wherever the window detaches from an end —
-// e.g. 1 2 3 4 5 6 7 8 9 10 11 … 18, or 1 … 4 5 6 7 8 9 10 11 12 13 … 18.
-function pageWindow(current: number, total: number): (number | "ellipsis")[] {
-  const WINDOW = 5;
-  if (total <= WINDOW + 2) return Array.from({ length: total }, (_, i) => i + 1);
-  let end = Math.min(total - 1, Math.max(current + 4, WINDOW + 1));
-  const start = Math.max(2, end - WINDOW + 1);
-  end = Math.min(total - 1, start + WINDOW - 1);
-  const pages: (number | "ellipsis")[] = [1];
-  if (start > 2) pages.push("ellipsis");
-  for (let p = start; p <= end; p++) pages.push(p);
-  if (end < total - 1) pages.push("ellipsis");
-  pages.push(total);
-  return pages;
-}
 
 // date-fns `format()` throws RangeError on a null/invalid Date — which would
 // crash the ENTIRE table render. Guard every cell so one bad row degrades to
@@ -80,7 +69,6 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   SlidersHorizontal,
   Check,
-  ChevronRight,
   ChevronsRight,
   ArrowUp,
   ArrowDown,
@@ -97,6 +85,7 @@ import {
   Ban,
   Group as GroupIcon,
   type LucideIcon,
+  GripVertical,
 } from "lucide-react";
 
 // Group-by options for the Tasks table. "none" = flat list (default).
@@ -105,7 +94,7 @@ const GROUP_OPTIONS: { key: GroupKey; label: string; Icon: LucideIcon }[] = [
   { key: "none", label: "None", Icon: Ban },
   { key: "client", label: "Client", Icon: Building2 },
   { key: "subject", label: "Subject", Icon: Tag },
-  { key: "status", label: "Status", Icon: CircleDot },
+  { key: "status", label: "Doer Status", Icon: CircleDot },
   { key: "employee", label: "Employee", Icon: User },
   { key: "priority", label: "Priority", Icon: Flag },
 ];
@@ -145,6 +134,7 @@ const PRIORITY_RANK: Record<string, number> = Object.fromEntries(
 );
 import type { TaskListRow } from "@/lib/types";
 import { TaskRowActions } from "./task-row-actions";
+import { TaskTimerCell } from "./task-timer-cell";
 import { BulkActionBar } from "./bulk-action-bar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -177,18 +167,38 @@ import {
 
 // Friendly labels for the column show/hide menu (#11).
 const COLUMN_LABELS: Record<string, string> = {
+  timer: "Action",
   taskNo: "ID No.",
   client: "Client",
   doerName: "Doer",
   priority: "Priority",
-  status: "Status",
+  status: "Doer Status",
   subject: "Subject",
   createdAt: "Created",
   dueAt: "Due",
   ageDays: "Age",
 };
 
-const COLUMN_VIS_STORAGE_KEY = "altus.tasks.columnVisibility.v1";
+// Columns hidden on a fresh install. Both stay in the Columns menu — this is
+// a DEFAULT, not a removal — so anyone who wants the task number or the created
+// date ticks it back on and the choice persists.
+//
+// They lead the table today but answer almost nothing: the ID is an internal
+// handle nobody quotes, and "Created" is the one date that never drives a
+// decision (Due and Age both do). Hiding them hands their width to the columns
+// people actually read.
+const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
+  taskNo: false,
+  createdAt: false,
+};
+
+// v2, bumped deliberately. The persist effect below writes on EVERY mount, so
+// every existing user already has a v1 blob saying "{}" = show everything. Read
+// under the old key and that blob would immediately overwrite the defaults
+// above and nobody would ever see this change. Bumping the key retires those
+// entries; a v2 blob only exists once someone has actually opened the Columns
+// menu, and that choice is theirs to keep.
+const COLUMN_VIS_STORAGE_KEY = "altus.tasks.columnVisibility.v2";
 
 type StatusLabels = Record<TaskStatus, string>;
 type StatusTones = Record<TaskStatus, StatusColorToken>;
@@ -200,9 +210,69 @@ type TaskCol = ColumnDef<TaskListRow> & {
   meta?: { mobileHide?: boolean; align?: "center" | "right"; narrow?: boolean; wide?: boolean };
 };
 
+/**
+ * A column's stable id. TanStack derives it from `id` when present and from
+ * `accessorKey` otherwise; the persisted order has to key off the SAME string
+ * or a saved layout will not match the live columns after a reload.
+ */
+function colId(c: TaskCol): string {
+  const anyCol = c as { id?: string; accessorKey?: string };
+  return anyCol.id ?? anyCol.accessorKey ?? "";
+}
+
+/** Columns that stay put: the select checkbox and the row-actions rail are
+ *  positional furniture, not data, and both are sticky-pinned to an edge. */
+const UNMOVABLE_COLUMNS = new Set(["select", "actions"]);
+
+/**
+ * LEFT-FROZEN COLUMNS and their widths in px (Sir).
+ *
+ * Client · Subject · Task stay visible while the table scrolls sideways, and
+ * the Action (Start/Stop) rail rides with them so work can be started from any
+ * row without scrolling back. `select` is in here too — it is not one of the
+ * three, but leaving it behind would hide the checkboxes the moment you scrolled,
+ * which quietly breaks every bulk action.
+ *
+ * The widths must be EXPLICIT. `left:` offsets are absolute, so they can only be
+ * computed if each frozen column's width is known — with `auto` layout a column
+ * sizes to its content and the offsets would drift row by row. This is also
+ * where the Task column gets its ~2/3 width: it was `max-w-[64ch]` (≈560px) and
+ * is now 360px, with ellipsis rather than wrapping so rows stay one line tall.
+ *
+ * Key order here is irrelevant — the running offset is computed from the LIVE
+ * column order at render time, so a user who reorders columns still gets
+ * correct positions.
+ */
+const FROZEN_LEFT_WIDTH: Record<string, number> = {
+  select: 44,
+  client: 150,
+  subject: 150,
+  title: 360,
+  timer: 92,
+};
+
+/**
+ * Cumulative `left` offset for each frozen column, in the order they are
+ * actually rendered. A column's offset is the sum of the widths of the frozen
+ * columns BEFORE it; anything not frozen scrolls underneath and contributes
+ * nothing.
+ */
+function frozenLeftOffsets(orderedIds: string[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  let acc = 0;
+  for (const id of orderedIds) {
+    const w = FROZEN_LEFT_WIDTH[id];
+    if (w === undefined) continue;
+    out[id] = acc;
+    acc += w;
+  }
+  return out;
+}
+
+
 function buildColumns(
   employees: { id: string; name: string }[],
-  me: { id: string; isAdmin: boolean },
+  me: { id: string; isAdmin: boolean; canChangeDoer?: boolean },
   statusLabels: StatusLabels,
   statusTones: StatusTones,
   /** Present only when the list opens records in the drawer. */
@@ -283,6 +353,36 @@ function buildColumns(
         <TaskTitleCell row={row.original} onOpen={onOpenTask} />
       ),
     },
+    // TIMER — takes the slot the Start Time / End Time columns held. Those two
+    // showed WHEN work happened; this lets you act on it, which is what the
+    // leading column of a work queue is for. Both timestamps are still on the
+    // row payload (and still stamped by the engine) — only their columns are
+    // gone.
+    {
+      id: "timer",
+      header: "Action",
+      enableSorting: false,
+      // `narrow` keeps it out of the flexible-width pool; the w-24/min-w-[90px]
+      // box is applied on the cells themselves (see the th/td below) because
+      // `meta` carries hints, not classes.
+      meta: { narrow: true, align: "center" },
+      cell: ({ row }) => (
+        // Explicit flex centring rather than leaning on the td's text-center:
+        // the button is the cell's only content and a fixed-width frozen column
+        // is exactly where an off-centre control is most obvious.
+        <div className="flex items-center justify-center">
+        <TaskTimerCell
+          taskId={row.original.id}
+          running={row.original.timerRunning}
+          // The engine allows admin, the doer, OR the doer's manager. The
+          // manager leg needs the org chart, which the table does not have, so
+          // the inline control shows for admin + doer and managers keep using
+          // the drawer. Better a missing button than one that always errors.
+          canOperate={me.isAdmin || me.id === row.original.doerId}
+        />
+        </div>
+      ),
+    },
     {
       accessorKey: "doerName",
       header: "Doer",
@@ -292,7 +392,11 @@ function buildColumns(
           doerId={row.original.doerId}
           doerName={row.original.doerName}
           employees={employees}
-          editable={me.isAdmin}
+          // DOER = MANAN ONLY (Sir), not every admin. Optional prop, so a caller
+          // that forgets to pass it renders a plain read-only name rather than
+          // silently handing the control to the wrong person. The server action
+          // enforces the same rule — this only hides the affordance.
+          editable={me.canChangeDoer === true}
         />
       ),
     },
@@ -312,7 +416,12 @@ function buildColumns(
     },
     {
       accessorKey: "status",
-      header: "Status",
+      // "Doer Status", not "Status" — the column holds the WORKER's progress.
+      // The manager's ruling is a separate thing, set from the bulk bar's
+      // "Manager Status" control and stored in a different column entirely
+      // (`approval_status`). Naming them both "Status" is what made the two
+      // read as one control.
+      header: "Doer Status",
       sortingFn: (a, b) =>
         (STATUS_ORDER[a.original.status] ?? 99) - (STATUS_ORDER[b.original.status] ?? 99),
       cell: (info) => {
@@ -371,11 +480,27 @@ function buildColumns(
       accessorKey: "ageDays",
       header: "Age",
       meta: { mobileHide: true, align: "center" },
-      cell: (info) => (
-        <span className="text-body-lg text-ink tabular-nums">
-          {info.getValue<number>()}d
-        </span>
-      ),
+      // `ageDays` is computed server-side in lib/queries/tasks.ts as
+      // (today | day it closed) − effective due date. Positive = days late,
+      // 0 = due today, negative = days still remaining.
+      cell: (info) => {
+        const d = info.getValue<number>();
+        return (
+          <span
+            className={`text-body-lg tabular-nums ${
+              // Late is the only state worth colouring. Everything else is
+              // either on schedule or ahead of it, and tinting those competes
+              // with the Due column's own urgency treatment right beside it.
+              d > 0 ? "font-semibold text-red-600" : "text-ink"
+            }`}
+          >
+            {/* Plain signed integer days. The old "< 1d" is gone: it existed
+                for a created-relative age where 0 meant "less than a day old",
+                and under this formula 0 means exactly "due today". */}
+            {d}d
+          </span>
+        );
+      },
     },
     {
       id: "actions",
@@ -398,7 +523,7 @@ export function TaskTable({
 }: {
   rows: TaskListRow[];
   employees: { id: string; name: string }[];
-  me: { id: string; isAdmin: boolean };
+  me: { id: string; isAdmin: boolean; canChangeDoer?: boolean };
   statusLabels?: StatusLabels;
   statusTones?: StatusTones;
   /** Bulk-set option rosters. When omitted, fall back to the distinct
@@ -460,15 +585,24 @@ export function TaskTable({
     [employees, me, resolvedLabels, resolvedTones, openInDrawer, openTask],
   );
 
-  // #11 — per-user column visibility, persisted in localStorage. Start
-  // empty (all visible) on both server + first client render to avoid a
-  // hydration mismatch, then hydrate the saved choice after mount.
+  // #11 — per-user column visibility, persisted in localStorage. Seeded from
+  // the module-level DEFAULT, which is a static object — identical on the
+  // server and on the first client render — so it carries no hydration risk
+  // (the reason this used to start as `{}`). The saved choice loads after mount.
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+    React.useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY);
   React.useEffect(() => {
     try {
       const raw = localStorage.getItem(COLUMN_VIS_STORAGE_KEY);
-      if (raw) setColumnVisibility(JSON.parse(raw) as VisibilityState);
+      // Spread OVER the defaults rather than replacing them: a stored blob only
+      // names the columns that existed when it was written, so a plain replace
+      // would silently show any column added later that ships hidden.
+      if (raw) {
+        setColumnVisibility({
+          ...DEFAULT_COLUMN_VISIBILITY,
+          ...(JSON.parse(raw) as VisibilityState),
+        });
+      }
     } catch {
       /* ignore malformed storage */
     }
@@ -484,6 +618,60 @@ export function TaskTable({
     }
   }, [columnVisibility]);
 
+  // ── Drag-to-reorder column order, saved PER USER ────────────────────────
+  //
+  // Keyed by employee id, not merely by browser: two people sharing a machine
+  // must not inherit each other's layout. One person's arrangement is theirs
+  // alone and never becomes the default for anyone else.
+  //
+  // localStorage rather than a new table: there is no general UI-preference
+  // store in this schema, and the column-visibility setting above already
+  // established this as the house pattern for task-table layout. The trade-off
+  // is that the order does not follow a user to another browser or device.
+  const orderKey = `altus.tasks.columnOrder.v1:${me.id}`;
+  const defaultOrder = React.useMemo(() => columns.map((c) => colId(c)), [columns]);
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(defaultOrder);
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(orderKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as string[];
+      // RECONCILE, never trust wholesale: a stored order names the columns that
+      // existed when it was written. Drop ids since removed and append columns
+      // added since — otherwise a new column would be invisible to anyone who
+      // had ever reordered, which is a silent data-loss bug.
+      const known = new Set(defaultOrder);
+      const kept = saved.filter((id) => known.has(id));
+      const added = defaultOrder.filter((id) => !kept.includes(id));
+      setColumnOrder([...kept, ...added]);
+    } catch {
+      /* ignore malformed storage */
+    }
+  }, [orderKey, defaultOrder]);
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(orderKey, JSON.stringify(columnOrder));
+    } catch {
+      /* storage may be unavailable (private mode) */
+    }
+  }, [orderKey, columnOrder]);
+
+  // Which header is being dragged, and where it would land. `null` = idle.
+  const [dragCol, setDragCol] = React.useState<string | null>(null);
+  const [dropCol, setDropCol] = React.useState<string | null>(null);
+
+  /** Move `from` to sit where `to` currently is, preserving everything else. */
+  const moveColumn = React.useCallback((from: string, to: string) => {
+    if (from === to) return;
+    setColumnOrder((prev) => {
+      const next = prev.filter((id) => id !== from);
+      const at = next.indexOf(to);
+      if (at < 0) return prev;
+      next.splice(at, 0, from);
+      return next;
+    });
+  }, []);
+
   // Click-to-sort state (the user's chosen column) + group-by selection.
   // When grouped, the group column becomes the PRIMARY sort key so rows
   // cluster, and the user's sort applies within each group — see
@@ -498,8 +686,9 @@ export function TaskTable({
   // mode. Tracked by task id so it survives re-sorts.
   const [focusedId, setFocusedId] = React.useState<string | null>(null);
   const router = useRouter();
-  // Rows per page — user-selectable (10/25/50/100), default 25.
-  const [pageSize, setPageSize] = React.useState<number>(DEFAULT_PAGE_SIZE);
+  // How many rows are rendered. Grows on Load More; never shrinks except when
+  // the underlying list changes (new search / grouping / filter).
+  const [shown, setShown] = React.useState<number>(INITIAL_ROWS);
 
   // Free-text search across task no + the human-readable fields. Runs purely
   // client-side over the already-loaded rows (the list query returns the full
@@ -556,27 +745,29 @@ export function TaskTable({
   const table = useReactTable({
     data: visibleRows,
     columns,
-    state: { columnVisibility, sorting: effectiveSorting, rowSelection },
+    state: { columnVisibility, columnOrder, sorting: effectiveSorting, rowSelection },
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
     onSortingChange: handleSortingChange,
     onRowSelectionChange: setRowSelection,
     enableRowSelection: true,
     getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    // Fixed PAGE_SIZE pages; sorting/visibility apply across the full set
-    // before the page slice. Page index is driven by the numbered pager below.
+    // Used as a "first N rows" window, not as pages: pageIndex stays 0 and
+    // pageSize tracks `shown`. Sorting/visibility still apply across the FULL
+    // set before the slice, so Load More reveals the next rows in order rather
+    // than re-sorting what is on screen.
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE } },
+    initialState: { pagination: { pageIndex: 0, pageSize: INITIAL_ROWS } },
     autoResetPageIndex: false,
   });
 
-  // Apply the chosen rows-per-page and jump back to the first page so the
-  // user lands at the top of the re-sliced list rather than a now-stale page.
+  // The window is always the first `shown` rows.
   React.useEffect(() => {
-    table.setPageSize(pageSize);
+    table.setPageSize(shown);
     table.setPageIndex(0);
-  }, [pageSize, table]);
+  }, [shown, table]);
 
   // Total rows per group across the full (unpaginated) set, for the count
   // shown in each group header. Keyed by the same label `groupValue` renders.
@@ -590,35 +781,20 @@ export function TaskTable({
     return m;
   }, [groupBy, visibleRows, resolvedLabels]);
 
-  // Jump back to the first page whenever the grouping changes, so you start at
-  // the top of the newly-ordered list rather than a now-meaningless page.
+  // Regrouping reorders everything, so collapse back to the first 13 rather
+  // than leaving a long expansion pointing at a list that no longer matches it.
   React.useEffect(() => {
-    table.setPageIndex(0);
-  }, [groupBy, table]);
+    setShown(INITIAL_ROWS);
+  }, [groupBy]);
 
-  // Keep the current page valid when the underlying rows change (new filter /
-  // refresh). Clamp to the last page rather than always snapping to page 1, so
-  // an inline status edit doesn't yank you back to the top — you only move if
-  // your page no longer exists (e.g. a filter shrank the result set).
+  // A new search is a different list — start it at 13 again.
   React.useEffect(() => {
-    const maxIndex = Math.max(0, Math.ceil(visibleRows.length / pageSize) - 1);
-    if (table.getState().pagination.pageIndex > maxIndex) {
-      table.setPageIndex(maxIndex);
-    }
-  }, [visibleRows, table, pageSize]);
-
-  // A new search resets to the first page so results start at the top.
-  React.useEffect(() => {
-    table.setPageIndex(0);
-  }, [query, table]);
+    setShown(INITIAL_ROWS);
+  }, [query]);
 
   // Scroll the table back into view when the page changes, so the new rows are
   // visible without a manual scroll up.
   const listTopRef = React.useRef<HTMLDivElement>(null);
-  function goToPage(index: number) {
-    table.setPageIndex(index);
-    listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
 
   // J/K/Enter/F — keyboard navigation over the current page's rows. Skips when
   // typing or when a modifier is held, so it never fights ⌘K, browser
@@ -669,33 +845,72 @@ export function TaskTable({
       ?.scrollIntoView({ block: "nearest" });
   }, [focusedId]);
 
+  // Pre-slice total = every row that survived filters + search. `rendered` is
+  // what the window is actually showing, which is `shown` until the list runs
+  // out. Both feed the footer's "Showing X of Y".
   const totalFiltered = table.getPrePaginationRowModel().rows.length;
-  const pageCount = table.getPageCount();
-  const pageIndex = table.getState().pagination.pageIndex;
-  const rangeStart = totalFiltered === 0 ? 0 : pageIndex * pageSize + 1;
-  const rangeEnd = Math.min(totalFiltered, (pageIndex + 1) * pageSize);
-  const pages = pageWindow(pageIndex + 1, pageCount);
+  const rendered = Math.min(shown, totalFiltered);
+  const hasMore = rendered < totalFiltered;
 
+  /** Cell (body) alignment. Headers are ALWAYS left — see `headAlign` below. */
   function alignClass(c: TaskCol): string {
     const a = c.meta?.align;
     return a === "center" ? "text-center" : a === "right" ? "text-right" : "text-left";
   }
 
+  // Frozen-column offsets, from the LIVE order — so a user who has reordered
+  // their columns still gets correct sticky positions. Recomputed only when the
+  // visible set or its order changes, not on every row.
+  const leafIds = table.getVisibleLeafColumns().map((c) => c.id);
+  const frozenLeft = React.useMemo(
+    () => frozenLeftOffsets(leafIds),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [leafIds.join("|")],
+  );
+  /** The right-hand edge of the frozen block — the only cell that draws the
+   *  drop shadow, so the group reads as one slab rather than stacked cards. */
+  const lastFrozenId = leafIds.filter((id) => id in FROZEN_LEFT_WIDTH).pop();
+
+  /**
+   * Sticky presentation for one column, shared by the <th> and the <td> so the
+   * two can never disagree about where a frozen column sits.
+   *
+   * `md:sticky`, not `sticky`: the frozen block is ~790px wide, which on a phone
+   * would leave no room for anything to scroll into. Below `md` the columns fall
+   * back to normal flow. The `left` value is harmless while position is static.
+   */
+  function frozenCell(id: string): { className: string; style: React.CSSProperties } | null {
+    const left = frozenLeft[id];
+    if (left === undefined) return null;
+    const w = FROZEN_LEFT_WIDTH[id];
+    return {
+      className: "task-frozen-cell",
+      // The offset travels as a CUSTOM PROPERTY, and `position: sticky` + `left`
+      // are applied by a min-width:768px rule in globals.css — not inline.
+      //
+      // It has to work that way because the header <th> is ALREADY
+      // `sticky top-0` at every width for the vertical freeze. An inline `left`
+      // would therefore also take effect on mobile, where the body <td>s are
+      // deliberately NOT frozen — the headers would slide sideways while their
+      // own columns stayed put. One media query keeps both halves in step.
+      style: { ["--frozen-left" as string]: `${left}px`, width: w, minWidth: w, maxWidth: w },
+    };
+  }
+
   const selectedIds = table.getSelectedRowModel().rows.map((r) => r.original.id);
 
-  const pageInfo =
+  const countLabel =
     totalFiltered === 0
       ? "No tasks"
-      : pageCount > 1
-        ? `Page ${pageIndex + 1} of ${pageCount} · showing ${rangeStart}–${rangeEnd} of ${totalFiltered}`
-        : `Showing all ${totalFiltered} ${totalFiltered === 1 ? "task" : "tasks"}`;
+      : hasMore
+        ? `Showing ${rendered.toLocaleString("en-IN")} of ${totalFiltered.toLocaleString("en-IN")}`
+        : `Showing all ${totalFiltered.toLocaleString("en-IN")} ${totalFiltered === 1 ? "task" : "tasks"}`;
 
   return (
     <div ref={listTopRef} className="scroll-mt-6">
-      {/* Toolbar — one line: Group-by ▾ · Search · pager (1 … N · Next · Last)
-          · Rows/page · page readout · Columns. Everything pagination-related
-          lives up here so the table gets the vertical space below. A quiet
-          glass strip so the controls read as one instrument panel. */}
+      {/* Toolbar — Group-by ▾ · Search · Columns. The pager and rows-per-page
+          that used to sit here are gone; the row count and Load More live in
+          the table's sticky footer instead, beside the rows they describe. */}
       <div
         className="wg-rise mb-3 flex items-center gap-2 flex-wrap rounded-section border border-hairline px-3 py-2 max-md:px-3"
         style={{
@@ -712,18 +927,12 @@ export function TaskTable({
           <div className="w-full sm:w-[220px] md:w-[260px] min-w-[150px]">
             <SearchBox value={query} onChange={setQuery} resultCount={visibleRows.length} />
           </div>
-          <CompactPager
-            pages={pages}
-            pageIndex={pageIndex}
-            pageCount={pageCount}
-            canNext={table.getCanNextPage()}
-            onGoto={goToPage}
-          />
         </div>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <div className="flex items-center max-md:hidden">
-            <RowsPerPageSelect value={pageSize} onChange={setPageSize} />
-          </div>
+          {/* No numbered pager and no rows-per-page: the grid is a single
+              growing list now, and both controls describe a page model that no
+              longer exists. The count and the Load More that replaced them live
+              in the table's own sticky footer, next to the rows they govern. */}
           <MobileSortControl table={table} className="hidden max-md:flex" />
           <ColumnsMenu table={table} />
         </div>
@@ -741,22 +950,34 @@ export function TaskTable({
         />
       )}
 
+      {/* CARD — border, radius and shadow only. It no longer scrolls itself: the
+          scrolling moved to the inner div so the footer below can sit outside
+          the scrollport and stay put while rows move under it. */}
       <div
-        // The scroll container for BOTH axes:
-        //   overflow-x-auto — columns size to their content, so wide data scrolls
-        //     sideways instead of being truncated. The Manage column is pinned
-        //     with `sticky right-0`, which only works because the sticky ancestor
-        //     is THIS element (an overflow container), not the page.
-        //   overflow-y-auto + max-h — caps the table to the viewport so the
-        //     sticky header row stays frozen while you page through rows.
-        // `overscroll-x-contain` stops a sideways fling from also triggering the
-        // browser's back-navigation gesture.
-        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-x-auto overflow-y-auto overscroll-x-contain max-h-[calc(100vh-260px)] max-md:hidden"
+        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-hidden flex flex-col max-md:hidden"
         style={{
           animationDelay: "60ms",
           boxShadow:
             "0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 40px -24px rgba(15, 23, 42, 0.20)",
         }}
+      >
+      <div
+        // The scroll container for BOTH axes:
+        //   overflow-x-auto — columns size to their content, so wide data (Start
+        //     Time, End Time, Client, Subject, Task, Doer …) scrolls sideways
+        //     instead of being truncated. The Manage column is pinned with
+        //     `sticky right-0`, which only works because the sticky ancestor is
+        //     THIS element (an overflow container) — so the scrolling had to stay
+        //     on one div rather than being split across the two axes.
+        //   overflow-y-auto + max-h — the 13-row window. Rows are content-sized
+        //     rather than a fixed height, so 560px is an APPROXIMATION of
+        //     13 rows (~40px) plus the header (~40px); it is the cap that stops
+        //     Load More growing the page instead of the scroller.
+        // `max-h`, deliberately, NOT a fixed `h-`: a short list must shrink to
+        // its rows rather than leave a tall empty box below the last one.
+        // `overscroll-x-contain` stops a sideways fling from also triggering the
+        // browser's back-navigation gesture.
+        className="overflow-x-auto overflow-y-auto overscroll-x-contain max-h-[560px]"
       >
       <table className="min-w-full">
         <thead>
@@ -766,12 +987,46 @@ export function TaskTable({
                 const col = h.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = h.column.id === "actions";
+                const frozen = frozenCell(h.column.id);
                 const canSort = h.column.getCanSort();
                 const sorted = h.column.getIsSorted(); // false | "asc" | "desc"
                 const headerNode = flexRender(h.column.columnDef.header, h.getContext());
+                const movable = !UNMOVABLE_COLUMNS.has(h.column.id);
+                const isDropTarget = dropCol === h.column.id && dragCol !== h.column.id;
+                // Which edge to mark — the side the column would arrive from, so
+                // the line sits where it will actually land.
+                const fromLeft =
+                  dragCol != null &&
+                  columnOrder.indexOf(dragCol) < columnOrder.indexOf(h.column.id);
                 return (
                   <th
                     key={h.id}
+                    // `preventDefault` on dragover is what tells the browser a
+                    // drop is allowed here at all.
+                    onDragOver={
+                      movable
+                        ? (e) => {
+                            if (!dragCol) return;
+                            e.preventDefault();
+                            setDropCol(h.column.id);
+                          }
+                        : undefined
+                    }
+                    onDragLeave={
+                      movable
+                        ? () => setDropCol((c) => (c === h.column.id ? null : c))
+                        : undefined
+                    }
+                    onDrop={
+                      movable
+                        ? (e) => {
+                            e.preventDefault();
+                            if (dragCol) moveColumn(dragCol, h.column.id);
+                            setDragCol(null);
+                            setDropCol(null);
+                          }
+                        : undefined
+                    }
                     aria-sort={
                       sorted === "asc"
                         ? "ascending"
@@ -779,8 +1034,21 @@ export function TaskTable({
                           ? "descending"
                           : undefined
                     }
-                    className={`sticky top-0 px-4 py-2.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
+                    /* py-1.5, down from py-2.5. The header has no margin to
+                       trim — it is a sticky <th>, so its vertical padding IS
+                       the gap the spec is asking to close. */
+                    /* `w-full` on the wide column's header too: auto layout
+                       resolves a column's width from the whole column, so the
+                       th and td have to agree or the header lags the body. */
+                    // z-30 for BOTH frozen columns: they must paint above the
+                    // z-20 of the ordinary sticky headers, or a header scrolling
+                    // under them shows through.
+                    // HEADERS ARE ALWAYS LEFT-ALIGNED (Sir) — `alignClass` still
+                    // governs the CELLS, so numeric columns keep their right-aligned
+                    // values under a left-aligned label.
+                    className={`group/head sticky top-0 px-4 py-1.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 text-left ${frozen ? `${frozen.className} z-30` : isActions ? "right-0 z-30" : "z-20"} ${!frozen && col.meta?.wide ? "w-full" : ""} ${hide ? "max-md:hidden" : ""}`}
                     style={{
+                      ...(frozen?.style ?? {}),
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
                       // with a hairline seat drawn as an inset shadow so it
@@ -790,11 +1058,50 @@ export function TaskTable({
                       backdropFilter: "blur(10px) saturate(140%)",
                       WebkitBackdropFilter: "blur(10px) saturate(140%)",
                       color: "var(--color-ink-soft)",
-                      boxShadow: isActions
-                        ? "inset 0 -1px 0 var(--color-hairline-strong), -10px 0 14px -10px rgba(15,23,42,0.14)"
-                        : "inset 0 -1px 0 var(--color-hairline-strong)",
+                      boxShadow: [
+                        isActions
+                          ? "inset 0 -1px 0 var(--color-hairline-strong), -10px 0 14px -10px rgba(15,23,42,0.14)"
+                          : h.column.id === lastFrozenId
+                            ? "inset 0 -1px 0 var(--color-hairline-strong), 10px 0 14px -10px rgba(15,23,42,0.14)"
+                            : "inset 0 -1px 0 var(--color-hairline-strong)",
+                        isDropTarget
+                          ? `inset ${fromLeft ? "-3px" : "3px"} 0 0 var(--color-altus-red)`
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(", "),
+                      opacity: dragCol === h.column.id ? 0.45 : 1,
                     }}
                   >
+                    {/* A separate GRIP, not a draggable <th>. Making the whole
+                        header draggable competes with the sort button inside it:
+                        a click that moves a few pixels becomes a drag and the
+                        sort silently fails to fire. The grip owns dragging, the
+                        button owns sorting, and neither swallows the other. */}
+                    {movable && (
+                      <span
+                        draggable
+                        onDragStart={(e) => {
+                          setDragCol(h.column.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          // Firefox refuses to start a drag without payload.
+                          e.dataTransfer.setData("text/plain", h.column.id);
+                        }}
+                        onDragEnd={() => {
+                          setDragCol(null);
+                          setDropCol(null);
+                        }}
+                        role="button"
+                        tabIndex={-1}
+                        aria-label={`Reorder column ${
+                          typeof headerNode === "string" ? headerNode : h.column.id
+                        }`}
+                        title="Drag to reorder this column"
+                        className="mr-1 inline-flex cursor-grab align-middle text-ink-subtle opacity-0 transition-opacity hover:text-ink-strong active:cursor-grabbing group-hover/head:opacity-70"
+                      >
+                        <GripVertical size={12} strokeWidth={2.4} aria-hidden />
+                      </span>
+                    )}
                     {canSort ? (
                       <button
                         type="button"
@@ -896,9 +1203,32 @@ export function TaskTable({
                  (rgba(60,44,40,0.07)) that made the list read as one block.
                  `last:border-b-0` is dropped — a closing rule under the final
                  row is what makes the table look finished rather than cut off. */
-              className={`task-row border-b border-gray-200 transition-colors hover:bg-slate-50/80 ${
-                row.original.id === focusedId ? "is-focused bg-altus-red/[0.06]" : ""
-              }`}
+              // Row click opens the drawer, so the whole row is the target and
+              // not just the title link. Guarded below against clicks that
+              // started on a control.
+              onClick={
+                openInDrawer
+                  ? (e) => {
+                      // Never hijack a click that belongs to something else:
+                      // the select checkbox, the inline status editor, the
+                      // Manage cluster, or the title link (which handles
+                      // modifier-clicks to open a new tab itself).
+                      const el = e.target as HTMLElement;
+                      if (el.closest("a, button, input, select, textarea, [role='button'], [role='menuitem']"))
+                        return;
+                      // A drag-select of cell text should not open the record.
+                      if (window.getSelection()?.toString()) return;
+                      openTask(row.original.id);
+                    }
+                  : undefined
+              }
+              // border-l-4 transparent by default so turning it red on hover
+              // costs no layout shift — a border that appears would push every
+              // cell 4px right. See the note in globals.css for why this is a
+              // border and not a box-shadow.
+              className={`task-row border-b border-l-4 border-gray-200 border-l-transparent hover:border-l-red-600 ${
+                openInDrawer ? "is-clickable" : ""
+              } ${row.original.id === focusedId ? "is-focused bg-altus-red/[0.06]" : ""}`}
               style={{
                 boxShadow:
                   [
@@ -915,6 +1245,8 @@ export function TaskTable({
                 const col = cell.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = cell.column.id === "actions";
+                const frozen = frozenCell(cell.column.id);
+                const isLastFrozen = cell.column.id === lastFrozenId;
                 // Columns now size to their CONTENT and the table scrolls
                 // sideways, rather than every value being squeezed to ~32ch and
                 // truncated. The ONE exception is the free-text Task title: a
@@ -925,12 +1257,46 @@ export function TaskTable({
                 //
                 // Only a capped cell needs overflow/ellipsis; uncapped cells must
                 // NOT clip, or the sideways scroll would reveal cut-off values.
-                const maxW = isActions ? "" : col.meta?.wide ? "max-w-[52ch]" : "";
+                // The wide (Task) column is the table's ONE flexible column:
+                // `w-full` makes auto table-layout hand it whatever width the
+                // fixed, nowrap columns don't use, instead of spreading the
+                // slack thinly across columns that had already sized to their
+                // content and gained nothing from it. Hiding ID No. + Created
+                // by default freed real width, and this is what spends it — on
+                // the only column whose text was being ellipsized.
+                // min-w-[280px] still guarantees a floor when the table is
+                // scrolling; max-w-[64ch] (was 52ch) is the ceiling that keeps
+                // one 250-character title from stretching the row past 2000px.
+                // A FROZEN column has an exact width, so it always clips with an
+                // ellipsis — that is what keeps a long Task title one line tall
+                // instead of growing the row. Unfrozen columns keep the old
+                // behaviour: size to content, never clip, and let the table scroll.
+                const maxW = frozen
+                  ? "overflow-hidden text-ellipsis"
+                  : isActions
+                    ? ""
+                    : col.meta?.wide
+                      ? "w-full max-w-[64ch] overflow-hidden text-ellipsis"
+                      : "";
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-1.5 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
-                    style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
+                    className={`px-3 py-1 whitespace-nowrap max-md:px-3 max-md:py-2 ${maxW} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${!frozen && col.meta?.wide ? "min-w-[280px]" : ""} ${frozen ? `${frozen.className} z-10` : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
+                    style={
+                      isActions
+                        ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" }
+                        : frozen
+                          ? {
+                              ...frozen.style,
+                              // The edge shadow is drawn ONLY by the last frozen
+                              // column, so the block reads as one raised slab
+                              // rather than five stacked cards with seams.
+                              boxShadow: isLastFrozen
+                                ? "10px 0 14px -10px rgba(15,23,42,0.14)"
+                                : undefined,
+                            }
+                          : undefined
+                    }
                   >
                     {flexRender(
                       cell.column.columnDef.cell ?? ((c) => c.getValue()),
@@ -945,6 +1311,27 @@ export function TaskTable({
           })}
         </tbody>
       </table>
+      </div>
+
+      {/* Sticky footer INSIDE the card but OUTSIDE the scrollport, so it never
+          drifts sideways with a horizontal scroll the way a footer inside the
+          overflow-x container would. `sticky bottom-0` is belt-and-braces —
+          being the last child of the flex column already pins it. */}
+      <div className="sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-3 border-t border-hairline bg-slate-50 px-3.5 py-2">
+        <span className="text-[12.5px] font-semibold text-ink-subtle tabular-nums">
+          {countLabel}
+        </span>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShown((n) => n + LOAD_MORE_STEP)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[12.5px] font-bold text-ink-strong transition-colors hover:bg-gray-200"
+          >
+            <ChevronDown size={14} strokeWidth={2.6} />
+            Load More
+          </button>
+        )}
+      </div>
       </div>
 
       {/* Phone card layout (< sm). Same rows as the table above so sort,
@@ -989,14 +1376,22 @@ export function TaskTable({
         })}
       </div>
 
-      {/* Mobile-only footer: on phones the toolbar is too tight for the
-          rows-per-page + readout, and after scrolling a page of cards the
-          controls should be at hand. On md+ they live in the top toolbar. */}
-      <div className="mt-5 flex items-center gap-4 flex-wrap justify-center md:hidden">
-        <RowsPerPageSelect value={pageSize} onChange={setPageSize} />
+      {/* Phones get the same control as the desktop footer. The card list is
+          not inside a scroll container, so this sits after it rather than
+          sticking. */}
+      <div className="mt-5 flex items-center justify-center gap-3 md:hidden">
         <p className="text-[13px] font-semibold text-ink-subtle tabular-nums">
-          {pageInfo}
+          Showing {rendered.toLocaleString("en-IN")} of {totalFiltered.toLocaleString("en-IN")}
         </p>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShown((n) => n + LOAD_MORE_STEP)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+          >
+            <ChevronDown size={14} strokeWidth={2.6} /> Load More
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1048,86 +1443,6 @@ export function NoResults({
   );
 }
 
-// Compact numbered pager for the top toolbar: 1 2 3 … N · Next · Last. The
-// current page reads red; the always-present "1" doubles as a jump-to-first
-// (so a dedicated First/Prev is unnecessary — the previous page number is
-// always one tap away in the window). Hidden entirely on a single-page list.
-function CompactPager({
-  pages,
-  pageIndex,
-  pageCount,
-  canNext,
-  onGoto,
-}: {
-  pages: (number | "ellipsis")[];
-  pageIndex: number;
-  pageCount: number;
-  canNext: boolean;
-  onGoto: (index: number) => void;
-}) {
-  if (pageCount <= 1) return null;
-  return (
-    <nav
-      className="flex items-center gap-1 flex-wrap"
-      aria-label="Task list pages"
-    >
-      {pages.map((p, i) =>
-        p === "ellipsis" ? (
-          <span
-            key={`ellipsis-${i}`}
-            className="px-1 text-ink-subtle font-bold select-none"
-            aria-hidden
-          >
-            …
-          </span>
-        ) : (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onGoto(p - 1)}
-            aria-current={p - 1 === pageIndex ? "page" : undefined}
-            className={`inline-flex items-center justify-center min-w-7 h-7 px-2 rounded-md text-[12px] font-bold tabular-nums border transition-all ${
-              p - 1 === pageIndex
-                ? "text-white border-transparent"
-                : "bg-surface-card text-ink-strong border-hairline hover:border-altus-red hover:text-altus-red"
-            }`}
-            style={
-              p - 1 === pageIndex
-                ? {
-                    background:
-                      "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-                    boxShadow: "0 4px 12px -4px rgba(225, 6, 0, 0.5)",
-                  }
-                : undefined
-            }
-          >
-            {p}
-          </button>
-        ),
-      )}
-      <button
-        type="button"
-        onClick={() => onGoto(pageIndex + 1)}
-        disabled={!canNext}
-        aria-label="Next page"
-        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        Next
-        <ChevronRight size={15} strokeWidth={2.4} />
-      </button>
-      <button
-        type="button"
-        onClick={() => onGoto(pageCount - 1)}
-        disabled={!canNext}
-        aria-label="Last page"
-        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        Last
-        <ChevronsRight size={15} strokeWidth={2.4} />
-      </button>
-    </nav>
-  );
-}
 
 // Search box for the task list. Matches the task No. (with or without the
 // leading #) plus title / subject / client / doer / initiator / status —
@@ -1153,8 +1468,9 @@ function SearchBox({
           type="search"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Search by task no. (#1042), title, subject, client, doer…"
-          aria-label="Search tasks"
+          placeholder="Local search — task no. (#1042), title, subject, client, doer"
+          title="Local search — filters only the list on this page"
+          aria-label="Local search — tasks on this page only"
           className="w-full h-10 pl-10 pr-9 rounded-pill border border-hairline bg-surface-card text-[15px] text-ink-strong placeholder:text-ink-subtle shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-all focus:border-altus-red focus:ring-2 focus:ring-altus-red/25"
         />
         {value && (
@@ -1177,47 +1493,6 @@ function SearchBox({
   );
 }
 
-// Rows-per-page selector. Lets the user trade a denser list (100/page) for a
-// shorter one (10/page). Built on the app's Radix dropdown for a consistent,
-// styleable menu (a native <select> can't match the rest of the controls).
-function RowsPerPageSelect({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-}) {
-  return (
-    <div className="inline-flex items-center gap-2">
-      <span className="text-[13px] font-semibold text-ink-subtle">Rows</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-pill text-[13px] font-bold tabular-nums border border-hairline bg-surface-card text-ink-strong hover:border-altus-red hover:text-altus-red transition-all"
-          >
-            {value}
-            <ChevronsUpDown size={13} strokeWidth={2.4} className="opacity-60" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center">
-          {PAGE_SIZE_OPTIONS.map((n) => (
-            <DropdownMenuItem
-              key={n}
-              onSelect={() => onChange(n)}
-              className={n === value ? "font-bold" : ""}
-            >
-              <span className="inline-flex w-4 justify-center">
-                {n === value ? <Check size={14} strokeWidth={2.6} /> : null}
-              </span>
-              <span className="tabular-nums">{n} / page</span>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
 
 // "Group By" control — a single compact pill that reflects the current
 // grouping (red-tinted + "Group: Client" when active), opening a rich menu
@@ -1512,7 +1787,7 @@ function TaskCard({
 }: {
   row: TaskListRow;
   employees: { id: string; name: string }[];
-  me: { id: string; isAdmin: boolean };
+  me: { id: string; isAdmin: boolean; canChangeDoer?: boolean };
   statusLabels: StatusLabels;
   statusTones: StatusTones;
   selected: boolean;
@@ -1629,7 +1904,15 @@ function TaskCard({
         <span aria-hidden>·</span>
         <span className="tabular-nums">Created {safeFormat(row.createdAt)}</span>
         <span aria-hidden>·</span>
-        <span className="tabular-nums">{row.ageDays}d old</span>
+        {/* Wording tracks the sign: the number is due-relative now, so "old"
+            would be wrong for anything not yet due. */}
+        <span className="tabular-nums">
+          {row.ageDays > 0
+            ? `${row.ageDays}d late`
+            : row.ageDays === 0
+              ? "due today"
+              : `${Math.abs(row.ageDays)}d left`}
+        </span>
       </div>
     </div>
   );

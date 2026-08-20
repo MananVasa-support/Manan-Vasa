@@ -38,7 +38,7 @@ export default async function MemberChecklistReviewPage({
   // Your own "Daily checklist" tile → your own checklist, not the review page
   // (you don't review yourself; the review guard would otherwise bounce you
   // straight back to the team page — the "same page again" dead-end).
-  if (id === me.id) redirect("/goals/plan" as Route);
+  if (id === me.id) redirect("/my-day" as Route);
   const allowed = await canReviewChecklist({ id: me.id, isAdmin: me.isAdmin, email: me.email }, id);
   if (!allowed) redirect("/goals/weekly/team" as Route);
 

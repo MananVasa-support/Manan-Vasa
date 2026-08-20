@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, CalendarCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listWeeklyItems, listWeeklyChecks } from "@/lib/queries/accounts-weekly";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
@@ -65,72 +66,54 @@ export default async function WeeklyChecklistPage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-20">
-        <Link href={"/accounts" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
-          <ArrowLeft size={15} strokeWidth={2.4} />
-          Back to Accounts Index
+      <main className="w-full px-8 pt-6 pb-8 max-md:px-4 max-md:pt-5 max-md:pb-6">
+        <Link href={"/accounts" as Route} className="mb-2.5 inline-flex items-center gap-1.5 text-[12.5px] font-bold text-ink-soft hover:text-altus-red">
+          <ArrowLeft size={14} strokeWidth={2.4} />
+          Accounts Index
         </Link>
 
-        <header className="mt-3 mb-7 flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--color-altus-red-deep)" }}>
-              Accounts
-            </span>
-            <h1
-              className="text-ink-strong"
-              style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontWeight: 900,
-                fontSize: "clamp(30px, 3.4vw, 44px)",
-                letterSpacing: "-0.025em",
-                lineHeight: 1.04,
-                marginTop: 6,
-              }}
-            >
-              Weekly Checklist
-            </h1>
-            <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
-              Recurring weekly compliance items — tick each week of the month as it&apos;s done.
-            </p>
-          </div>
-        </header>
-
-        {/* Month navigator + legend */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex size-9 items-center justify-center rounded-xl" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red-deep)" }}>
-              <CalendarCheck size={18} strokeWidth={2.4} />
-            </span>
-            <Link href={prevHref} aria-label="Previous month" className="inline-flex size-9 items-center justify-center rounded-lg border border-hairline-strong bg-white text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red">
-              <ChevronLeft size={18} strokeWidth={2.4} />
-            </Link>
-            <div className="min-w-[180px] text-center">
-              <div className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 21, letterSpacing: "-0.02em" }}>
-                {monthLabel}
-              </div>
-              {isCurrentMonth && <div className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: "var(--color-altus-red-deep)" }}>This month · Wk{currentWeekNo}</div>}
-            </div>
-            <Link href={nextHref} aria-label="Next month" className="inline-flex size-9 items-center justify-center rounded-lg border border-hairline-strong bg-white text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red">
-              <ChevronRight size={18} strokeWidth={2.4} />
-            </Link>
-            {!isCurrentMonth && (
-              <Link href={"/accounts/weekly-checklist" as Route} className="ml-1 inline-flex items-center rounded-lg px-3 py-2 text-[13px] font-bold text-ink-soft hover:text-altus-red">
-                Jump to this month
-              </Link>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            {WEEKLY_CHECK_STATUSES.map((s) => {
-              const t = weeklyStatusTone(s);
-              return (
-                <span key={s} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-bold" style={{ background: t.bg, color: t.fg }}>
-                  <span className="inline-block size-[7px] rounded-full" style={{ background: t.dot }} />
-                  {s}
+        {/* Month navigator moves INTO the bar's action slot, in the same
+            bordered stepper the Goals FY picker uses — it is the page's period
+            control, which is exactly what that slot is for. The 36px calendar
+            tile and the separate "This month · Wk3" line are gone: the tile was
+            decoration and the week number now rides on the stepper label. */}
+        <PageCommandBar
+          title="Weekly Checklist"
+          hint="Recurring weekly compliance — tick each week of the month as it's done."
+          actions={
+            <>
+              <div className="inline-flex items-center overflow-hidden rounded-lg border border-hairline-strong bg-surface-card">
+                <Link href={prevHref} aria-label="Previous month" className="px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red">
+                  <ChevronLeft size={15} strokeWidth={2.4} />
+                </Link>
+                <span className="border-x border-hairline-strong px-2.5 py-1.5 text-[12.5px] font-bold tabular-nums text-ink-strong">
+                  {monthLabel}
+                  {isCurrentMonth && <span className="ml-1 text-altus-red">· Wk{currentWeekNo}</span>}
                 </span>
-              );
-            })}
-          </div>
+                <Link href={nextHref} aria-label="Next month" className="px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red">
+                  <ChevronRight size={15} strokeWidth={2.4} />
+                </Link>
+              </div>
+              {!isCurrentMonth && (
+                <Link href={"/accounts/weekly-checklist" as Route} className="text-[12.5px] font-bold text-ink-soft hover:text-altus-red">
+                  Today
+                </Link>
+              )}
+            </>
+          }
+        />
+
+        {/* Status legend — a quiet key, not a headline row. */}
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          {WEEKLY_CHECK_STATUSES.map((s) => {
+            const t = weeklyStatusTone(s);
+            return (
+              <span key={s} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: t.bg, color: t.fg }}>
+                <span className="inline-block size-[6px] rounded-full" style={{ background: t.dot }} />
+                {s}
+              </span>
+            );
+          })}
         </div>
 
         <WeeklyChecklist

@@ -39,33 +39,39 @@ export function ModuleShortcuts({ allowed }: { allowed: WorkspaceId[] }) {
     const allow = new Set(allowed);
 
     function onKey(e: KeyboardEvent) {
-      // Never steal a keystroke that is part of typing. `isContentEditable`
-      // covers rich-text surfaces; the role check covers custom comboboxes that
-      // are divs rather than <input>.
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const el = e.target as HTMLElement | null;
-      if (el) {
-        const tag = el.tagName;
-        if (
-          tag === "INPUT" ||
-          tag === "TEXTAREA" ||
-          tag === "SELECT" ||
-          el.isContentEditable ||
-          el.closest('[contenteditable="true"],[role="textbox"],[role="combobox"],[role="searchbox"]')
-        ) {
-          return;
-        }
-      }
+      // MODIFIER REQUIRED (Sir): a bare digit no longer navigates.
+      //
+      // A plain "2" was ambiguous with typing — most visibly in the Tasks table's
+      // due-date editor, where digits meant for the date landed as module jumps
+      // the moment focus left the field. A modifier removes the ambiguity
+      // entirely rather than adding another exception to the guard below.
+      //
+      // Ctrl is what was asked for; Alt is accepted as well because Chrome,
+      // Edge and Firefox reserve Ctrl+1…8 for TAB SWITCHING at the browser
+      // level, where a page's preventDefault() cannot reach. Alt+digit is free
+      // in Chrome/Edge on Windows and does reach us, so it is the combination
+      // that actually works there. Meta covers Cmd on macOS.
+      const mod = e.ctrlKey || e.metaKey || e.altKey;
+      if (!mod || e.shiftKey) return;
 
-      // Never navigate out from under an open modal. On the hub there was
-      // nothing to be inside of; app-wide there is — a dialog whose focus sits
-      // on a button would otherwise let "3" throw away half-finished work
-      // without so much as a confirm.
+      // The "don't steal typing" guard that used to sit here is GONE, and its
+      // removal is the point: Ctrl+1 inside the global search box or a due-date
+      // field is not someone typing a 1, so the shortcut should still fire.
+      // Requiring a modifier is what makes that safe — it is the same guarantee
+      // the guard was standing in for, enforced at the top instead.
+
+      // Never navigate out from under an open modal. A dialog whose focus sits
+      // on a button would otherwise let one keystroke throw away half-finished
+      // work without so much as a confirm.
       if (document.querySelector('[role="dialog"][data-state="open"],[role="alertdialog"][data-state="open"],[aria-modal="true"]')) {
         return;
       }
 
-      const id = moduleForShortcut(e.key);
+      // `e.code` ("Digit1") ahead of `e.key`, because Alt+digit on macOS emits
+      // a symbol ("¡") rather than the digit, and a non-Latin layout can do the
+      // same to `e.key`. The physical number row is what the footer labels.
+      const digit = /^Digit[0-9]$/.test(e.code) ? e.code.slice(5) : e.key;
+      const id = moduleForShortcut(digit);
       if (!id || !allow.has(id)) return;
       e.preventDefault();
       router.push(MODULE_THEME[id].href as Route);

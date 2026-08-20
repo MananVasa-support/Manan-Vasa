@@ -1,8 +1,9 @@
 import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { Award, TrendingUp, CheckCircle2, Hourglass, Gauge } from "lucide-react";
+import { TrendingUp, CheckCircle2, Hourglass, Gauge } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import { IncentiveTabs } from "@/components/incentive/incentive-tabs";
 import { BillingDashboard } from "@/components/incentive/billing-dashboard";
 import { requireUser } from "@/lib/auth/current";
@@ -117,80 +118,40 @@ export default async function IncentivePage({ searchParams }: PageProps) {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="wide">
-        {/* ── Glass hero: eyebrow · title · year pills · incentive table ── */}
-        <header
-          className="wg-rise relative mb-5 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-4 max-md:py-5"
-          style={{
-            background: [
-              `radial-gradient(120% 190% at 100% 0%, color-mix(in srgb, ${RED} 9%, transparent), transparent 55%)`,
-              `radial-gradient(80% 160% at 0% 100%, color-mix(in srgb, ${RED} 5%, transparent), transparent 52%)`,
-              "rgba(255, 255, 255, 0.72)",
-            ].join(", "),
-            backdropFilter: "blur(14px) saturate(140%)",
-            boxShadow:
-              "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.85), 0 18px 44px -28px rgba(15,23,42,0.22)",
-          }}
-        >
-          <div className="flex items-end justify-between gap-6 flex-wrap">
-            <div className="min-w-0">
-              <span
-                className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-                style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
-              >
-                <Award size={13} strokeWidth={2.6} /> Employees · Incentive
-              </span>
-              <h1
-                className="mt-3 text-ink-strong"
-                style={{
-                  fontFamily: "var(--font-display), system-ui, sans-serif",
-                  fontWeight: 900,
-                  fontSize: "clamp(30px,3.6vw,46px)",
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1.02,
-                }}
-              >
-                Incentive · {year}
-              </h1>
-              <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
-                {me.isAdmin
-                  ? "Team incentive analytics and request review — earned, paid and target attainment across the year."
-                  : "Track your incentive earnings, attainment and file requests."}
-              </p>
-            </div>
-
-            <div className="flex flex-col items-end gap-3 max-md:items-start">
-              <nav aria-label="Incentive year" className="flex flex-wrap items-center justify-end gap-2 max-md:justify-start">
-                {years.map((y) => {
-                  const active = y === year;
-                  return (
-                    <Link
-                      key={y}
-                      href={`/incentive?year=${y}` as Route}
-                      aria-current={active ? "page" : undefined}
-                      className="wg-btn rounded-pill px-3.5 py-1.5 text-[13px] font-bold whitespace-nowrap tabular-nums"
-                      style={
-                        active
-                          ? {
-                              background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`,
-                              color: "#fff",
-                              boxShadow: `0 8px 20px -10px color-mix(in srgb, ${RED_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
-                            }
-                          : {
-                              background: "var(--color-surface-card)",
-                              color: "var(--color-ink-soft)",
-                              boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
-                            }
-                      }
-                    >
-                      {y}
-                    </Link>
-                  );
-                })}
-              </nav>
-              <IncentiveCatalogDialog rows={catalog} isAdmin={me.isAdmin} />
-            </div>
-          </div>
-        </header>
+        {/* Glass hero → flat command bar. The year pills were a stacked block
+            beside the title; they are the page's period control, so they move to
+            the ACTION ROW as one compact segmented strip. */}
+        <PageCommandBar
+          title={`Incentive · ${year}`}
+          hint={
+            me.isAdmin
+              ? "Earned, paid and target attainment across the year."
+              : "Your incentive earnings, attainment and requests."
+          }
+          actions={<IncentiveCatalogDialog rows={catalog} isAdmin={me.isAdmin} />}
+          toolbar={
+            <nav aria-label="Incentive year" className="flex flex-wrap items-center gap-1">
+              {years.map((y) => {
+                const active = y === year;
+                return (
+                  <Link
+                    key={y}
+                    href={`/incentive?year=${y}` as Route}
+                    aria-current={active ? "page" : undefined}
+                    className="rounded-md px-2.5 py-1 text-[12.5px] font-bold tabular-nums whitespace-nowrap transition-colors"
+                    style={
+                      active
+                        ? { background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, color: "#fff" }
+                        : { color: "var(--color-ink-muted)" }
+                    }
+                  >
+                    {y}
+                  </Link>
+                );
+              })}
+            </nav>
+          }
+        />
 
         {/* ── KPI strip (folded over the loaded dashboard + attainment — zero extra queries) ── */}
         <section aria-label="Incentive totals" className="mb-6">

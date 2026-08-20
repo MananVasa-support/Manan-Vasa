@@ -1,16 +1,89 @@
+import {
+  FINE_BUCKET_OFFSETS,
+  type FineBucketKey,
+} from "@/lib/transforms/aging-buckets-fine";
 import { and, eq, gte, inArray, lt, or, asc, desc, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { unstable_cache } from "next/cache";
-import { db, employees, tasks } from "@/lib/db";
+import { db, employees, tasks, taskTimeRollup } from "@/lib/db";
 import { TASK_STATUSES, TASK_PRIORITIES, PENDING_STATUSES } from "@/db/enums";
 import type { TaskStatus, ApprovalStatus } from "@/db/enums";
 import { employeeIdsInDepartments } from "@/lib/queries/departments";
-import { resolveTeamScope } from "@/lib/queries/team-scope";
+import { resolveTeamScopes } from "@/lib/queries/team-scope";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import type { TaskListFilters, TaskListRow } from "@/lib/types";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Statuses that are still LIVE work. `?overdue=true` narrows to these only:
+ * a finished task cannot be overdue, it is finished — including one delivered
+ * late, which the Age column already records. `not_approved` IS live: a
+ * sent-back task is waiting on the doer, and it is the whole point of the
+ * "Sent-back work, by person" drill-through.
+ */
+const AGE_TERMINAL: readonly string[] = ["done", "approved", "cancelled", "transferred"];
+
+/**
+ * Computed on CALL, not at module load. A module-level
+ * `TASK_STATUSES.filter(...)` evaluates the moment this file is first imported,
+ * and if the enum module has not finished initialising by then (import order,
+ * bundler chunking, a cycle introduced later) the value is `undefined` and the
+ * `.filter` throws — at import time, taking down every route that touches this
+ * file rather than the one query that needed it. There is no measurable cost to
+ * building a nine-item array per call.
+ */
+function overdueOpenStatuses() {
+  return TASK_STATUSES.filter((s) => !AGE_TERMINAL.includes(s));
+}
+
+/**
+ * `?overdue=true` — effective due date strictly before today, still open.
+ *
+ * Compared against TODAY AT UTC MIDNIGHT, not `now`: a task due today is not
+ * overdue at 6pm, and comparing against the current instant would flip it to
+ * overdue partway through its own due date.
+ */
+/**
+ * `?age_range=<slug>` — narrow to one of the nine fine aging buckets.
+ *
+ * The bucket is a window on `effectiveDue − today` in whole days (negative =
+ * overdue), and FINE_BUCKET_OFFSETS is the single source for those bounds —
+ * the same table `bucketForOffset` is tested against, so a row selected here is
+ * provably the same row the chart counted into that bar.
+ *
+ * Bounds become HALF-OPEN date comparisons. `offset <= max` means "due on or
+ * before today+max", and since effective_due_at is a TIMESTAMP rather than a
+ * date, "on that day" has to be expressed as `< the following midnight` — a
+ * plain `<=` against midnight would drop every task due later that same day.
+ */
+function ageRangeConditions(key: FineBucketKey) {
+  const { min, max } = FINE_BUCKET_OFFSETS[key];
+  const todayUtc = new Date();
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  const dayAfter = (offset: number) =>
+    new Date(todayUtc.getTime() + (offset + 1) * MS_PER_DAY);
+  const dayStart = (offset: number) =>
+    new Date(todayUtc.getTime() + offset * MS_PER_DAY);
+
+  const out = [];
+  if (min !== null) out.push(gte(effectiveDueAtSql(), dayStart(min)));
+  if (max !== null) out.push(lt(effectiveDueAtSql(), dayAfter(max)));
+  return out;
+}
+
+function overdueConditions() {
+  const todayUtc = new Date();
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  // Returned as a LIST rather than one and(): drizzle's and() is typed
+  // `SQL | undefined`, and spreading two definite conditions into the existing
+  // array keeps the types honest without an assertion.
+  return [
+    lt(effectiveDueAtSql(), todayUtc),
+    inArray(tasks.status, overdueOpenStatuses()),
+  ];
+}
 
 /**
  * Whole-day index for a timestamp, in UTC.
@@ -27,6 +100,70 @@ function dayIndex(d: Date): number {
   return Math.floor(
     Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / MS_PER_DAY,
   );
+}
+
+/**
+ * Coerce a timestamp that MIGHT already be a Date, might be an ISO string, and
+ * might be neither.
+ *
+ * `effectiveDueAtSql()` is a raw `sql<Date>` fragment, and that type parameter
+ * is a COMPILE-TIME ASSERTION with no runtime mapper behind it — drizzle only
+ * converts values for real column definitions. So the effective due date can
+ * arrive as an ISO string, exactly as lib/tasks/time/engine.ts documents for
+ * raw `tx.execute(sql)`, and exactly why the cached wrapper below already casts
+ * `r.dueAt as unknown as string | Date` before calling `new Date` on it.
+ *
+ * Returns null rather than an Invalid Date so callers branch instead of
+ * silently producing NaN.
+ */
+function toDate(v: Date | string | number | null | undefined): Date | null {
+  if (v == null) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+
+/**
+ * Age = today − due date, in whole calendar days.
+ *
+ *   positive → that many days OVERDUE
+ *   0        → due today
+ *   negative → that many days still REMAINING
+ *
+ * Both sides go through `dayIndex`, which floors a timestamp to its UTC day
+ * boundary, so this is an integer subtraction of two day numbers — NOT a
+ * millisecond delta divided and floored. That distinction is the whole point:
+ * a due date at 18:00 and a "now" at 09:00 are 15 hours apart, which floor
+ * division of elapsed time reports as 0 days even when the calendar has
+ * clearly turned over. Normalising first removes that class of bug entirely,
+ * and it is why partial hours can never collapse a real gap to 0.
+ *
+ * `dueAt` is the EFFECTIVE due date (revised ?? original, see
+ * effectiveDueAtSql), so moving a deadline moves the age with it. It is
+ * `notNull` on the table and non-nullable on TaskListRow, so there is no
+ * null branch and no fallback constant — the type carries that guarantee
+ * instead of a runtime `return 0`.
+ *
+ * NOTHING FREEZES. An earlier version stopped the clock for finished tasks so
+ * they recorded how late they were DELIVERED. That is gone by request: the
+ * formula is now purely today-relative for every row. The consequence is that
+ * a completed task keeps accumulating — one delivered a day late last year
+ * reads its full elapsed overdue count, not 1d.
+ */
+function ageInDays(dueAt: Date | string | null, nowDay: number): number {
+  const due = toDate(dueAt);
+  // THIS GUARD IS WHY /tasks WAS THROWING. `dayIndex` calls getUTCFullYear on
+  // its argument; handed the ISO string that effectiveDueAtSql can return, that
+  // is a TypeError — which happens inside a server component, so it took the
+  // whole page down to the route error boundary rather than spoiling one cell.
+  // The previous version of this function read `createdAt`, a real column with
+  // a real mapper, which is why the problem only appeared once Age moved onto
+  // the due date.
+  //
+  // Returning 0 here is a CRASH GUARD, not a display fallback: it is the
+  // difference between one odd row reading 0d and nobody seeing any tasks.
+  if (!due) return 0;
+  return nowDay - dayIndex(due);
 }
 
 // A task's "effective" status spans two columns: the working `status` and the
@@ -58,6 +195,8 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
   if (filters.priorities.length > 0) conditions.push(inArray(tasks.priority, filters.priorities));
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
+  if (filters.overdue)               conditions.push(...overdueConditions());
+  if (filters.ageRange)              conditions.push(...ageRangeConditions(filters.ageRange));
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {
@@ -68,13 +207,24 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     conditions.push(inArray(tasks.doerId, ids));
   }
 
-  // Team scope narrows by DOER, and stacks with the department filter above
-  // rather than replacing it — the two answer different questions and a user
-  // who sets both means the intersection.
-  const teamIds = await resolveTeamScope(filters.team, filters.viewerId);
+  // Team scope matches DOER **or** INITIATOR — a task a team member raised is
+  // that team's work even when someone outside it is doing it, and the previous
+  // doer-only rule made "my team" silently under-report exactly the delegation
+  // a manager opens this filter to see.
+  //
+  // It stacks with the department filter above rather than replacing it: the
+  // two answer different questions, and a user who sets both means the
+  // intersection.
+  const teamIds = await resolveTeamScopes(filters.teams, filters.viewerId);
   if (teamIds !== null) {
+    // An empty resolved set is a real answer (an empty department), so it must
+    // match nothing rather than fall through to the whole org.
     if (teamIds.length === 0) return [];
-    conditions.push(inArray(tasks.doerId, teamIds));
+    const scoped = or(
+      inArray(tasks.doerId, teamIds),
+      inArray(tasks.initiatorId, teamIds),
+    );
+    if (scoped) conditions.push(scoped);
   }
 
   // Single query with both doer + initiator joined inline. The previous
@@ -108,11 +258,19 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
       updatedAt: tasks.updatedAt,
       approvalStatus: tasks.approvalStatus,
       firstReadAt: tasks.firstReadAt,
+      // "Start Time" — when the doer first hit Start on the timer. LEFT join, so
+      // a task nobody has started simply has no rollup row and reads null.
+      startedAt: taskTimeRollup.firstStartedAt,
+      openSessions: taskTimeRollup.openSessionCount,
       completedAt: tasks.completedAt,
     })
     .from(tasks)
     .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
     .leftJoin(initEmp, eq(tasks.initiatorId, initEmp.id))
+    // LEFT, never INNER: the rollup row is only written once a task has its
+    // first time event, so an inner join here would silently drop every task
+    // that has never been started from the whole list.
+    .leftJoin(taskTimeRollup, eq(tasks.id, taskTimeRollup.taskId))
     .where(and(...conditions))
     .orderBy(desc(tasks.createdAt))
     .limit(1000);
@@ -135,12 +293,14 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
     initiatorName: r.initiatorName ?? null,
     createdAt: r.createdAt,
     dueAt: r.dueAt,
-    ageDays: Math.max(0, nowDay - dayIndex(r.createdAt)),
+    ageDays: ageInDays(r.dueAt, nowDay),
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,
     approvalStatus: r.approvalStatus,
     firstReadAt: r.firstReadAt,
+    startedAt: r.startedAt ?? null,
+    timerRunning: (r.openSessions ?? 0) > 0,
     completedAt: r.completedAt,
   }));
 }
@@ -165,6 +325,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     dueAt: new Date(r.dueAt as unknown as string | Date),
     updatedAt: new Date(r.updatedAt as unknown as string | Date),
     firstReadAt: r.firstReadAt ? new Date(r.firstReadAt as unknown as string | Date) : null,
+    startedAt: r.startedAt ? new Date(r.startedAt as unknown as string | Date) : null,
     completedAt: r.completedAt ? new Date(r.completedAt as unknown as string | Date) : null,
   }));
 }
@@ -251,6 +412,7 @@ export async function listTasksPage(
       firstReadAt: r.firstReadAt
         ? new Date(r.firstReadAt as unknown as string | Date)
         : null,
+      startedAt: r.startedAt ? new Date(r.startedAt as unknown as string | Date) : null,
       completedAt: r.completedAt
         ? new Date(r.completedAt as unknown as string | Date)
         : null,
@@ -278,6 +440,22 @@ async function listTasksPageUncached(
     conditions.push(inArray(tasks.priority, filters.priorities));
   if (filters.subjects.length > 0) conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.taskId) conditions.push(eq(tasks.id, filters.taskId));
+  if (filters.overdue) conditions.push(...overdueConditions());
+  if (filters.ageRange) conditions.push(...ageRangeConditions(filters.ageRange));
+
+  // Team scope, matching the flat path above. This path IGNORED it entirely
+  // before — a pre-existing gap, harmless only because the Tasks page still
+  // uses listTasks(); anything that adopted the cursor path would have silently
+  // dropped the filter.
+  const teamIds = await resolveTeamScopes(filters.teams, filters.viewerId);
+  if (teamIds !== null) {
+    if (teamIds.length === 0) return { rows: [], nextCursor: null };
+    const scoped = or(
+      inArray(tasks.doerId, teamIds),
+      inArray(tasks.initiatorId, teamIds),
+    );
+    if (scoped) conditions.push(scoped);
+  }
 
   if (filters.departments.length > 0) {
     const ids = await employeeIdsInDepartments(filters.departments);
@@ -325,11 +503,15 @@ async function listTasksPageUncached(
       updatedAt: tasks.updatedAt,
       approvalStatus: tasks.approvalStatus,
       firstReadAt: tasks.firstReadAt,
+      // "Start Time" — see the note on the same join in listTasksUncached.
+      startedAt: taskTimeRollup.firstStartedAt,
+      openSessions: taskTimeRollup.openSessionCount,
       completedAt: tasks.completedAt,
     })
     .from(tasks)
     .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
     .leftJoin(initEmp, eq(tasks.initiatorId, initEmp.id))
+    .leftJoin(taskTimeRollup, eq(tasks.id, taskTimeRollup.taskId))
     .where(and(...conditions))
     .orderBy(desc(tasks.createdAt), desc(tasks.id))
     .limit(pageSize + 1);
@@ -357,12 +539,14 @@ async function listTasksPageUncached(
     initiatorName: r.initiatorName ?? null,
     createdAt: r.createdAt,
     dueAt: r.dueAt,
-    ageDays: Math.max(0, nowDay - dayIndex(r.createdAt)),
+    ageDays: ageInDays(r.dueAt, nowDay),
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,
     approvalStatus: r.approvalStatus,
     firstReadAt: r.firstReadAt,
+    startedAt: r.startedAt ?? null,
+    timerRunning: (r.openSessions ?? 0) > 0,
     completedAt: r.completedAt,
   }));
 
@@ -567,6 +751,8 @@ export async function listTasksForExport(
   if (filters.priorities.length > 0) conditions.push(inArray(tasks.priority, filters.priorities));
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
+  if (filters.overdue)               conditions.push(...overdueConditions());
+  if (filters.ageRange)              conditions.push(...ageRangeConditions(filters.ageRange));
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {
@@ -698,6 +884,8 @@ export type TaskDetail = {
   // Tier-3 (2026-05-20) additions
   tags: string[] | null;
   approvalStatus: "approved" | "not_approved" | "cancelled" | "transferred" | null;
+  // Two-stage approval (mig 0185): which level, if any, this task is signed off at.
+  approvalLevel: "none" | "manager" | "admin";
   revisedTargetDate: Date | null;
   // Tier-4 (2026-05-20) — GCal-style scheduling
   startsAt: Date | null;
@@ -746,6 +934,7 @@ export async function getTaskById(taskId: string): Promise<TaskDetail | null> {
       updatedAt: tasks.updatedAt,
       tags: tasks.tags,
       approvalStatus: tasks.approvalStatus,
+      approvalLevel: tasks.approvalLevel,
       revisedTargetDate: tasks.revisedTargetDate,
       startsAt: tasks.startsAt,
       endsAt: tasks.endsAt,

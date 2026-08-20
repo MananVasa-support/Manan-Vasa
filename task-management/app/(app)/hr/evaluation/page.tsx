@@ -50,7 +50,7 @@ export default async function EvaluationPage({
     <div className="flex min-h-dvh bg-[#faf9fb]">
       <HrShellSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-      <header className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4">
+      <header className="sticky sticky-below-topbar z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4">
         <div className="justify-self-start">
           <Link
             href={backHref}

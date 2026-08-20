@@ -2,12 +2,14 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { CheckCircle2, Check, Sunrise, ClipboardCheck, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { Check, Sunrise, ClipboardCheck, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { ScoreRing } from "@/components/weekly-goals/score-ring";
 import type { PlanItem, PlanPhase } from "./types";
 import { setItemProgress, closeMyDay, reopenPlan } from "@/app/(app)/goals/plan/actions";
 import { TransferControl } from "./item-detail";
+import { PlanTaskTable } from "./plan-task-table";
+import { PlanItemDrawer } from "./plan-item-drawer";
 
 const GOALS_ACCENT = "#E10600";
 const GOALS_ACCENT_DEEP = "#A80400";
@@ -28,6 +30,11 @@ interface Props {
   onReopened: () => void;
   /** Carry an unfinished commitment forward to tomorrow (1) / day-after (2). */
   onTransfer?: (id: string, off: number) => void;
+  /** Take a commitment off this day entirely (does NOT touch the task). */
+  onRemove?: (id: string) => void;
+  /** Whose day this is — shown on the detail drawer's metadata row. */
+  employeeName: string;
+  avatarUrl?: string | null;
 }
 
 /**
@@ -36,18 +43,39 @@ interface Props {
  *   closeout — the SAME commitments (no pull panels), each marked done / 0-100%.
  *   closed   — a read-only summary of how the day went.
  */
-export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, onClosed, onReopened, onTransfer }: Props) {
+export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, onClosed, onReopened, onTransfer, onRemove, employeeName, avatarUrl }: Props) {
   const [items, setItems] = React.useState<PlanItem[]>(initial);
   const [busy, setBusy] = React.useState<string | null>(null);
+  /** The row whose detail slide-over is open; null = closed. */
+  const [openItem, setOpenItem] = React.useState<PlanItem | null>(null);
   React.useEffect(() => setItems(initial), [initial]);
+
+  // Keep the open drawer in step with its row: ticking "Mark as Done" inside
+  // the drawer updates `items`, and without this the drawer would keep showing
+  // the pre-click snapshot it was opened with.
+  const openLive = openItem ? (items.find((i) => i.id === openItem.id) ?? null) : null;
 
   /** Carry an item forward — drop it from today's review, hand off to the parent. */
   const transfer = React.useCallback(
     (id: string, off: number) => {
       setItems((p) => p.filter((x) => x.id !== id));
+      setOpenItem((cur) => (cur?.id === id ? null : cur));
       onTransfer?.(id, off);
     },
     [onTransfer],
+  );
+
+  /** Take a commitment OFF this day. Same optimistic shape as `transfer` — it
+   *  leaves this view at once and the parent owns the write and any toast. The
+   *  drawer closes too if it happened to be showing this row, which would
+   *  otherwise be left open on something no longer in the list. */
+  const remove = React.useCallback(
+    (id: string) => {
+      setItems((p) => p.filter((x) => x.id !== id));
+      setOpenItem((cur) => (cur?.id === id ? null : cur));
+      onRemove?.(id);
+    },
+    [onRemove],
   );
 
   const total = items.length;
@@ -102,63 +130,48 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
   // ── ACTIVE — day planned, before close-out ──────────────────────────────
   if (phase === "active") {
     return (
-      <section className="mx-auto max-w-[720px] wg-rise">
-        <div
-          className="rounded-3xl border p-8 text-center max-md:p-6"
-          style={{
-            borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 26%, transparent)`,
-            background: `color-mix(in srgb, ${GOALS_ACCENT} 5%, #fff)`,
-          }}
-        >
-          <span
-            className="mx-auto grid size-16 place-items-center rounded-2xl text-white shadow-[0_10px_28px_rgba(124,45,18,0.3)]"
+      // FULL WIDTH, and no hero. The "Your day is planned" card — big icon,
+      // headline, explainer, tinted surround — pushed the actual commitments
+      // below the fold on a laptop. The table IS the page: header straight
+      // into data, plain white, subtle dividers.
+      <section className="w-full wg-rise">
+        {/* The commitment list. Hover a row for the full title + description;
+            click one to open the detail slide-over. */}
+        <PlanTaskTable
+          items={items}
+          onOpen={setOpenItem}
+          onTransfer={onTransfer ? transfer : undefined}
+          onRemove={onRemove ? remove : undefined}
+          busyId={busy}
+        />
+
+        <div className="mt-4 flex items-center justify-end gap-2.5 max-md:flex-col-reverse max-md:items-stretch">
+          <button
+            type="button"
+            onClick={onReopen}
+            disabled={busy === "__reopen"}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-chip border border-hairline bg-surface-card px-4 text-[13px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
+          >
+            {busy === "__reopen" ? <Loader2 size={15} className="animate-spin" /> : <ArrowLeft size={15} />} Adjust plan
+          </button>
+          <button
+            type="button"
+            onClick={onToCloseout}
+            className="wg-btn wg-sheen inline-flex h-10 items-center justify-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white max-md:w-full"
             style={{ background: GOALS_GRADIENT }}
           >
-            <CheckCircle2 size={30} strokeWidth={2.3} />
-          </span>
-          <h2
-            className="mt-4 text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.02em" }}
-          >
-            Your day is planned
-          </h2>
-          <p className="mx-auto mt-1.5 max-w-[42ch] text-[15px] font-medium text-ink-muted">
-            You&apos;re set to clock in. {total} commitment{total === 1 ? "" : "s"} lined up for today —
-            come back at the end of the day to mark what you delivered.
-          </p>
-
-          <ul className="mx-auto mt-6 flex max-w-[520px] flex-col gap-2 text-left">
-            {items.map((it) => (
-              <li
-                key={it.id}
-                className="group flex items-center gap-2.5 rounded-chip border border-hairline bg-surface-card px-3.5 py-2.5"
-              >
-                <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: GOALS_ACCENT }} />
-                <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-strong">{it.title}</span>
-                {onTransfer ? <TransferControl onTransfer={(off) => transfer(it.id, off)} /> : null}
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-7 flex items-center justify-center gap-3 max-md:flex-col">
-            <button
-              type="button"
-              onClick={onToCloseout}
-              className="wg-btn wg-sheen inline-flex h-12 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] max-md:w-full"
-              style={{ background: GOALS_GRADIENT }}
-            >
-              <ClipboardCheck size={18} /> Close out my day
-            </button>
-            <button
-              type="button"
-              onClick={onReopen}
-              disabled={busy === "__reopen"}
-              className="inline-flex h-12 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
-            >
-              {busy === "__reopen" ? <Loader2 size={16} className="animate-spin" /> : <ArrowLeft size={16} />} Adjust plan
-            </button>
-          </div>
+            <ClipboardCheck size={16} /> Close out my day
+          </button>
         </div>
+
+        <PlanItemDrawer
+          item={openLive}
+          employeeName={employeeName}
+          avatarUrl={avatarUrl}
+          busy={openLive ? busy === openLive.id : false}
+          onToggleDone={(it) => onToggle(it)}
+          onClose={() => setOpenItem(null)}
+        />
       </section>
     );
   }

@@ -1,18 +1,15 @@
-import { ShieldCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
-import { MODULE_THEME } from "@/lib/module-theme";
+import {
+  PageCommandBar,
+  COMMAND_PAGE_CLASS,
+} from "@/components/layout/page-command-bar";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { loadApproveBoard } from "@/components/goals/approve/data";
 import { currentWeekStart, prevWeekStart, formatWeekLabel } from "@/lib/weekly-goals/week";
 import { ApproveWorkbench } from "@/components/goals/approve/approve-workbench";
 
 export const dynamic = "force-dynamic";
-
-// Goals identity — amber-gold (IDENTITY only; brand red is never used in this room).
-const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
-const ACCENT_DEEP = "#A80400"; // Altus red deep
-const DISPLAY = "var(--font-display), system-ui, sans-serif";
 
 /**
  * Monday manager-approval surface (Module 3, design §6 / §11b(B)).
@@ -40,33 +37,11 @@ export default async function GoalsApprovePage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <PageShell width="full">
-        <header className="wg-rise mb-6">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
-            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-          >
-            <ShieldCheck size={13} strokeWidth={2.5} />
-            Monday · Manager approval
-          </span>
-          <h1
-            className="mt-2 text-ink-strong"
-            style={{
-              fontFamily: DISPLAY,
-              fontWeight: 900,
-              fontSize: "clamp(28px, 3.4vw, 42px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.05,
-              maxWidth: "22ch",
-            }}
-          >
-            Approve your team&apos;s week
-          </h1>
-          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
-            Review last week&apos;s progress and sign off this week&apos;s committed goals for each
-            person who reports to you. Approving stamps the week so their Monday can begin.
-          </p>
-        </header>
+      <PageShell width="full" py={false} className={COMMAND_PAGE_CLASS}>
+        <PageCommandBar
+          title="Approve your team's week"
+          hint="Sign off last week's progress and this week's goals for each of your reports."
+        />
 
         <ApproveWorkbench
           members={members}

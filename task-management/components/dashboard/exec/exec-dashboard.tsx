@@ -6,7 +6,6 @@ import { Users } from "lucide-react";
 
 import { OnTimeGauge } from "@/components/dashboard/exec/on-time-gauge";
 import { ManagerInitiatorTable } from "@/components/dashboard/exec/manager-initiator-table";
-import { NotApprovedSidebar } from "@/components/dashboard/exec/not-approved-sidebar";
 import { PerformanceByPersonTable } from "@/components/dashboard/exec/performance-by-person-table";
 import { ManagerDrilldown } from "@/components/dashboard/exec/manager-drilldown";
 import { DashboardSectionHeader } from "@/components/dashboard/section-header";
@@ -20,7 +19,6 @@ import {
 import type {
   DoneOnTime,
   InitiatorBoard,
-  NotApprovedAging,
 } from "@/lib/types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -46,7 +44,6 @@ type WindowKey = "d3" | "d7";
 export interface ExecDashboardProps {
   doneOnTime: DoneOnTime;
   initiator: { d3: InitiatorBoard; d7: InitiatorBoard };
-  notApprovedAging: NotApprovedAging;
   avatarById: Record<string, string | null>;
   isAdmin: boolean;
   meId: string | null;
@@ -75,7 +72,6 @@ type ExecCtxValue = {
   board: InitiatorBoard;
   managers: InitiatorBoard["managers"];
   doneOnTimeView: DoneOnTime;
-  notApprovedAgingView: NotApprovedAging;
   peopleRows: DoneOnTime["revised"]["byPerson"];
   nothingAtAll: boolean;
   isAdmin: boolean;
@@ -105,7 +101,6 @@ function useExec(): ExecCtxValue {
 export function ExecDashboard({
   doneOnTime,
   initiator,
-  notApprovedAging,
   avatarById,
   isAdmin,
   meId,
@@ -167,29 +162,22 @@ export function ExecDashboard({
     return { original: narrow(doneOnTime.original), revised: narrow(doneOnTime.revised) };
   }, [doneOnTime, sectionQuery]);
 
-  const notApprovedAgingView = React.useMemo(() => {
-    if (!sectionQuery) return notApprovedAging;
-    return {
-      ...notApprovedAging,
-      byPerson: notApprovedAging.byPerson.filter((p) =>
-        matchesSearch(sectionQuery, p.employeeName),
-      ),
-    };
-  }, [notApprovedAging, sectionQuery]);
-
   const windowDays: 3 | 7 = windowKey === "d3" ? 3 : 7;
 
   // Global empty state: nothing to show anywhere on the surface. Reads the
   // FILTERED views, so a search matching nobody collapses to the same calm
   // empty state instead of a page of zeroed-out panels.
+  //
+  // The declined/not-approved term that used to sit in both branches went with
+  // the "Attention Required" widget. Delivery + delegation are what the surface
+  // still shows, so they are what "nothing at all" now means.
   const peopleRows = doneOnTimeView.revised.byPerson;
   const nothingAtAll =
     managers.length === 0 &&
     (sectionQuery
-      ? peopleRows.length === 0 && notApprovedAgingView.byPerson.length === 0
+      ? peopleRows.length === 0
       : doneOnTime.revised.dated === 0 &&
         doneOnTime.original.dated === 0 &&
-        notApprovedAging.total === 0 &&
         peopleRows.length === 0);
 
   // Staggered entrance helper (reduced-motion-gated → final state, no anim).
@@ -210,7 +198,6 @@ export function ExecDashboard({
     board,
     managers,
     doneOnTimeView,
-    notApprovedAgingView,
     peopleRows,
     nothingAtAll,
     isAdmin,
@@ -223,16 +210,10 @@ export function ExecDashboard({
     <ExecCtx.Provider value={ctx}>
       {children}
 
-      {/* Summary: ONE full-width column at every breakpoint. These were two
-          half-width panels side-by-side, which left "Delivered on time" a
-          narrow well around a fixed-width gauge while "Attention Required"
-          filled its column — the two read as different weights. Stacked
-          full-bleed, both cards get the same structural width. */}
-      <style>{`
-        .exec-summary-grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      `}</style>
+      {/* The `.exec-summary-grid` rule that used to live here is gone with the
+          section it shaped: the gauge and the attention list were a two-column
+          grid forced to one column, and they are now two independent
+          full-width sections in two different tabs. */}
 
       {/* Drill-down modal — rendered ONCE for the whole surface (not per
           section); fetches on demand only. */}
@@ -304,21 +285,20 @@ export function ExecDelegationSection() {
   );
 }
 
-/** DELIVERED ON TIME & ATTENTION REQUIRED — the summary row. */
-export function ExecSummarySection() {
-  const { rise, doneOnTimeView, notApprovedAgingView, isAdmin, meId, resolveAvatar } =
-    useExec();
-  // Two cards side by side, each carrying its own header ABOVE its own white
-  // box. No <ExecCard> frame — it would put both headers back inside a card.
+/**
+ * DELIVERED ON TIME — the 2-column gauge + task-breakdown widget. Leads the
+ * Attention tab.
+ *
+ * `ExecAttentionSection` ("Attention Required" — declined / not-approved work)
+ * used to sit beside this one and is GONE: the widget, its component, and the
+ * `notApprovedAging` plumbing were removed outright rather than hidden, because
+ * re-work chasing is not what this surface is for.
+ */
+export function ExecOnTimeSection() {
+  const { rise, doneOnTimeView } = useExec();
   return (
-    <motion.div {...rise(0)} className="exec-summary-grid grid gap-6 max-md:gap-4">
+    <motion.div {...rise(0)}>
       <OnTimeGauge data={doneOnTimeView} />
-      <NotApprovedSidebar
-        data={notApprovedAgingView}
-        isAdmin={isAdmin}
-        meId={meId}
-        resolveAvatar={resolveAvatar}
-      />
     </motion.div>
   );
 }
@@ -333,8 +313,8 @@ function WindowToggle({
   onChange: (k: WindowKey) => void;
 }) {
   const options: { id: WindowKey; label: string }[] = [
-    { id: "d3", label: "3-day" },
-    { id: "d7", label: "7-day" },
+    { id: "d3", label: "3-Day" },
+    { id: "d7", label: "7-Day" },
   ];
   return (
     <div
@@ -457,9 +437,9 @@ function ManagerRail({
           <>
             Target ={" "}
             <span className="font-semibold tabular-nums text-gray-900">
-              {PER_REPORT_PER_DAY} × direct reports × {workingDays}
+              {PER_REPORT_PER_DAY} × {workingDays}
             </span>{" "}
-            working {workingDays === 1 ? "day" : "days"} per manager
+            Working {workingDays === 1 ? "Day" : "Days"} × Direct Reports
           </>
         }
         actions={

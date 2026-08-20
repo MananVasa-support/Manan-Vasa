@@ -28,14 +28,18 @@ import {
   type RosterPunch,
   type RosterRow,
 } from "@/components/attendance/att-team-roster";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { hasStartedDay } from "@/lib/queries/daily-checklist";
+import { punchPlanGateOn, goalsCascadeEnabled } from "@/lib/goals/flag";
 import { asWorkerType } from "@/lib/attendance/worker-type";
 import { weeklyTargetMinutesFor } from "@/lib/attendance/hours-rule";
 import { PartTimeWeekCard } from "@/components/attendance/part-time-week-card";
 import {
   listMyAttendance,
   listTeamAttendanceForDate,
+  hasCheckedInOn,
   type DayPunches,
   type PunchDetail,
 } from "@/lib/queries/attendance";
@@ -93,6 +97,44 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const me = await requireUser();
   const tz = me.timezone || "Asia/Kolkata";
   const today = localDateString(tz);
+
+  // ── PAGE LOCK — no Start My Day, no Attendance page (Sir) ──────────────
+  // Attendance follows the daily loop rather than running beside it: until the
+  // day is STARTED on WMS › Plan My Day (with ≥ MIN_ATTENDANCE_ITEMS planned,
+  // enforced by startMyDay itself), this page does not open at all. Sending
+  // them to the planner is both the block and the instruction — there is no
+  // second screen to build, and nothing here changes visually for anyone who
+  // has planned their day.
+  //
+  // NO ROLE EXEMPTIONS. Same rule for super-admins, admins and managers.
+  //
+  // …OR they are already clocked in today. `reopenPlan` sets started_at back to
+  // NULL, and re-opening the plan to change tasks is expressly allowed (Sir), so
+  // keying the page on that stamp alone would slam the door on someone
+  // mid-shift and leave them no way to reach the clock-OUT button. A check-in
+  // row is durable proof the day WAS started properly — it cannot exist unless
+  // this same gate passed. Clocking out still requires "Finish Day"; this
+  // governs only whether the page opens.
+  //
+  // FAIL-OPEN (`.catch(() => true)`): a database hiccup must never lock the
+  // workforce out of attendance. That is precisely what happened on 2026-07-27
+  // and it is why every gate in this app spent a month switched off.
+  //
+  // SCOPE: this page only. /attendance/leave, /insights, /devices, /dashboard
+  // and /hr-record stay reachable — the punch actions are themselves gated, so
+  // the rule cannot be evaded by walking around this redirect.
+  //
+  // `goalsCascadeEnabled()` is checked FIRST and is not optional: /my-day 404s
+  // when the cascade is off, so locking attendance behind a page that cannot
+  // render would leave no way to start the day and no way in — a dead end no
+  // env var could unpick from the user's side.
+  if (punchPlanGateOn() && goalsCascadeEnabled()) {
+    const [started, clockedIn] = await Promise.all([
+      hasStartedDay(me.id).catch(() => true),
+      hasCheckedInOn(me.id, today).catch(() => true),
+    ]);
+    if (!started && !clockedIn) redirect("/my-day");
+  }
   // The Team roster + attendance editing are SUPER-ADMIN only. Admins keep the
   // report buttons but no longer see the (editable) Team box.
   const isSA = isSuperAdmin(me.email);

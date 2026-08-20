@@ -38,7 +38,7 @@ export function PersonalWDBoard({ data }: { data: PersonalWDData }) {
 
   function goTo(key: string) {
     const param = isWeek ? `wk=${key}` : `day=${key}`;
-    router.push(`${isWeek ? "/goals/weekly" : "/goals/plan"}?${param}` as Route);
+    router.push(`${isWeek ? "/goals/weekly" : "/my-day"}?${param}` as Route);
   }
 
   const Icon = isWeek ? CalendarCheck : CalendarDays;

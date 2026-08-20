@@ -116,7 +116,9 @@ export function TopPerformersSection({
   return (
     <section
       className="flex w-full max-w-none flex-col"
-      style={{ opacity: 0, animation: "fadeUp 500ms ease-out 500ms forwards" }}
+      /* Delay cut from 500ms: it staggered against this section's position in
+         one long scroll, but it now mounts when its tab is clicked. */
+      style={{ opacity: 0, animation: "fadeUp 400ms ease-out 100ms forwards" }}
     >
       <DashboardSectionHeader
         className="mb-3"

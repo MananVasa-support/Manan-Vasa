@@ -85,7 +85,7 @@ export function ExitWorkspace({
       <ExitStyle />
 
       {/* top bar */}
-      <header className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4">
+      <header className="sticky sticky-below-topbar z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4">
         <div className="justify-self-start">
           <button
             onClick={() => (mode.screen === "pick" ? router.push("/hr?open=exit" as Route) : backToPick())}

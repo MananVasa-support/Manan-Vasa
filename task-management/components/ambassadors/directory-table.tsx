@@ -103,7 +103,7 @@ export function DirectoryTable({ rows }: { rows: AmbassadorListRow[] }) {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name, company, owner…"
+            placeholder="Local search — name, company, owner" title="Local search — filters only the list on this page" aria-label="Local search — name, company, owner — this page only"
             className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal"
           />
         </div>

@@ -414,8 +414,18 @@ export function GoalsBoard(): React.JSX.Element {
     // lane list that can still consume the vertical scroll itself.
     const onWheel = (e: WheelEvent) => {
       if (el.scrollWidth <= el.clientWidth) return;
-      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        el.scrollLeft += e.deltaX || e.deltaY;
+      // A REAL two-finger horizontal swipe: hand it straight to the browser.
+      // This used to run `scrollLeft += deltaX` + preventDefault, which replaced
+      // the platform's inertial scroll with one discrete jump per wheel tick —
+      // no momentum, no rubber-band, and it fought the container's own smooth
+      // scrolling. Returning without preventDefault lets the native scroller
+      // consume deltaX on `overflow-x: auto`, which is what makes trackpad
+      // panning feel right.
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      // Shift+wheel is the MOUSE convention for horizontal, and a plain mouse
+      // only ever reports deltaY — so these still need translating by hand.
+      if (e.shiftKey) {
+        el.scrollLeft += e.deltaY;
         e.preventDefault();
         return;
       }

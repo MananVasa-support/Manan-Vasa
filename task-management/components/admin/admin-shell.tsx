@@ -24,8 +24,9 @@ export async function AdminShell({
   avatarUrl,
   canSeeAccounts,
 }: Props) {
-  // Consistent with every other module: the back button returns to the Hub
-  // (the workspace switchboard). The logo still goes to the WMS home.
+  // Consistent with every other module: the Hub (the workspace switchboard)
+  // is where the brand mark leads. On desktop the sidebar LOGO is that link;
+  // on phones AdminMobileBar still renders it as its own labelled button.
   const backHref = "/hub";
 
   return (
@@ -35,7 +36,10 @@ export async function AdminShell({
       {/* Desktop: left rail + main column */}
       <div className="flex min-h-screen">
         <AdminSidebar adminName={adminName} adminEmail={adminEmail} avatarUrl={avatarUrl} backHref={backHref} />
-        <main className="min-w-0 flex-1 px-8 py-8 max-md:px-4 max-md:py-6">
+        {/* Matches COMMAND_PAGE_CLASS's rhythm (pt-6 pb-8) so the admin room
+            sits at the same vertical scale as every other module now that it
+            shares their header. */}
+        <main className="min-w-0 flex-1 px-8 pt-6 pb-8 max-md:px-4 max-md:pt-5 max-md:pb-6">
           <div className="mx-auto max-w-[1400px]">{children}</div>
         </main>
       </div>

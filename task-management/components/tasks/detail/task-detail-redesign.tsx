@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar as SharedAvatar } from "@/components/ui/avatar";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -36,8 +37,7 @@ import type { TaskInsight } from "@/lib/tasks/insight";
 import { progressFromStatus, formatEstimate } from "@/lib/tasks/insight";
 import { formatMinutesLabel } from "@/lib/tasks/time/types";
 import {
-  ADMIN_TASK_STATUSES,
-  USER_TASK_STATUSES,
+  DOER_TASK_STATUSES,
   PRIORITY_LABELS,
   type TaskStatus,
 } from "@/db/enums";
@@ -81,16 +81,10 @@ const PRIORITY_TONE: Record<string, { bg: string; fg: string }> = {
 type Tab = "overview" | "comments" | "attachments" | "history" | "timelog" | "related";
 
 function Avatar({ name, url, size = 28 }: { name: string | null; url?: string | null; size?: number }) {
-  const initials = ((name ?? "?").trim().split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join("") || "?").toUpperCase();
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={name ?? ""} className="rounded-full object-cover" style={{ width: size, height: size }} />;
-  }
-  return (
-    <span className="grid place-items-center rounded-full bg-[color-mix(in_srgb,var(--color-altus-red)_12%,white)] font-black text-altus-red-deep" style={{ width: size, height: size, fontSize: size * 0.38 }}>
-      {initials}
-    </span>
-  );
+  // Shared <Avatar>: the local version returned a bare <img> with no onError,
+  // so a dead URL showed the broken-image glyph instead of falling through to
+  // the initials branch right below it.
+  return <SharedAvatar name={name} avatarUrl={url} size={size} />;
 }
 
 export function TaskDetailRedesign(props: Props) {
@@ -105,7 +99,13 @@ export function TaskDetailRedesign(props: Props) {
   const expectedUpdatedAt = task.updatedAt instanceof Date ? task.updatedAt.toISOString() : String(task.updatedAt);
   const locked = task.approvalStatus === "approved";
   const progress = progressFromStatus(task.status, task.approvalStatus);
-  const statusList = me.isAdmin ? ADMIN_TASK_STATUSES : USER_TASK_STATUSES;
+  // The SAME six doer statuses the row chip and the bulk Status dropdown offer.
+  // This drawer opens inline on /tasks (?task=<id>), so an admin could
+  // previously see the row chip offering six options and this pill — on the very
+  // same screen, for the very same task — offering nine. The manager's rulings
+  // (hold / approve / decline / cancel) live in the bulk "Mark Status" control
+  // and, per-task, in this drawer's Edit form, which carries approvalStatus.
+  const statusList: readonly TaskStatus[] = DOER_TASK_STATUSES;
 
   function run(fn: () => Promise<{ ok?: boolean; error?: string; message?: string } | void>, after?: () => void) {
     start(async () => {

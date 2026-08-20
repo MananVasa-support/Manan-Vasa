@@ -40,6 +40,19 @@ export function MultiSelect({
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const labelMap = new Map(options.map((o) => [o.value, o.label]));
 
+  // WHY the popover closed decides whether focus should come back.
+  //
+  // `onCloseAutoFocus` is prevented below for two real reasons: a trigger that
+  // opens on focus would reopen in a loop, and after a Tab-commit the browser
+  // must be free to move focus ON to the next field. But that also swallowed
+  // the Escape case, where returning to the trigger is the whole point —
+  // pressing Escape used to drop focus onto <body>, so the next Tab restarted
+  // from the top of the page.
+  //
+  // The flag distinguishes them: Escape sets it, and only then is the default
+  // restore allowed through.
+  const closedByEscape = React.useRef(false);
+
   // cmdk auto-highlights the first item on every query change, so Tab must only
   // commit when the user has deliberately arrow-navigated — otherwise Tabbing
   // out silently commits the first filtered option. Reset whenever the popover
@@ -54,6 +67,27 @@ export function MultiSelect({
   function onCommandKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       userNavigated.current = true;
+      return;
+    }
+    if (e.key === "Escape") {
+      // Let Radix restore focus to the trigger on THIS close only.
+      closedByEscape.current = true;
+      return;
+    }
+    if (e.key === " ") {
+      // Space toggles the highlighted option — but ONLY with an empty query.
+      // With text typed it has to stay a literal space, or multi-word searches
+      // ("Business Development", "Not Approved") become untypeable. That is the
+      // standard trade for a combobox whose filter box and list share focus.
+      const input = e.currentTarget.querySelector<HTMLInputElement>("[cmdk-input]");
+      if (input && input.value.length > 0) return;
+      const active = e.currentTarget.querySelector<HTMLElement>(
+        '[cmdk-item][aria-selected="true"]',
+      );
+      if (active) {
+        e.preventDefault();
+        active.click();
+      }
       return;
     }
     // Typing changes the query → cmdk re-auto-highlights, so navigation intent
@@ -142,7 +176,14 @@ export function MultiSelect({
       <PopoverContent
         // Don't restore focus to the trigger on close — it fights the browser's
         // Tab so focus can't advance after committing a selection.
-        onCloseAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => {
+          if (closedByEscape.current) {
+            // Escape: let the default run so focus lands back on the trigger.
+            closedByEscape.current = false;
+            return;
+          }
+          e.preventDefault();
+        }}
         className="w-[286px] p-0 rounded-2xl border border-hairline overflow-hidden bg-surface-card data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1"
         style={{ boxShadow: "0 24px 60px -18px rgba(15,23,42,0.30), 0 2px 8px -2px rgba(15,23,42,0.10)" }}
       >

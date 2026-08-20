@@ -182,7 +182,18 @@ export type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
  * employee). Candidates are always `is_active=false` (excluded from every
  * roster for free) and login-gated on `candidate_active` instead.
  */
-export const ACCOUNT_TYPES = ["employee", "candidate"] as const;
+/**
+ * Account archetypes.
+ *  · employee  — a real member of staff; the ONLY type that appears in rosters,
+ *                pickers and the admin Employees list (see isStaffAccount).
+ *  · candidate — a job applicant's limited guest login (forked to their form).
+ *  · system    — a working login that is deliberately NOT part of the roster:
+ *                test/demo accounts. It authenticates and behaves exactly like
+ *                an employee (isLoginLive falls through to is_active, and
+ *                requireUser only forks candidates), but every staff listing
+ *                filters it out, so it never shows up in a demo or a headcount.
+ */
+export const ACCOUNT_TYPES = ["employee", "candidate", "system"] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
 // Worker type — the employment archetype that drives BOTH attendance grading
@@ -889,3 +900,11 @@ export const DEFAULT_APPRAISAL_RATING_TERMS: ReadonlyArray<{ min: number; label:
   { min: 40, label: "Needs Improvement" },
   { min: 0, label: "Unsatisfactory" },
 ];
+
+/**
+ * Two-stage approval (migration 0185). Layered OVER `tasks.status='approved'`
+ * rather than added to TASK_STATUSES, so every existing consumer of approved-ness
+ * keeps working untouched. See lib/tasks/approval-permissions.ts.
+ */
+export const APPROVAL_LEVELS = ["none", "manager", "admin"] as const;
+export type ApprovalLevel = (typeof APPROVAL_LEVELS)[number];

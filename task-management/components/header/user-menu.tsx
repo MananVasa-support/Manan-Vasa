@@ -1,8 +1,11 @@
 "use client";
 
+import * as React from "react";
+import { Avatar } from "@/components/ui/avatar";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { ShortcutsSheet } from "@/components/header/shortcuts-sheet";
 import Link from "next/link";
 import type { Route } from "next";
 import {
@@ -12,6 +15,7 @@ import {
   LogOut,
   UserCog,
   Inbox,
+  Keyboard,
   FileText,
   Archive,
   ChevronUp,
@@ -51,12 +55,7 @@ export function UserMenu({
     window.location.replace("/login");
   }
 
-  const initials = name
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
 
   // Outer container provides the gradient ring (for admins) and pulse-on-mount.
   // Inner avatar sits on a dark spacer so the gradient reads as a 2px halo.
@@ -72,16 +71,12 @@ export function UserMenu({
         padding: 1.5,
       };
 
-  const avatarNode = avatarUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={avatarUrl} alt={name} className="h-8 w-8 rounded-full object-cover block" />
-  ) : (
-    <span
-      className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold text-white"
-      style={{ background: "linear-gradient(135deg, #475569, #1f2937)" }}
-    >
-      {initials}
-    </span>
+  // Shared <Avatar>, not a local img/initials pair: this one had no onError, so
+  // a dead URL rendered the browser's broken-image glyph in the header on every
+  // page. The shared component layers the img over the initials and drops it on
+  // error, and it is the same badge the tables use.
+  const avatarNode = (
+    <Avatar name={name} avatarUrl={avatarUrl} size={32} title={name} />
   );
 
   const ringedAvatar = (
@@ -153,24 +148,7 @@ export function UserMenu({
                     : { background: "rgba(15, 23, 42, 0.08)", padding: 1.5 }
                 }
               >
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatarUrl}
-                    alt={name}
-                    className="h-9 w-9 rounded-full object-cover block"
-                  />
-                ) : (
-                  <span
-                    className="h-9 w-9 rounded-full flex items-center justify-center text-[13px] font-semibold text-white"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #475569, #1f2937)",
-                    }}
-                  >
-                    {initials}
-                  </span>
-                )}
+                <Avatar name={name} avatarUrl={avatarUrl} size={36} title={name} />
               </span>
               <div className="min-w-0">
                 <div className="font-semibold text-[#0F172A] truncate">
@@ -314,6 +292,27 @@ export function UserMenu({
 
           <DropdownMenu.Separator className="my-1 h-px bg-[#E2E8F0]" />
 
+          {/* Sir: the shortcut list lives under the profile. Opened via a
+              CONTROLLED dialog — the menu closes on select, which would unmount
+              an uncontrolled one before it ever painted. */}
+          <DropdownMenu.Item
+            onSelect={(e) => {
+              e.preventDefault();
+              setShortcutsOpen(true);
+            }}
+            className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none text-[#0F172A] data-[highlighted]:bg-[#F1F5F9]"
+          >
+            <span className="inline-flex items-center gap-2">
+              <Keyboard size={14} strokeWidth={2.2} style={{ color: "#475569" }} />
+              <span className="font-medium">Keyboard shortcuts</span>
+            </span>
+            <kbd className="rounded border border-[#E2E8F0] bg-[#F8FAFC] px-1.5 py-0.5 text-[11px] font-bold text-[#475569]">
+              ?
+            </kbd>
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Separator className="my-1 h-px bg-[#E2E8F0]" />
+
           <DropdownMenu.Item
             onSelect={handleSignOut}
             className="flex items-center gap-2.5 px-3.5 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none text-[#A80400] data-[highlighted]:bg-[#FEF2F2]"
@@ -323,6 +322,7 @@ export function UserMenu({
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
+      <ShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </DropdownMenu.Root>
   );
 }

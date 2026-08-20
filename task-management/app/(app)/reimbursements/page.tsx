@@ -2,13 +2,13 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   BarChart3,
-  ReceiptText,
   Wallet,
   Hourglass,
   CheckCircle2,
   Layers,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import { requireUser } from "@/lib/auth/current";
 import { listModuleSubmissions, type ModuleSubmissionRow } from "@/lib/queries/modules";
 import { MODULES } from "@/lib/forms/modules";
@@ -80,56 +80,28 @@ export default async function ReimbursementsPage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
-        {/* ── Glass hero ── */}
-        <header
-          className="wg-rise relative mb-5 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-4 max-md:py-5"
-          style={{
-            background: [
-              `radial-gradient(120% 190% at 100% 0%, color-mix(in srgb, ${GREEN} 9%, transparent), transparent 55%)`,
-              `radial-gradient(80% 160% at 0% 100%, color-mix(in srgb, ${GREEN} 5%, transparent), transparent 52%)`,
-              "rgba(255, 255, 255, 0.72)",
-            ].join(", "),
-            backdropFilter: "blur(14px) saturate(140%)",
-            boxShadow:
-              "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.85), 0 18px 44px -28px rgba(15,23,42,0.22)",
-          }}
-        >
-          <div className="flex items-end justify-between gap-6 flex-wrap">
-            <div className="min-w-0">
-              <span
-                className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-                style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}
-              >
-                <ReceiptText size={13} strokeWidth={2.6} /> Employees · Reimbursements
-              </span>
-              <h1
-                className="mt-3 text-ink-strong"
-                style={{
-                  fontFamily: "var(--font-display), system-ui, sans-serif",
-                  fontWeight: 900,
-                  fontSize: "clamp(30px,3.6vw,46px)",
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1.02,
-                }}
-              >
-                Reimbursements
-              </h1>
-              <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
-                {view === "archived"
-                  ? "Archived claims — restore or delete from the ⋯ menu."
-                  : me.isAdmin
-                    ? `${formatCount(pendingRows.length)} ${pendingRows.length === 1 ? "claim" : "claims"} pending review.`
-                    : def.subtitle}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
+      <main className="mx-auto max-w-[1400px] px-8 pt-6 pb-8 max-lg:px-6 max-md:px-4 max-md:pt-5 max-md:pb-6">
+        {/* The glass hero — a 26px-radius gradient-mesh card with its own
+            backdrop-filter — was the single heaviest header in the app. It is
+            the same flat command bar as everywhere else now; the state-dependent
+            subtitle survives as the inline hint, and all four controls keep
+            working unchanged in the action slot. */}
+        <PageCommandBar
+          title="Reimbursements"
+          hint={
+            view === "archived"
+              ? "Archived claims — restore or delete from the ⋯ menu."
+              : me.isAdmin
+                ? `${formatCount(pendingRows.length)} ${pendingRows.length === 1 ? "claim" : "claims"} pending review.`
+                : def.subtitle
+          }
+          actions={
+            <>
               <Link
                 href={"/reimbursements/dashboard" as Route}
-                className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-4 py-2.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[#16a34a99]"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
               >
-                <BarChart3 size={15} strokeWidth={2.6} />
+                <BarChart3 size={14} strokeWidth={2.6} />
                 Dashboard
               </Link>
               {me.isAdmin && (
@@ -139,9 +111,9 @@ export default async function ReimbursementsPage({ searchParams }: PageProps) {
                 </>
               )}
               <RbClaimDialog fields={requestFields} productOptions={products} isAdmin={me.isAdmin} />
-            </div>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         {/* ── KPI strip (folded over the loaded rows — zero extra queries) ── */}
         <section

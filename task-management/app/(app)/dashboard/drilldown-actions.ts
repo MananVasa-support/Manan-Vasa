@@ -57,7 +57,7 @@ export async function getManagerDrilldown(
 
 const PunctualityInput = z.object({
   basis: z.enum(["original", "revised"]),
-  bucket: z.enum(["onTime", "late"]),
+  bucket: z.enum(["onTime", "late", "all"]),
   /** The dashboard's own querystring, so the list is scoped exactly like the
    *  gauge it was opened from. */
   search: z.string().max(4000),
@@ -76,7 +76,7 @@ const PunctualityInput = z.object({
  */
 export async function getPunctualityDrilldown(
   basis: "original" | "revised",
-  bucket: "onTime" | "late",
+  bucket: "onTime" | "late" | "all",
   search: string,
 ): Promise<PunctualityDrilldown | { error: string }> {
   try {

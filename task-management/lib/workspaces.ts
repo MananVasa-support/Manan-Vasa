@@ -172,10 +172,11 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
 
   // WMS — the work loop (the dashboard now lives at /dashboard). Important
   // Links (/index-hub) moved here from the retired Marketing room.
-  // `/my-day` is the WMS-owned alias of Plan My Day (`/goals/plan`): the same
-  // page component, but claimed by THIS room so opening it from the WMS bar
-  // doesn't swap the sidebar over to Goals. Must stay below the `/goals` rule
-  // above — that one still owns the `/goals/plan` URL for the Goals room.
+  // `/my-day` IS Plan My Day (2026-08) — the planner moved out of Goals and
+  // onto this room's rail, replacing the old My Day execution board. It is
+  // claimed here so opening it from the WMS bar doesn't swap the sidebar over
+  // to Goals. The `/goals` rule above still owns `/goals/plan`, which is now
+  // only a redirect stub pointing here.
   // `/review` is the same arrangement for Review & Scores (`/goals/review`).
   if (
     p.startsWith("/dashboard") ||

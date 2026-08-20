@@ -36,6 +36,8 @@ export async function isOnboardingSubmitted(employeeId: string): Promise<boolean
 export async function getMyOnboardingStatus(): Promise<{ submitted: boolean }> {
   const me = await getCurrentEmployee();
   if (!me) return { submitted: true };
+  // A system service account is not a person and never onboards — never nag it.
+  if (me.accountType === "system") return { submitted: true };
   return { submitted: await isOnboardingSubmitted(me.id) };
 }
 

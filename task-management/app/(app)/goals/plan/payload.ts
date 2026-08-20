@@ -2,8 +2,9 @@ import "server-only";
 
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dailyChecklist, dailyPlanDay, weeklyGoals } from "@/db/schema";
+import { dailyChecklist, dailyPlanDay, tasks, weeklyGoals } from "@/db/schema";
 import { getPeriodGoals } from "@/lib/goals/queries";
+import { MIN_ATTENDANCE_ITEMS } from "@/lib/daily-checklist/constants";
 import {
   ymdForOffset,
   clampDayOffset,
@@ -14,6 +15,7 @@ import {
   getOverdueItems,
   type OverdueItem,
 } from "@/lib/queries/daily-checklist";
+import { istYmd } from "@/lib/weekly-goals/week";
 import { yearKey, quarterKey, monthKey } from "@/lib/goals/types";
 import { isManagerWithReports } from "@/lib/manager-gates";
 import type {
@@ -227,8 +229,29 @@ export async function getPlanDayPayload(
         done: dailyChecklist.done,
         donePct: dailyChecklist.donePct,
         doneNote: dailyChecklist.doneNote,
+        // ── Added for the post-"Start My Day" review TABLE ──────────────
+        // `committedAt` was already the tie-break in the ORDER BY below; it is
+        // now selected so the table can show Created (and derive Age).
+        committedAt: dailyChecklist.committedAt,
+        // Set when a row was rolled forward from an earlier, unfinished day.
+        // This is the ONLY reliable "Unfinished" signal: once carried over, a
+        // row's `kind` reverts to weekly/task/adhoc, so kind can't tell you.
+        movedFromDate: dailyChecklist.movedFromDate,
+        // From the linked WMS task, where there is one. Plan rows for goals and
+        // ad-hoc commitments have no task, so these are null for them — the
+        // table renders an em-dash rather than inventing a value.
+        taskNo: tasks.taskNo,
+        taskPriority: tasks.priority,
+        taskDescription: tasks.description,
+        taskDueAt: tasks.dueAt,
+        taskRevisedDueAt: tasks.revisedTargetDate,
+        // Weekly-goal rows carry their deadline here instead.
+        goalTargetDate: weeklyGoals.targetDate,
       })
       .from(dailyChecklist)
+      // Both LEFT joins: a plan row is valid with neither a task nor a goal.
+      .leftJoin(tasks, eq(tasks.id, dailyChecklist.taskId))
+      .leftJoin(weeklyGoals, eq(weeklyGoals.id, dailyChecklist.goalId))
       .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)))
       .orderBy(asc(dailyChecklist.position), asc(dailyChecklist.committedAt)),
     listGoalsForPlanner(employeeId, now),
@@ -269,20 +292,54 @@ export async function getPlanDayPayload(
   // is indistinguishable from a typed commitment and would wear the wrong tag.
   const cascadeLevels = await cascadeGoalLevels(planRows.map((r) => r.id));
 
-  const initialPlan: PlanItem[] = planRows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    subtitle: r.subject ?? r.client ?? null,
-    origin: r.origin === "goal_related" ? ("goal_related" as const) : ("standalone" as const),
-    kind: (r.goalId
-      ? "weekly"
-      : r.taskId
-        ? "task"
-        : (cascadeLevels.get(r.id) ?? "adhoc")) as PlanKind,
-    done: r.done,
-    donePct: r.donePct,
-    doneNote: r.doneNote,
-  }));
+  /**
+   * "YYYY-MM-DD" on the team's IST clock — same convention as `plan_date`.
+   * Accepts a string too: `weekly_goals.target_date` is a DATE column, which
+   * drizzle hands back already formatted, and re-parsing it through a Date
+   * would drag it across a timezone boundary and land on the wrong day.
+   */
+  const ymdOf = (d: Date | string): string =>
+    typeof d === "string" ? d.slice(0, 10) : istYmd(d);
+  /** Whole IST days between two instants; 0 for anything created today. */
+  const daysBetween = (from: Date, to: Date): number => {
+    const a = Date.parse(`${istYmd(from)}T00:00:00Z`);
+    const b = Date.parse(`${istYmd(to)}T00:00:00Z`);
+    return Math.max(0, Math.round((b - a) / 86_400_000));
+  };
+
+  const initialPlan: PlanItem[] = planRows.map((r) => {
+    // Effective due = revised ?? original, matching `pickEffectiveDue` and the
+    // rest of the app; goal rows fall back to their own target date.
+    const due = r.taskRevisedDueAt ?? r.taskDueAt ?? r.goalTargetDate ?? null;
+    const created = r.committedAt ?? null;
+    return {
+      id: r.id,
+      title: r.title,
+      // `subtitle` stays for the plan-phase cards, which still render it.
+      subtitle: r.subject ?? r.client ?? null,
+      // …and the two halves are now carried separately for the table, which
+      // shows them as their own columns.
+      client: r.client ?? null,
+      subject: r.subject ?? null,
+      origin: r.origin === "goal_related" ? ("goal_related" as const) : ("standalone" as const),
+      kind: (r.goalId
+        ? "weekly"
+        : r.taskId
+          ? "task"
+          : (cascadeLevels.get(r.id) ?? "adhoc")) as PlanKind,
+      done: r.done,
+      donePct: r.donePct,
+      doneNote: r.doneNote,
+      taskId: r.taskId ?? null,
+      taskNo: r.taskNo ?? null,
+      priority: r.taskPriority ?? null,
+      description: r.taskDescription ?? null,
+      dueYmd: due ? ymdOf(due) : null,
+      createdYmd: created ? ymdOf(created) : null,
+      ageDays: created ? daysBetween(created, now) : null,
+      carriedOver: r.movedFromDate != null,
+    };
+  });
 
   const sources = {
     weekly: weekly.map<SourceItem>((g) => ({
@@ -335,7 +392,11 @@ export async function getPlanDayPayload(
   return {
     initialPlan,
     sources,
-    minItems: isManager ? 5 : 3,
+    // 5 for EVERYONE, not 5-for-managers / 3-for-ICs (Sir). This is the same
+    // constant the attendance gate and the startMyDay guard read: if the button
+    // enabled at 3 for an IC, they would start their day and then be refused at
+    // the clock — the worst of both. One number, one source of truth.
+    minItems: MIN_ATTENDANCE_ITEMS,
     isManager,
     initialPhase,
     ymd,

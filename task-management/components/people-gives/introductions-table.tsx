@@ -122,7 +122,7 @@ export function IntroductionsTable({ rows }: { rows: PgIntroductionRow[] }) {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search introducer, company, prospect, notes…"
+            placeholder="Local search — introducer, company, prospect, notes" title="Local search — filters only the list on this page" aria-label="Local search — introducer, company, prospect, notes — this page only"
             className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal"
           />
         </div>

@@ -87,7 +87,7 @@ export function FeedbackDashboard({ rows, stats, canNew }: { rows: FeedbackRow[]
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex w-[300px] max-md:w-full items-center gap-2 rounded-lg border border-hairline-strong bg-white px-3">
           <Search size={17} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search feedback…" className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Local search — feedback" title="Local search — filters only the list on this page" aria-label="Local search — feedback — this page only" className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal" />
         </div>
         <select className="rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] font-semibold text-ink-strong outline-none" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All Status</option>

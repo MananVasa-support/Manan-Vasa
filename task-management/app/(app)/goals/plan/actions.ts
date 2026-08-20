@@ -7,7 +7,8 @@ import { dailyChecklist, dailyPlanDay, weeklyGoals, goals, tasks } from "@/db/sc
 import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { applyTaskStatusChange } from "@/lib/tasks/set-status";
-import { todayYmd, ymdForOffset, clampDayOffset } from "@/lib/queries/daily-checklist";
+import { todayYmd, ymdForOffset, clampDayOffset, countPlannedItems } from "@/lib/queries/daily-checklist";
+import { MIN_ATTENDANCE_ITEMS } from "@/lib/daily-checklist/constants";
 import { goalsCanvasOn } from "@/lib/goals/flag";
 import { getPlanDayPayload } from "./payload";
 import { resolvePlanTarget } from "@/lib/goals/plan-target";
@@ -651,12 +652,33 @@ export async function reorderPlan(
  * "Start my day" — persist that the plan is committed. Idempotent per day (a
  * unique index on employee_id+plan_date; re-clicking keeps the first started_at
  * and just clears any stale closed_at so re-planning re-opens the day).
+ *
+ * ENFORCES THE MINIMUM SERVER-SIDE. The button is disabled below `minItems`,
+ * but that is a client check and this stamp is now what unlocks attendance —
+ * anyone who can call this action could otherwise open their own clock-in with
+ * an empty plan. Same constant the attendance gate reads, so the button, this
+ * guard and the punch can never disagree about what "planned" means.
+ *
+ * Counts COMMITTED items only (`countPlannedItems` = today's daily_checklist
+ * rows), matching the number the planner shows you. Merely-assigned tasks do
+ * not count here: starting your day is an act of committing, and the whole
+ * point is that you chose these five.
  */
 export async function startMyDay(): Promise<ActionResult> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   const ymd = todayYmd();
+
+  const committed = await countPlannedItems(me.id, ymd).catch(() => MIN_ATTENDANCE_ITEMS);
+  if (committed < MIN_ATTENDANCE_ITEMS) {
+    const short = MIN_ATTENDANCE_ITEMS - committed;
+    return {
+      ok: false,
+      error: `Plan at least ${MIN_ATTENDANCE_ITEMS} things before you start your day — you have ${committed}, add ${short} more.`,
+    };
+  }
+
   try {
     await db
       .insert(dailyPlanDay)

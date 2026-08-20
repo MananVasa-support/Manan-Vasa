@@ -35,7 +35,7 @@ const LEVEL_LABEL: Record<GoalPeriod, string> = {
   day: "Daily",
 };
 
-/** The enterprise exceljs template (branded, validated dropdowns, frozen panes),
+/** The enterprise exceljs template (branded, validated dropdowns, no frozen panes),
  *  generated server-side and pre-scoped to the viewed level + period bucket. */
 function templateUrl(level: GoalPeriod, periodKey: string): string {
   return `/goals/template.xlsx?level=${encodeURIComponent(level)}&periodKey=${encodeURIComponent(periodKey)}`;

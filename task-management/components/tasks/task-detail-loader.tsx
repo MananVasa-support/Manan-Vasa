@@ -11,6 +11,7 @@ import { listActiveSubjectNames } from "@/lib/queries/subjects";
 import { listProjectNodeOptions } from "@/lib/queries/projects";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
+import { canManagerApprove, canAdminApprove } from "@/lib/tasks/approval-permissions";
 import {
   canEditTaskFields,
   canApprove,
@@ -28,6 +29,10 @@ interface Props {
   taskId: string;
   me: {
     id: string;
+    /** Needed for the founder check that gates ADMIN approval. Optional so
+     *  callers that predate two-stage approval (e.g. the main tasks page) still
+     *  satisfy the prop; a missing email simply means no admin-approve button. */
+    email?: string | null;
     name: string;
     avatarUrl: string | null;
     department: string | null;
@@ -104,6 +109,28 @@ export async function TaskDetailLoader({ taskId, me }: Props) {
           isDoer,
           canOperate: me.isAdmin || isDoer || isDoersManager,
           canApprove: me.isAdmin || isDoersManager,
+          // Two-stage approval (mig 0185) — computed server-side ONLY to decide
+          // which button to draw; decideTaskApproval re-derives both rules.
+          canManagerApprove: canManagerApprove(
+            { id: me.id, email: me.email ?? null, isAdmin: me.isAdmin },
+            {
+              status: task.status,
+              approvalLevel: (task.approvalLevel ?? "none") as "none" | "manager" | "admin",
+              doerId: task.doerId,
+              assignerId: task.initiatorId ?? task.createdById ?? null,
+            },
+            { isDoersManager, assignerIsAdmin: true, assignerIsManager: true },
+          ),
+          canAdminApprove: canAdminApprove(
+            { id: me.id, email: me.email ?? null, isAdmin: me.isAdmin },
+            {
+              status: task.status,
+              approvalLevel: (task.approvalLevel ?? "none") as "none" | "manager" | "admin",
+              doerId: task.doerId,
+              assignerId: task.initiatorId ?? task.createdById ?? null,
+            },
+          ),
+          taskUpdatedAt: task.updatedAt ? new Date(task.updatedAt).toISOString() : null,
           approvalStatus: task.approvalStatus,
           taskStatus: task.status,
           isSuperAdmin: me.isSuperAdmin,

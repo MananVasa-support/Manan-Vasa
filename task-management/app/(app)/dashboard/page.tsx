@@ -11,8 +11,10 @@ import {
   ExecDashboard,
   ExecOverdueSection,
   ExecDelegationSection,
-  ExecSummarySection,
+  ExecOnTimeSection,
 } from "@/components/dashboard/exec/exec-dashboard";
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
+import { DashboardViewProvider } from "@/components/dashboard/dashboard-view";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
@@ -132,7 +134,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           Solid white — it must stay opaque, or the content scrolling under it
           shows through. */}
       <div
-        className={`sticky top-0 max-md:top-14 z-40 ${mobileToday ? "max-md:hidden" : ""}`}
+        className={`sticky sticky-below-topbar max-md:top-14 z-40 ${mobileToday ? "max-md:hidden" : ""}`}
         style={{
           background: "#ffffff",
           borderBottom: "1px solid var(--color-hairline)",
@@ -177,6 +179,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               </div>
             )}
             <div className={mobileToday ? "max-md:hidden" : undefined}>
+              {/* The Overview/Performance selection is shared between the
+                  switcher (in the Task Summary header, just below) and the
+                  analytics panel at the bottom of the column. They are far
+                  apart in the tree and this page is a SERVER component, so the
+                  state lives in a client provider wrapped around both. */}
+              <DashboardViewProvider>
               {/* Task Analytics deep-dive — on-demand route (load-neutral),
                   surfaced for admins + managers (anyone with a downline).
                   Passed INTO KpiStrip as children so the summary's single
@@ -185,7 +193,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   nesting them would apply the page gutter twice. */}
               <KpiStrip kpis={data.kpis} summary={data.wmsSummary}>
               {(me?.isAdmin || allEmployees.some((e) => e.managerId === me?.id)) && (
-                <div className="mt-8">
+                <div className="mt-4">
                   {/* Minimalist white surface with a red accent border — the
                       solid red fill it replaced competed with the KPI cards
                       directly above it for the eye, and read as an alert rather
@@ -222,73 +230,87 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 </div>
               )}
               </KpiStrip>
-              {/* Section order below is the FOUNDER-SPECIFIED sequence:
-                    1. Task KPI summary + analytics banner  (above)
-                    2. Overdue Tasks by person
-                    3. Status by Employee
-                    4. Aging Heatmap
-                    5. Delegation Scorecard
-                    6. Employee Rankings
-                    7. Status Distribution
-                    8. Delivered On Time & Attention Required
+              {/* Fixed vertical order below the Task Report banner:
+                    1 Overdue Tasks by Person
+                    2 Aging Heatmap
+                    3 Delivered on Time
+                    4 Insights (the tabbed analytics box)
 
-                  The three Exec sections are wrapped by <ExecDashboard>, which
-                  is now a PROVIDER rather than a card — it owns the 3/7-day
-                  window, the privacy filter, the section-search filter and the
-                  drill-down modal, and hands them to the sections through
-                  context. That's what lets other sections sit BETWEEN them
-                  without duplicating any of that state. */}
+                  The first three were panels of the Insights "Attention" tab.
+                  They are the questions the dashboard is opened to answer, so
+                  they are now always on screen instead of behind a click; the
+                  tabs keep the deliberate second look (Overview / Performance).
+                  Promoting Overdue also fixes a constraint the old layout had to
+                  work around — it carries the surface's GLOBAL EMPTY STATE, which
+                  previously could only be seen if it lived in the default tab.
+
+                  <ExecDashboard> stays a PROVIDER around the whole stack: it owns
+                  the 3/7-day window, the privacy filter, the section search and
+                  the drill-down modal, and its sections throw if rendered outside
+                  it — so it must sit above both the promoted sections and the
+                  tabs. */}
               <ExecDashboard
                 doneOnTime={data.doneOnTime}
                 initiator={data.initiator}
-                notApprovedAging={data.notApprovedAging}
                 avatarById={avatarById}
                 isAdmin={Boolean(me?.isAdmin)}
                 meId={me?.id ?? null}
               >
-                {/* 2 — Overdue Tasks */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
-                  <ExecOverdueSection />
-                </PageShell>
+                {/* ONE column owns the rhythm: gap-6 (24px) between every block,
+                    and nothing carries its own top margin. `mt-6` is the column's
+                    own clearance from the KpiStrip above — gap only spaces
+                    siblings INSIDE the column. */}
+                <div className="mt-6 flex flex-col gap-6">
+                  {/* 1 — Overdue Tasks by Person. PageShell: outside the tabs box
+                      these sections no longer inherit the panel's padding, so each
+                      needs the page gutter itself. AgingHeatmap renders its own. */}
+                  <PageShell as="div" width="full" py={false}>
+                    <ExecOverdueSection />
+                  </PageShell>
 
-                {/* 3 — Status by Employee */}
-                <StatusTable rows={data.statusTable} view={filters.view} avatarById={avatarById} />
+                  {/* 2 — Aging Heatmap */}
+                  <AgingHeatmap
+                    rows={data.agingTable}
+                    cellTasks={data.agingHeatmapData.byCell}
+                    avatarById={avatarById}
+                    me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
+                  />
 
-                {/* 4 — Aging Heatmap */}
-                <AgingHeatmap
-                  rows={data.agingTable}
-                  cellTasks={data.agingHeatmapData.byCell}
-                  avatarById={avatarById}
-                  me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
-                />
+                  {/* 3 — Delivered on Time */}
+                  <PageShell as="div" width="full" py={false}>
+                    <ExecOnTimeSection />
+                  </PageShell>
 
-                {/* 5 — Delegation Scorecard */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
-                  <ExecDelegationSection />
-                </PageShell>
-
-                {/* 6 + 7 — Employee Rankings, then Status Distribution.
-                    STACKED, not side-by-side. The old two-up grid gave each
-                    half a column, which squeezed the leaderboard's podium into
-                    a third of the screen and forced the status cards into three
-                    cramped columns. Full width each, one above the other. */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
-                  <div className="flex w-full max-w-none flex-col space-y-8">
-                    <TopPerformersSection performers={data.topPerformers} avatarById={avatarById} />
-                    <StatusDistributionChart
-                      data={data.statusDistribution}
-                      labels={statusLabels}
-                      tones={statusTones}
-                      isAdmin={Boolean(me?.isAdmin)}
-                    />
-                  </div>
-                </PageShell>
-
-                {/* 8 — Delivered On Time & Attention Required */}
-                <PageShell as="div" width="full" py={false} className="mt-12">
-                  <ExecSummarySection />
-                </PageShell>
+                  {/* 4 — Insights, last. */}
+                  <DashboardTabs
+                    overview={
+                      <div className="flex flex-col gap-6">
+                        <StatusDistributionChart
+                          data={data.statusDistribution}
+                          labels={statusLabels}
+                          tones={statusTones}
+                          isAdmin={Boolean(me?.isAdmin)}
+                        />
+                        <StatusTable
+                          rows={data.statusTable}
+                          view={filters.view}
+                          avatarById={avatarById}
+                        />
+                        <ExecDelegationSection />
+                      </div>
+                    }
+                    performance={
+                      <div className="flex flex-col gap-6">
+                        <TopPerformersSection
+                          performers={data.topPerformers}
+                          avatarById={avatarById}
+                        />
+                      </div>
+                    }
+                  />
+                </div>
               </ExecDashboard>
+              </DashboardViewProvider>
             </div>
           </>
         )}

@@ -4,6 +4,7 @@ import {
   LayoutGrid,
   Activity as ActivityIcon,
   Bell,
+  BellRing,
   Users,
   UsersRound,
   Building2,
@@ -77,6 +78,7 @@ export const ADMIN_GROUPS: readonly AdminNavGroup[] = [
     Icon: SettingsIcon,
     items: [
       { href: "/admin/notifications" as Route, label: "Notifications", Icon: Bell },
+      { href: "/admin/task-reminders" as Route, label: "Task Reminders", Icon: BellRing },
       { href: "/admin/settings" as Route, label: "Settings", Icon: SettingsIcon },
     ],
   },

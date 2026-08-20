@@ -32,6 +32,12 @@ interface Props {
   subjects: string[];
   /** Project tree nodes (path-labelled) for the optional Project link. */
   projectNodes?: { id: string; label: string }[];
+  /**
+   * May this user add a NEW client / subject from the pickers? Admin only
+   * (Sir). Defaults to false, so a caller that forgets it hides the affordance
+   * rather than offering an action quickAddClient/quickAddSubject will refuse.
+   */
+  canAddRoster?: boolean;
   /** Called after a successful create. Default: navigate to /tasks/[id]. */
   onSuccess?: (taskId: string) => void;
   /** Optional defaults for the form (used by the canonical route + the
@@ -76,7 +82,7 @@ interface PreviewFile {
   url: string;
 }
 
-export function NewTaskForm({ employees, clients, subjects, projectNodes = [], onSuccess, defaults }: Props) {
+export function NewTaskForm({ employees, clients, subjects, projectNodes = [], canAddRoster = false, onSuccess, defaults }: Props) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
 
@@ -275,7 +281,10 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           void submit();
         }
       }}
-      className="ntx-form flex flex-col gap-7"
+      // gap-3 (12px) between every top-level block. At gap-4 the five numbered
+      // strata plus their fields ran past the modal's scroll height on a laptop;
+      // the 38px fields need less air around them than the old 56px ones did.
+      className="ntx-form flex flex-col gap-3"
       noValidate
     >
       {/* Scoped brand override — WMS is Altus RED: re-tint the shared
@@ -297,7 +306,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
       {/* Client + Subject — paired top row (was two stretched full-width fields).
           items-start so each field keeps its own resting height (the comboboxes
           don't stretch to match a taller row-mate). */}
-      <div className="grid grid-cols-2 gap-4 items-start max-md:grid-cols-1 max-md:gap-3">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 items-start max-md:grid-cols-1 max-md:gap-3">
         <Field id="nt-title" label="Client Name" required>
           <Controller
             control={control}
@@ -308,6 +317,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
                 value={field.value}
                 onChange={field.onChange}
                 clients={clients}
+                canAdd={canAddRoster}
                 className="nt-input"
               />
             )}
@@ -323,6 +333,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
                 value={field.value}
                 onChange={field.onChange}
                 subjects={subjects}
+                canAdd={canAddRoster}
                 className="nt-input"
                 placeholder="Select a subject…"
               />
@@ -337,8 +348,10 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           multi-doer chips grew an inner scrollbox and the date input
           clipped its own value. Two columns give every field real room;
           1-col under md. items-start so the Doer field growing downward with
-          chips doesn't stretch its fixed-height row-mate (Initiator/Priority). */}
-      <div className="grid grid-cols-2 gap-4 items-start max-md:grid-cols-1 max-md:gap-3">
+          chips doesn't stretch its fixed-height row-mate (Initiator/Priority).
+          Column gap stays 16px (the fields need side-by-side separation); only
+          the ROW gap tightens to 12px, matching the form's own gap-3. */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 items-start max-md:grid-cols-1 max-md:gap-3">
         <Field id="nt-initiator" label="Initiator" required>
           <Controller
             control={control}
@@ -423,8 +436,8 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
       >
         <textarea
           id="nt-desc"
-          rows={4}
-          className="nt-input resize-y"
+          rows={3}
+          className="nt-input min-h-[80px] resize-y"
           style={{ fontWeight: 400 }}
           placeholder="What needs to happen, in detail…"
           {...register("description")}
@@ -447,7 +460,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         <textarea
           id="nt-notes"
           rows={3}
-          className="nt-input resize-y"
+          className="nt-input min-h-[80px] resize-y"
           style={{ fontWeight: 400 }}
           placeholder="Notes only the team sees…"
           {...register("notes")}
@@ -585,7 +598,9 @@ function SectionHeading({
   hint?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 border-b border-hairline pb-2.5">
+    // pt-1.5/pb-2 ≈ py-3 across the divider — the numbered rule reads as a
+    // separator with air on both sides without the 24px band it used to sit in.
+    <div className="flex items-center gap-3 border-b border-hairline pt-1.5 pb-2">
       <span
         aria-hidden
         className="inline-flex size-6 items-center justify-center rounded-md font-mono text-[11px] font-bold tabular-nums"
@@ -724,7 +739,10 @@ function DoerMultiSelect({
           // its siblings and clip even one row of chips. 88px ≈ two rows, which
           // covers the common case with no scrollbar at all.
           className="nt-input flex flex-wrap items-center gap-1.5 overflow-y-auto cursor-text"
-          style={{ minHeight: 56, maxHeight: 88 }}
+          // Tracks .nt-input's 38px so this field lines up with Initiator /
+          // Priority / Due Date beside it. 62px ≈ two rows of h-6 chips,
+          // then it scrolls rather than pushing the modal down the page.
+          style={{ minHeight: 38, maxHeight: 62 }}
           onMouseDown={(e) => {
           const t = e.target as HTMLElement;
           if (t.closest("[data-chip-remove]") || t === inputRef.current) return;
@@ -738,15 +756,14 @@ function DoerMultiSelect({
           return (
             <span
               key={id}
-              className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1"
+              className="inline-flex h-6 items-center gap-1 rounded-pill px-2 py-0.5 text-xs"
               style={{
                 background: "color-mix(in srgb, var(--color-altus-red) 7%, #ffffff)",
                 color: "var(--color-altus-red-deep)",
-                fontSize: 14,
                 fontWeight: 700,
               }}
             >
-              <EmployeeAvatar name={name} size="sm" />
+              <EmployeeAvatar name={name} size="xs" />
               {name}
               <button
                 type="button"
@@ -755,7 +772,7 @@ function DoerMultiSelect({
                 aria-label={`Remove ${name}`}
                 onClick={() => onToggle(id)}
                 className="inline-flex items-center justify-center"
-                style={{ width: 18, height: 18, borderRadius: 999 }}
+                style={{ width: 14, height: 14, borderRadius: 999 }}
               >
                 <X size={12} strokeWidth={2.6} />
               </button>
@@ -779,7 +796,9 @@ function DoerMultiSelect({
           onKeyDown={onKeyDown}
           placeholder={selected.length === 0 ? "Type a name…" : ""}
           className="flex-1 min-w-[90px] bg-transparent outline-none"
-          style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink-strong)", padding: "2px 0" }}
+          // 14px matches .nt-input's own type; at 15px this inner input set the
+          // line box taller than the 38px shell and pushed the chips off-centre.
+          style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink-strong)", padding: 0 }}
         />
         <span
           aria-hidden
@@ -813,18 +832,18 @@ function DoerMultiSelect({
             ref={listRef}
             role="listbox"
             aria-multiselectable
-            className="max-h-[240px] overflow-y-auto py-1"
+            className="max-h-[240px] overflow-y-auto overscroll-contain py-1"
           >
           {employees.length === 0 ? (
             <li
-              className="px-4 py-3 font-semibold"
+              className="px-3 py-2.5 font-semibold"
               style={{ fontSize: 14, color: "var(--color-ink-muted)" }}
             >
               No employees available.
             </li>
           ) : filtered.length === 0 ? (
             <li
-              className="px-4 py-3 font-semibold"
+              className="px-3 py-2.5 font-semibold"
               style={{ fontSize: 14, color: "var(--color-ink-muted)" }}
             >
               No match for “{query}”.
@@ -846,7 +865,7 @@ function DoerMultiSelect({
                   // field again to add another). Keyboard Enter still keeps it
                   // open for rapid multi-add.
                   onClick={() => { commit(emp.id, false); setOpen(false); }}
-                  className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer transition-colors"
                   style={{
                     background: isSel
                       ? "color-mix(in srgb, var(--color-altus-red) 7%, #ffffff)"
@@ -855,11 +874,11 @@ function DoerMultiSelect({
                         : "transparent",
                   }}
                 >
-                  <EmployeeAvatar name={emp.name} size="sm" />
+                  <EmployeeAvatar name={emp.name} size="xs" />
                   <span
                     className="flex-1 font-semibold"
                     style={{
-                      fontSize: 15,
+                      fontSize: 14,
                       color: "var(--color-ink-strong)",
                     }}
                   >
@@ -867,7 +886,7 @@ function DoerMultiSelect({
                   </span>
                   {isSel && (
                     <Check
-                      size={18}
+                      size={16}
                       strokeWidth={2.6}
                       style={{ color: "var(--color-altus-red-deep)" }}
                     />
@@ -905,17 +924,22 @@ function TagsInput({
   return (
     <div
       className="nt-input flex flex-wrap items-center gap-1.5"
-      style={{ padding: "10px 12px", minHeight: 56 }}
+      // Tracks .nt-input (38px). It used to override the padding back to
+      // 10px and pin minHeight at 56, which is what made this box taller
+      // than the fields beside it.
+      style={{ minHeight: 38 }}
       onClick={() => document.getElementById(id)?.focus()}
     >
       {tags.map((t, i) => (
+        // Same chip box as the Doer field's: h-6 / px-2 / py-0.5 / 12px. A tag
+        // and a doer sit in identically-sized shells so neither field's height
+        // drifts from the other's.
         <span
           key={`${t}-${i}`}
-          className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1"
+          className="inline-flex h-6 items-center gap-1 rounded-pill px-2 py-0.5 text-xs"
           style={{
             background: "color-mix(in srgb, var(--color-altus-red) 7%, #ffffff)",
             color: "var(--color-altus-red-deep)",
-            fontSize: 14,
             fontWeight: 700,
           }}
         >
@@ -928,7 +952,7 @@ function TagsInput({
               onRemove(i);
             }}
             className="inline-flex items-center justify-center"
-            style={{ width: 18, height: 18, borderRadius: 999 }}
+            style={{ width: 14, height: 14, borderRadius: 999 }}
           >
             <X size={12} strokeWidth={2.6} />
           </span>
@@ -954,7 +978,7 @@ function TagsInput({
         }
         className="flex-1 min-w-[180px] bg-transparent outline-none"
         style={{
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: 600,
           color: "var(--color-ink-strong)",
           border: "none",
@@ -991,14 +1015,16 @@ function Field({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2.5">
+    // gap-1 (4px) label→input, the mb-1 the density pass calls for.
+    <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-3">
         <label
           htmlFor={id}
           className="font-bold"
           style={{
             fontFamily: "var(--font-sans), system-ui, sans-serif",
-            fontSize: 15,
+            // 14px = text-sm, matching the .nt-input type it labels.
+            fontSize: 14,
             letterSpacing: "-0.005em",
             color: "var(--color-ink-strong)",
           }}
@@ -1268,7 +1294,9 @@ function LinksSection({
           aria-label="Add link"
           className="inline-flex items-center justify-center rounded-chip transition-all"
           style={{
-            width: 52,
+            // Square against the 38px input beside it (items-stretch sets the
+            // height); at 52px it read as a slab next to the compact field.
+            width: 38,
             background:
               "linear-gradient(135deg, rgb(225, 6, 0), rgb(168, 4, 0))",
             color: "#ffffff",
@@ -1276,7 +1304,7 @@ function LinksSection({
             boxShadow: "0 4px 12px rgba(225, 6, 0, 0.32)",
           }}
         >
-          <Plus size={22} strokeWidth={2.4} />
+          <Plus size={18} strokeWidth={2.4} />
         </button>
       </div>
 

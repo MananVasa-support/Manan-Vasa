@@ -727,8 +727,7 @@ function TeamMembersCell({
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setActive(0); }}
                 onKeyDown={onSearchKeyDown}
-                placeholder="Search people…"
-                aria-label="Search team members"
+                placeholder="Local search — people" title="Local search — filters only the list on this page" aria-label="Local search — people — this page only"
                 className="h-8 w-full bg-transparent text-[13px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle"
               />
             </div>
@@ -1086,8 +1085,7 @@ function DelegatesCell({
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setActive(0); }}
                 onKeyDown={onSearchKeyDown}
-                placeholder="Search people…"
-                aria-label="Search people to delegate"
+                placeholder="Local search — people" title="Local search — filters only the list on this page" aria-label="Local search — people — this page only"
                 className="h-8 w-full bg-transparent text-[13px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle"
               />
             </div>

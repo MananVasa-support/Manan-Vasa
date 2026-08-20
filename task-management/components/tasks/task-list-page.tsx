@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, CheckCircle2, X } from "lucide-react";
 import { TaskTable } from "./task-table";
+import { SectionErrorBoundary } from "@/components/ui/section-error-boundary";
 import { TaskDetailDrawer } from "./task-detail-drawer";
 import { TaskToolsMenu } from "./task-tools-menu";
 import { TasksFullscreen, FullscreenToggleButton } from "./tasks-fullscreen";
@@ -48,6 +49,43 @@ const KPI_SPECS: KpiSpec[] = [
   { key: "notRead",     label: "NOT READ",     sublabel: "Unopened pending tasks",        tone: "slate"  },
 ];
 
+/**
+ * Per-status chip palette. Explicit Tailwind values rather than the previous
+ * `color-mix(var(--color-<tone>) 8%, surface)` derivation: at 8% over white the
+ * tint was effectively invisible, so all six pills read as plain white boxes and
+ * the only thing distinguishing them was a 8px dot at full saturation.
+ *
+ * Keyed by KpiKey, not by the `tone` token — `critical` and `notApproved` both
+ * mapped onto red-ish tokens, so a token-keyed map could not give them the
+ * distinct rose/red pair specified.
+ */
+const CHIP_STYLE: Record<KpiKey, { pill: string; dot: string }> = {
+  notApproved: {
+    pill: "bg-red-50 hover:bg-red-100 text-red-950 border-red-200",
+    dot: "bg-red-600",
+  },
+  done: {
+    pill: "bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-emerald-200",
+    dot: "bg-emerald-600",
+  },
+  pending: {
+    pill: "bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-200",
+    dot: "bg-amber-500",
+  },
+  critical: {
+    pill: "bg-rose-50 hover:bg-rose-100 text-rose-950 border-rose-200",
+    dot: "bg-rose-600",
+  },
+  urgent: {
+    pill: "bg-orange-50 hover:bg-orange-100 text-orange-950 border-orange-200",
+    dot: "bg-orange-600",
+  },
+  notRead: {
+    pill: "bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-300",
+    dot: "bg-slate-500",
+  },
+};
+
 /** Pure, testable count logic for the six summary cards. Operates on the
  *  already-filtered rows so every count respects the page filters. */
 export function computeStatCounts(rows: TaskListRow[]): Record<KpiKey, number> {
@@ -92,7 +130,7 @@ export function TaskListPage({
   metricsRows?: TaskListRow[];
   filters: TaskListFilters;
   employees: { id: string; name: string }[];
-  me: { id: string; isAdmin: boolean };
+  me: { id: string; isAdmin: boolean; canChangeDoer?: boolean };
   statusLabels?: Record<TaskStatus, string>;
   statusTones?: Record<TaskStatus, StatusColorToken>;
   /** Bulk-set option rosters, threaded down to the bulk-action bar. */
@@ -160,6 +198,32 @@ export function TaskListPage({
     return (qs ? `${basePath}?${qs}` : basePath) as Route;
   }
 
+  // ── Drill-through banner ────────────────────────────────────────────────
+  // Shown only for the exact shape the Done Dashboard sends: a DONE-family
+  // status set plus exactly ONE person. Not for any status+person combination —
+  // a banner that appears whenever two filters happen to coincide is noise, and
+  // this one exists to confirm you landed where a click promised.
+  const doneOnly =
+    filters.statuses.length > 0 &&
+    filters.statuses.every((st) => DONE_STATUSES.has(st));
+  const singleDoer = filters.doerIds.length === 1 ? filters.doerIds[0] : null;
+  const drillEmployee =
+    doneOnly && singleDoer
+      ? (employees.find((e) => e.id === singleDoer)?.name ?? null)
+      : null;
+
+  /** Same list, with the two drill-through filters lifted off. */
+  function clearDrillHref(): Route {
+    const next: TaskListFilters = {
+      ...filters,
+      statuses: [],
+      doerIds: [],
+      assigneeMode: "all",
+    };
+    const qs = taskFiltersToSearchString(next);
+    return (qs ? `${basePath}?${qs}` : basePath) as Route;
+  }
+
   return (
     // `w-full min-w-0` matter now that the table scrolls sideways. This <main>
     // is a flex item with `mx-auto`, and auto cross-axis margins DISABLE flex
@@ -173,6 +237,35 @@ export function TaskListPage({
       {/* Header — the "Tasks" title with the KPI stat chips inline beside it, and
           Kanban View on the right. (Eyebrow + "N tasks in the current view"
           subtitle removed per design.) */}
+      {drillEmployee && (
+        <div
+          className="wg-rise mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-2.5"
+          style={{
+            borderColor: "color-mix(in srgb, #059669 30%, transparent)",
+            background: "color-mix(in srgb, #059669 8%, transparent)",
+          }}
+        >
+          <span className="inline-flex items-center gap-2 text-[13.5px] font-bold text-ink-strong">
+            <CheckCircle2 size={16} strokeWidth={2.4} style={{ color: "#047857" }} />
+            Showing Done Tasks for {drillEmployee}
+            <span className="font-semibold tabular-nums text-ink-muted">
+              ({rows.length.toLocaleString("en-IN")}{" "}
+              {rows.length === 1 ? "task" : "tasks"})
+            </span>
+          </span>
+          {/* A link, not a button: it is a navigation to a different filter
+              state, so it should be middle-clickable and show its destination
+              on hover like every other filter change on this page. */}
+          <Link
+            href={clearDrillHref()}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12.5px] font-bold text-ink-muted transition-colors hover:bg-white hover:text-altus-red"
+          >
+            <X size={13} strokeWidth={2.6} />
+            Clear Filter
+          </Link>
+        </div>
+      )}
+
       <header className="wg-rise relative mb-3 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-x-4 gap-y-2 flex-wrap min-w-0">
           <h1
@@ -298,16 +391,21 @@ export function TaskListPage({
         </div>
       ) : (
         <>
-          <TaskTable
-            rows={rows}
-            employees={employees}
-            me={me}
-            statusLabels={statusLabels}
-            statusTones={statusTones}
-            subjects={subjects}
-            clients={clients}
-            openInDrawer
-          />
+          {/* Scoped so a throw inside the grid does not take the filters,
+              toolbar and drawer down with it — which is what the route-level
+              error.tsx did. */}
+          <SectionErrorBoundary label="the tasks table">
+            <TaskTable
+              rows={rows}
+              employees={employees}
+              me={me}
+              statusLabels={statusLabels}
+              statusTones={statusTones}
+              subjects={subjects}
+              clients={clients}
+              openInDrawer
+            />
+          </SectionErrorBoundary>
           {/* The record opens ONLY on an explicit row click — there is no
               persistent reading pane holding the space. `detail` is the
               server-rendered subtree for `?task=`; when nothing is selected it
@@ -332,27 +430,21 @@ function StatChip({
   value: number;
   active: boolean;
 }) {
+  const c = CHIP_STYLE[spec.key];
   return (
     <div
       title={spec.sublabel}
-      className="group inline-flex items-center gap-2 rounded-xl transition-colors"
-      style={{
-        padding: "5px 10px",
-        background: active
-          ? `color-mix(in srgb, var(--color-${spec.tone}) 8%, var(--color-surface-card))`
-          : "var(--color-surface-card)",
-        boxShadow: active
-          ? `inset 0 0 0 1.5px var(--color-${spec.tone}-deep)`
-          : "inset 0 0 0 1px var(--color-hairline)",
-      }}
+      // The pill owns the text colour; the count and label below INHERIT it
+      // rather than carrying their own ink-strong/ink-soft, or the -950 tone
+      // would never show. Active adds a ring instead of a heavier fill, so the
+      // status colour stays readable while engagement is unmistakable.
+      className={`group inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 transition-colors ${c.pill} ${
+        active ? "ring-2 ring-offset-1 ring-slate-400 font-bold" : ""
+      }`}
     >
+      <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
       <span
-        aria-hidden
-        className="inline-block size-2 rounded-full shrink-0"
-        style={{ background: `var(--color-${spec.tone})` }}
-      />
-      <span
-        className="tabular-nums leading-none text-ink-strong"
+        className="tabular-nums leading-none"
         style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
           fontWeight: 900,
@@ -362,10 +454,7 @@ function StatChip({
       >
         {value}
       </span>
-      <span
-        className="font-semibold leading-none"
-        style={{ fontSize: 11.5, color: active ? `var(--color-${spec.tone}-deep)` : "var(--color-ink-soft)" }}
-      >
+      <span className="font-semibold leading-none" style={{ fontSize: 11.5 }}>
         {spec.label.charAt(0) + spec.label.slice(1).toLowerCase()}
       </span>
     </div>

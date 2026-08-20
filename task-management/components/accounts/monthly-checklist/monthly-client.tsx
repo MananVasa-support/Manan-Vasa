@@ -33,7 +33,7 @@ import {
 const INPUT =
   "w-full rounded-lg border border-hairline-strong bg-white px-3 py-2.5 text-[14.5px] font-medium text-ink-strong outline-none transition-colors placeholder:text-ink-subtle placeholder:font-normal focus:border-[color:var(--color-altus-red)]";
 const CHIP =
-  "rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] font-semibold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]";
+  "rounded-lg border border-hairline-strong bg-white px-2.5 py-1.5 text-[12.5px] font-semibold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]";
 
 // ── Managed dropdown plumbing (mirrors the Weekly Checklist) ──────────────────
 
@@ -110,7 +110,7 @@ function MetaChip({ value, tone }: { value: string | null; tone?: "deadline" | "
       : { bg: "var(--color-surface-track, #eef2f7)", fg: "var(--color-ink-soft)" };
   return (
     <span
-      className="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-bold whitespace-nowrap"
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold whitespace-nowrap"
       style={{ background: palette.bg, color: palette.fg }}
     >
       {value}
@@ -142,7 +142,7 @@ function MonthCell({
       disabled={busy}
       onChange={(e) => onChange(e.target.value)}
       aria-label="Month status"
-      className="w-full cursor-pointer appearance-none rounded-lg px-2 py-1.5 text-center text-[12.5px] font-bold outline-none transition-colors focus:ring-2 focus:ring-[color:var(--color-altus-red)] disabled:opacity-60"
+      className="w-full cursor-pointer appearance-none rounded-md px-1 py-1 text-center text-[11px] font-bold outline-none transition-colors focus:ring-2 focus:ring-[color:var(--color-altus-red)] disabled:opacity-60"
       style={{
         background: tone.bg,
         color: tone.fg,
@@ -150,7 +150,9 @@ function MonthCell({
         border: isCurrent
           ? "1.5px solid var(--color-altus-red)"
           : `1px solid ${status ? "transparent" : recede ? "transparent" : "var(--color-hairline)"}`,
-        minWidth: 78,
+        // 78 → 62: twelve of these set the table's whole minimum width, so this
+        // is what actually buys back horizontal room.
+        minWidth: 62,
       }}
     >
       <option value="">{expected ? "—" : "·"}</option>
@@ -395,16 +397,16 @@ export function MonthlyChecklist({
   const totalCols = META_COLS + cols.length + 2; // + month cols + notes + actions
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-2.5">
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-hairline-strong bg-white px-3">
-          <Search size={17} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-hairline-strong bg-white px-2.5">
+          <Search size={15} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search checklist, notes, responsible…"
-            className="w-full bg-transparent py-2.5 text-[15px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle"
+            placeholder="Local search — checklist, notes, responsible" title="Local search — filters only the list on this page" aria-label="Local search — checklist, notes, responsible — this page only"
+            className="w-full bg-transparent py-1.5 text-[13px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle"
           />
         </div>
         <select className={CHIP} value={fType} onChange={(e) => setFType(e.target.value)} aria-label="Filter by type">
@@ -420,30 +422,30 @@ export function MonthlyChecklist({
           {responsibles.map((p) => (<option key={p} value={p}>{p}</option>))}
         </select>
         {hasFilters && (
-          <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
-            <X size={15} strokeWidth={2.4} /> Clear
+          <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-bold text-ink-soft hover:text-altus-red">
+            <X size={14} strokeWidth={2.4} /> Clear
           </button>
         )}
         <button
           type="button"
           onClick={startAdd}
-          className="ml-auto inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99]"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white transition-transform active:scale-[0.99]"
           style={{
             background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-            boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)",
           }}
         >
-          <Plus size={16} strokeWidth={2.6} /> Add Item
+          <Plus size={14} strokeWidth={2.6} /> Add Item
         </button>
       </div>
 
-      <div className="text-[13px] font-semibold text-ink-subtle">
+      <div className="text-[12px] font-semibold text-ink-subtle">
         {filtered.length} {filtered.length === 1 ? "item" : "items"}
         {hasFilters ? ` · filtered from ${items.length}` : ""}
       </div>
 
       <div className="overflow-x-auto rounded-section border border-hairline bg-surface-card" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}>
-        <table className="w-full border-collapse text-left" style={{ minWidth: 1080 + cols.length * 92 }}>
+        {/* Per-month track down from 92 to 70 with the narrower cells above. */}
+        <table className="w-full border-collapse text-left" style={{ minWidth: 860 + cols.length * 70 }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--color-hairline)" }}>
               <Th>S. No</Th>
@@ -455,16 +457,23 @@ export function MonthlyChecklist({
               {cols.map((c) => (
                 <th
                   key={c.month}
-                  className="px-2 py-2.5 text-center text-[11px] font-bold uppercase tracking-[0.04em] text-ink-subtle whitespace-nowrap"
+                  className="px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-[0.04em] text-ink-subtle whitespace-nowrap"
                   style={{
                     background: c.month === currentMonth
                       ? "color-mix(in srgb, var(--color-altus-red) 9%, var(--color-surface-soft))"
                       : "var(--color-surface-soft)",
                   }}
                 >
-                  <div className="text-ink-strong">{c.label}</div>
-                  <div className="text-[10px] font-semibold normal-case tracking-normal text-ink-subtle">&apos;{String(c.calYear % 100).padStart(2, "0")}</div>
-                  <div className="mt-0.5 text-[10px] font-bold" style={{ color: "var(--color-green-deep)" }}>
+                  {/* Three stacked lines (month / 'yy / done-count) made the
+                      header three rows tall. Month and year read as one token,
+                      and the count sits under it. */}
+                  <div className="text-ink-strong">
+                    {c.label}
+                    <span className="ml-0.5 font-semibold normal-case tracking-normal text-ink-subtle">
+                      &apos;{String(c.calYear % 100).padStart(2, "0")}
+                    </span>
+                  </div>
+                  <div className="text-[9.5px] font-bold" style={{ color: "var(--color-green-deep)" }}>
                     {doneByMonth[c.month] ?? 0}/{items.length}
                   </div>
                 </th>
@@ -525,11 +534,21 @@ export function MonthlyChecklist({
                   <tr key={r.id} className="group transition-colors hover:bg-surface-soft" style={{ borderBottom: "1px solid var(--color-hairline)" }}>
                     <Td className="font-bold text-ink-strong whitespace-nowrap">{r.code || <Dim />}</Td>
                     <Td>
-                      <div className="flex items-start gap-2">
-                        <span className="block max-w-[360px] whitespace-pre-wrap break-words font-semibold text-ink-strong">{r.title}</span>
+                      {/* Was `whitespace-pre-wrap` at 360px, which let one long
+                          item wrap to four lines and set the height of the whole
+                          row. It clamps to two lines now and keeps the full text
+                          in `title` for hover. */}
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="block max-w-[300px] break-words font-semibold text-ink-strong"
+                          style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.3 }}
+                          title={r.title}
+                        >
+                          {r.title}
+                        </span>
                         {r.fileLink && /^https?:\/\//i.test(r.fileLink) && (
-                          <a href={r.fileLink} target="_blank" rel="noopener noreferrer" className="mt-0.5 shrink-0 text-altus-red hover:underline" title="Open linked file">
-                            <ExternalLink size={14} strokeWidth={2.4} />
+                          <a href={r.fileLink} target="_blank" rel="noopener noreferrer" className="shrink-0 text-altus-red hover:underline" title="Open linked file">
+                            <ExternalLink size={13} strokeWidth={2.4} />
                           </a>
                         )}
                       </div>
@@ -537,11 +556,11 @@ export function MonthlyChecklist({
                     <Td className="whitespace-nowrap">{r.responsiblePerson ? <span className="font-semibold text-ink-soft">{r.responsiblePerson}</span> : <Dim />}</Td>
                     <Td><MetaChip value={r.deadline} tone="deadline" /></Td>
                     <Td><MetaChip value={r.type} tone="type" /></Td>
-                    <Td className="whitespace-nowrap text-[13px]">{r.frequency || <Dim />}</Td>
+                    <Td className="whitespace-nowrap text-[12px]">{r.frequency || <Dim />}</Td>
                     {cols.map((c) => {
                       const key = monthlyCheckKey(r.id, c.month);
                       return (
-                        <td key={c.month} className="px-1.5 py-2 align-middle" style={{ background: c.month === currentMonth ? "color-mix(in srgb, var(--color-altus-red) 4%, transparent)" : undefined }}>
+                        <td key={c.month} className="px-1 py-1 align-middle" style={{ background: c.month === currentMonth ? "color-mix(in srgb, var(--color-altus-red) 4%, transparent)" : undefined }}>
                           <MonthCell
                             status={grid[key] ?? ""}
                             busy={cellBusy === key}
@@ -553,11 +572,15 @@ export function MonthlyChecklist({
                       );
                     })}
                     <Td>
+                      {/* Both notes clamp to ONE line each with the full text on
+                          hover — free-text notes were the other thing setting
+                          row height, and they are reference material, not the
+                          thing you scan the grid for. */}
                       {r.accountsNotes || r.mananNotes ? (
-                        <div className="max-w-[240px] space-y-1">
-                          {r.accountsNotes && <p className="whitespace-pre-wrap break-words text-[13px] text-ink-soft" title={r.accountsNotes}>{r.accountsNotes}</p>}
+                        <div className="max-w-[190px] space-y-0.5">
+                          {r.accountsNotes && <p className="truncate text-[12px] text-ink-soft" title={r.accountsNotes}>{r.accountsNotes}</p>}
                           {r.mananNotes && (
-                            <p className="whitespace-pre-wrap break-words text-[12.5px]" style={{ color: "var(--color-altus-red-deep)" }} title={r.mananNotes}>
+                            <p className="truncate text-[11.5px]" style={{ color: "var(--color-altus-red-deep)" }} title={r.mananNotes}>
                               <span className="font-bold">Manan Sir:</span> {r.mananNotes}
                             </p>
                           )}
@@ -580,10 +603,15 @@ export function MonthlyChecklist({
   );
 }
 
+/* The table is a DENSE GRID, not a set of cards: `px-4 py-3` cells at 14px with
+   360px-wide wrapping titles gave rows that ran 60-80px tall, so a 12-month
+   checklist showed about six lines per screen. Padding, type and the chips all
+   step down together — nothing is removed, it is the same columns and the same
+   data at a scannable density. */
 function Th({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <th
-      className={"px-4 py-3 text-left text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-subtle whitespace-nowrap " + (className ?? "")}
+      className={"px-2.5 py-2 text-left text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-subtle whitespace-nowrap " + (className ?? "")}
       style={{ background: "var(--color-surface-soft)" }}
     >
       {children}
@@ -591,7 +619,7 @@ function Th({ children, className }: { children: React.ReactNode; className?: st
   );
 }
 function Td({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <td className={"px-4 py-3 align-top text-[14px] text-ink-soft " + (className ?? "")}>{children}</td>;
+  return <td className={"px-2.5 py-1.5 align-middle text-[12.5px] text-ink-soft " + (className ?? "")}>{children}</td>;
 }
 
 function RowActions({ onEdit, onDelete, busy }: { onEdit: () => void; onDelete: () => void; busy: boolean }) {
@@ -603,7 +631,7 @@ function RowActions({ onEdit, onDelete, busy }: { onEdit: () => void; onDelete: 
   }, [confirming]);
   return (
     <div className="flex items-center justify-end gap-1">
-      <button type="button" onClick={onEdit} disabled={busy} aria-label="Edit item" className="inline-flex size-8 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong disabled:opacity-50">
+      <button type="button" onClick={onEdit} disabled={busy} aria-label="Edit item" className="inline-flex size-7 items-center justify-center rounded-md text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong disabled:opacity-50">
         <Pencil size={15} strokeWidth={2.2} />
       </button>
       {confirming ? (
@@ -611,7 +639,7 @@ function RowActions({ onEdit, onDelete, busy }: { onEdit: () => void; onDelete: 
           {busy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} strokeWidth={2.4} />} Confirm
         </button>
       ) : (
-        <button type="button" onClick={() => setConfirming(true)} disabled={busy} aria-label="Delete item" className="inline-flex size-8 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_10%,transparent)] hover:text-altus-red disabled:opacity-50">
+        <button type="button" onClick={() => setConfirming(true)} disabled={busy} aria-label="Delete item" className="inline-flex size-7 items-center justify-center rounded-md text-ink-subtle transition-colors hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_10%,transparent)] hover:text-altus-red disabled:opacity-50">
           <Trash2 size={15} strokeWidth={2.2} />
         </button>
       )}

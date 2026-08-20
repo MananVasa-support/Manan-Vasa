@@ -56,6 +56,23 @@ export const HR_SIGNATORY = {
   designation: "Human Resources",
 } as const;
 
+/**
+ * The HR desk's scanned signature, applied automatically to every HR-signed
+ * letter — the same way `proprietor-signature.jpg` already backs the Director
+ * letters. Before this, HR letters reserved a blank strip and someone had to
+ * upload a scan per issue (or sign the printout), so most went out unsigned.
+ *
+ * Public-relative on purpose: the PDF renderer resolves it under `public/` on
+ * disk and the on-screen letter serves it as a URL, so one constant keeps the
+ * preview and the issued PDF showing the same mark.
+ *
+ * PNG with a transparent background and black ink, so it sits on the letter
+ * paper without a white box around it. An uploaded `signatureImage` still wins
+ * over this, and a per-block `imageSrc` (the Selection letter's founder sign-off)
+ * still wins over both — this is only the default for the HR desk.
+ */
+export const HR_SIGNATURE_IMAGE = "/signatures/hr-signature.png";
+
 /** Resolve `{firm}` / `{firmLegal}` in `text` against the issuing entity. */
 export function applyFirm(
   text: string,

@@ -122,8 +122,14 @@ export function StatusCellPopover({
                     {t.taskNo != null ? `#${t.taskNo}` : "—"}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12px] font-bold leading-snug text-ink-strong">
-                      {t.title}
+                    {/* Description, not `title` — see StatusCellTask: `title`
+                        is the client name, which is already shown as the chip
+                        directly below this line. */}
+                    <span
+                      className="block truncate text-[12px] font-bold leading-snug text-ink-strong"
+                      title={t.description?.trim() || t.title}
+                    >
+                      {t.description?.trim() || t.subject?.trim() || t.title}
                     </span>
                     <span className="mt-0.5 flex items-center gap-1.5">
                       {(t.client || t.subject) && (

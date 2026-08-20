@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { Wallet } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import { getCurrentEmployee, guardNotCandidate } from "@/lib/auth/current";
 import { mySalaryBreakup } from "@/lib/queries/salary-breakup";
 import { MySalaryView, type MySalaryMonth } from "@/components/salary/my-salary-view";
@@ -56,21 +56,11 @@ export default async function MySalaryPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-6">
-          <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--color-altus-red-deep)" }}>
-            <Wallet size={14} strokeWidth={2.6} /> Employees · My Salary
-          </div>
-          <h1
-            className="mt-2 text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 32 }}
-          >
-            My Salary
-          </h1>
-          <p className="mt-1 text-[14.5px] text-ink-muted">
-            Your monthly pay, deductions and attendance — visible only to you.
-          </p>
-        </header>
+      <main className="w-full px-8 pt-6 pb-8 max-md:px-4 max-md:pt-5 max-md:pb-6">
+        <PageCommandBar
+          title="My Salary"
+          hint="Your monthly pay, deductions and attendance — visible only to you."
+        />
 
         <MySalaryView months={months} />
       </main>

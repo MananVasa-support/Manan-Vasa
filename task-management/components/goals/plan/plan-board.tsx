@@ -94,6 +94,10 @@ interface Props {
   ymd: string;
   /** Which planner day is shown — 0 = today … 6 = six days out. */
   dayOffset: number;
+  /** The page title, rendered INLINE with the day tabs so the planner opens at
+   *  the top of the viewport instead of a title row stacked above a control
+   *  row. The page owns the markup and styling; the board owns placement. */
+  heading?: React.ReactNode;
 }
 
 // Goals module identity (amber-gold) — mirrors MODULE_THEME.goals. The planner
@@ -108,7 +112,7 @@ const PLAN_DROP_ID = "plan-drop";
 const DAY_TAB_DROP = "daytab:";
 const nonGhost = (items: PlanItem[]) => items.filter((i) => i.id !== GHOST_ID);
 
-export function PlanBoard({ target, initialPlan, sources, minItems, isManager, initialPhase, ymd, dayOffset }: Props) {
+export function PlanBoard({ target, initialPlan, sources, minItems, isManager, initialPhase, ymd, dayOffset, heading }: Props) {
   const [phase, setPhase] = React.useState<PlanPhase>(initialPhase);
   const [starting, setStarting] = React.useState(false);
   const [plan, setPlan] = React.useState<PlanItem[]>(initialPlan);
@@ -463,12 +467,16 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
   );
 
   const daySwitcher = (
-    <div className="flex flex-wrap items-center gap-2">
+    // Title, day tabs and the "planning for" picker share ONE row. They used
+    // to stack (title row, then control row), which cost ~60px of vertical
+    // space above the fold for no added meaning.
+    <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+      {heading}
       <DaySwitcher current={dayOffset} onPick={goToDay} />
       {/* Plan for someone else — only rendered when the viewer actually has
           people they may plan for (admins: everyone; managers: their downline). */}
       {target.roster.length > 1 && (
-        <label className="mb-3 inline-flex items-center gap-1.5 rounded-2xl border border-hairline bg-surface-card px-2.5 py-2">
+        <label className="inline-flex items-center gap-1.5 rounded-2xl border border-hairline bg-surface-card px-2.5 py-2">
           <Users size={14} className="shrink-0 text-ink-muted" />
           <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">Planning for</span>
           <select
@@ -487,7 +495,7 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
       )}
       {target.isDelegated && (
         <span
-          className="mb-3 rounded-pill px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em]"
+          className="rounded-pill px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em]"
           style={{ background: "var(--color-amber-bg)", color: "var(--color-amber-deep)" }}
           title="You are editing someone else's plan"
         >
@@ -512,6 +520,8 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
           onClosed={() => setPhase("closed")}
           onReopened={() => setPhase("plan")}
           onTransfer={onTransfer}
+          onRemove={onRemove}
+          employeeName={target.name}
         />
       </>
     );
@@ -678,7 +688,7 @@ function DaySwitcher({ current, onPick }: { current: number; onPick: (off: numbe
   const days = React.useMemo(() => planDays(), []);
   return (
     <div
-      className="mb-3 flex items-center gap-1 overflow-x-auto rounded-2xl border border-hairline bg-surface-card p-1"
+      className="flex items-center gap-1 overflow-x-auto rounded-2xl border border-hairline bg-surface-card p-1"
       role="tablist"
       aria-label="Choose a day to plan"
     >
