@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Trash2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
@@ -9,13 +8,10 @@ import { loadPersonalWD } from "@/app/(app)/goals/personal-wd-data";
 import { PersonalWDBoard } from "@/components/goals/board/personal-wd-board";
 import { PlanBoard } from "@/components/goals/plan/plan-board";
 import { MODULE_THEME } from "@/lib/module-theme";
-import { getPlanDayPayload } from "./payload";
-import { clampDayOffset } from "@/lib/queries/daily-checklist";
+import { getPlanDayPayload, clampWindowStart, clampWindowDays } from "./payload";
 import { resolvePlanTarget } from "@/lib/goals/plan-target";
 
 const THEME = MODULE_THEME.goals;
-const ACCENT = "#E10600";
-const ACCENT_DEEP = "#A80400";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +33,14 @@ export default async function GoalsPlanPage({
 
   const sp = await searchParams;
   const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  // Which planner day (?d=0…6 → today through six days out). This used to hard-
-  // code 0|1|2 and silently clamped days 3-6 back to today.
-  const dayOffset = clampDayOffset(pick(sp.d));
+  // WHICH 3-DAY WINDOW (?d=0…4). `d` is now the offset of the LEFTMOST kanban
+  // column, so Next/Previous slide the whole view by one day and `?d=0` is the
+  // familiar Today | Tomorrow | Day After.
+  // HOW MANY days at once (?v=1|3|7) — the view dropdown. The window start is
+  // clamped against it, so switching to a 7-day view can't leave the board
+  // starting past the end of the horizon.
+  const windowDays = clampWindowDays(pick(sp.v));
+  const windowStart = clampWindowStart(pick(sp.d), windowDays);
 
   // WHOSE day (?emp=<id>) — admins may plan for anyone, managers for their
   // downline. resolvePlanTarget falls back to the caller when not permitted, so
@@ -60,57 +61,25 @@ export default async function GoalsPlanPage({
     );
   }
 
-  const payload = await getPlanDayPayload(target.employeeId, new Date(), dayOffset);
-  const isManager = payload.isManager;
+  const payload = await getPlanDayPayload(
+    target.employeeId,
+    new Date(),
+    windowStart,
+    { owner: target.name, manager: target.manager, managerManager: target.managerManager },
+    windowDays,
+  );
 
   return (
     <>
+      {/* A WHITE ground for Plan My Day (Sir). The app-wide `body` rule in
+          globals.css washes every page with three radial gradients (purple, red,
+          green) over a grey base — editing that would repaint the WHOLE app, so
+          this lays a plain white sheet behind this route only. Fixed + -z-10 so
+          it covers the viewport without ever intercepting a click or a drag. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white" />
       <DashboardHeader generatedAt={new Date()} />
-      <PageShell width="full" py={false} className="pt-5 pb-12 max-md:pt-4 max-md:pb-10">
-        <header className="mb-2.5 wg-rise">
-          <div className="flex items-start justify-between gap-3">
-            <span
-              className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ color: "#ffffff", background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-            >
-              Goals · Daily Loop
-            </span>
-            {isManager && (
-              <a
-                href="/goals/recycle-bin"
-                className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:border-hairline-strong"
-              >
-                <Trash2 size={13} /> Recycle Bin
-              </a>
-            )}
-          </div>
-          {/* Trimmed (Sir): the title + eyebrow + a two-line explainer pushed the
-              actual planner below the fold. The title now sits INLINE with the
-              eyebrow row and the explainer is gone — the board explains itself. */}
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(19px, 1.9vw, 24px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.04,
-              marginTop: 2,
-            }}
-          >
-            Plan My Day
-          </h1>
-        </header>
-        <PlanBoard
-          target={target}
-          initialPlan={payload.initialPlan}
-          sources={payload.sources}
-          minItems={payload.minItems}
-          isManager={payload.isManager}
-          initialPhase={payload.initialPhase}
-          ymd={payload.ymd}
-          dayOffset={payload.dayOffset}
-        />
+      <PageShell width="full" py={false} className="pt-3 pb-10 max-md:pt-2 max-md:pb-8">
+        <PlanBoard target={target} payload={payload} />
       </PageShell>
     </>
   );

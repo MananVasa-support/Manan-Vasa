@@ -361,7 +361,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // Weekly = the REAL weekly board (WeeklyCascadeBoard over weekly_goals,
       // its own week nav). /goals/week is a permanent redirect alias to it.
       { href: "/goals/weekly" as Route, label: "Weekly Goals", Icon: CalendarCheck },
-      { href: "/goals/plan" as Route, label: "Plan my Day", Icon: CalendarDays },
+      { href: "/goals/plan" as Route, label: "Daily Goals", Icon: CalendarDays },
       // "Cascade" removed — the canvas is retired as the UI; the four level
       // pages (board design) + rituals below are the whole module. Cross-level
       // moves live in each card's "Move to…" drawer (the drag-to-sidebar
@@ -414,7 +414,7 @@ const GOALS_PERSONAL_NAV: WorkspaceNav = {
     { href: "/goals/quarterly" as Route, label: "Quarterly Goals", Icon: Target },
     { href: "/goals/monthly" as Route, label: "Monthly Goals", Icon: CalendarRange },
     { href: "/goals/weekly" as Route, label: "Weekly Goals", Icon: CalendarCheck },
-    { href: "/goals/plan" as Route, label: "Plan my Day", Icon: CalendarDays },
+    { href: "/goals/plan" as Route, label: "Daily Goals", Icon: CalendarDays },
     { href: "/goals/recycle-bin" as Route, label: "Recycle Bin", Icon: Trash2, adminOnly: true },
   ],
   groups: [],

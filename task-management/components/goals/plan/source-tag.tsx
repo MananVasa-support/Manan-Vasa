@@ -7,44 +7,40 @@ import type { PlanKind } from "./types";
  * The ONE source-tag vocabulary, shared by Plan My Day and My Day.
  *
  * Every row on either page carries one of these, spelled out in words, so a
- * user can tell at a glance whether a line came from Goals or from WMS —
- * without decoding a colour. Both pages import this file, which is what stops
- * the two surfaces from drifting into different names for the same thing.
+ * user can tell at a glance where a line came from — without decoding a colour.
+ * Both pages import this file, which is what stops the two surfaces from
+ * drifting into different names for the same thing.
  *
- *   GOAL       — a cascade goal (`goals`: year / quarter / month)
- *   GOAL TASK  — a weekly goal (`weekly_goals`), the executable slice of a goal
- *   WMS TASK   — a real WMS task (`tasks`)
- *   COMMITMENT — typed straight into today's plan (ad-hoc)
- *   CARRYOVER  — an unfinished commitment pulled forward from an earlier day
+ * FOUR TAGS, NOTHING ELSE (Sir): the screen answers "what do I have to do?", so
+ * a line only needs to say where the work came from.
+ *
+ *   WMS TASK         — a real WMS task (`tasks`)
+ *   GOAL             — anything that came through Goals: a cascade goal
+ *                      (year/quarter/month) or the weekly goal task under it
+ *   UNFINISHED       — planned on an earlier day and not completed
+ *   DAILY COMMITMENT — typed by the employee, or assigned by their manager
+ *
+ * The old GOAL TASK / COMMITMENT / CARRYOVER spellings are gone: three of them
+ * named the same four things twice over.
  */
-export type SourceTagName = "GOAL" | "GOAL TASK" | "WMS TASK" | "COMMITMENT" | "CARRYOVER";
+export type SourceTagName = "GOAL" | "WMS TASK" | "DAILY COMMITMENT" | "UNFINISHED";
 
 export const KIND_TAG: Record<PlanKind, SourceTagName> = {
   yearly: "GOAL",
   quarterly: "GOAL",
   monthly: "GOAL",
-  weekly: "GOAL TASK",
+  weekly: "GOAL",
   task: "WMS TASK",
-  unfinished: "CARRYOVER",
-  adhoc: "COMMITMENT",
+  unfinished: "UNFINISHED",
+  adhoc: "DAILY COMMITMENT",
 };
-
-/** The cascade level shown beside a GOAL tag ("Yearly" / "Quarterly" / "Monthly"). */
-export const KIND_PERIOD: Partial<Record<PlanKind, string>> = {
-  yearly: "Yearly",
-  quarterly: "Quarterly",
-  monthly: "Monthly",
-};
-
-const GOALS_ACCENT = "#E10600";
 
 /** Per-tag accent, used only for the thin leading rule — the WORD is the signal. */
 const TAG_ACCENT: Record<SourceTagName, string> = {
   GOAL: "var(--color-indigo-deep)",
-  "GOAL TASK": GOALS_ACCENT,
   "WMS TASK": "var(--color-slate)",
-  COMMITMENT: "var(--color-green-deep)",
-  CARRYOVER: "var(--color-amber-deep)",
+  "DAILY COMMITMENT": "var(--color-green-deep)",
+  UNFINISHED: "var(--color-amber-deep)",
 };
 
 /**
@@ -69,7 +65,12 @@ export function SourceTag({ kind }: { kind: PlanKind }) {
   );
 }
 
-/** A red "OVERDUE" marker — the one state worth interrupting a scan for. */
+/**
+ * A red "OVERDUE" marker. Still used by the My Day surface, where there is no
+ * overdue bucket to carry the meaning. Plan My Day deliberately does NOT use it:
+ * its WMS column is bucketed BY overdueness, so a badge on every row would
+ * repeat what the filter already said (Sir).
+ */
 export function OverdueTag({ label = "Overdue" }: { label?: string }) {
   return (
     <span

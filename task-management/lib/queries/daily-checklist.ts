@@ -41,6 +41,7 @@ export function ymdForOffset(offset: number, now: Date = new Date()): string {
   const base = todayYmd(now);
   const n = clampDayOffset(offset);
   if (n === 0) return base;
+  // UTC day arithmetic handles negatives as cleanly as positives.
   const [y, m, d] = base.split("-").map(Number);
   const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + n));
   const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
@@ -48,13 +49,40 @@ export function ymdForOffset(offset: number, now: Date = new Date()): string {
   return `${dt.getUTCFullYear()}-${mm}-${dd}`;
 }
 
-/** How many days ahead Plan My Day lets you schedule — today + the next 6. */
+/** One WEEK of planner days — the width of the day strip, and the length of
+ *  the My Day week board. Unchanged: other surfaces count on it being 7. */
 export const PLAN_HORIZON_DAYS = 7;
 
-/** The plan horizon is today (0) through day +6. Anything else clamps to today. */
+/**
+ * How far ahead Plan My Day can actually FILE work: today + four weeks.
+ *
+ * The strip pages a week at a time (‹ / ›), so "next week" is only useful if a
+ * card can be dropped there — the offset cap and the strip have to agree. My Day
+ * still asks for PLAN_HORIZON_DAYS and is untouched by this.
+ */
+export const PLAN_MAX_DAY_OFFSET = 27;
+
+/**
+ * How far BACK the planner can look: four weeks (Sir — "allow me to see
+ * previous week too"). Negative offsets are real days, so yesterday's column
+ * reads its actual plan rather than being clamped silently to today.
+ *
+ * Moving work onto a past day is allowed too: "I actually did this yesterday"
+ * is a legitimate correction, and an unfinished past row is exactly what the
+ * Unfinished box already surfaces.
+ */
+export const PLAN_MIN_DAY_OFFSET = -27;
+
+/**
+ * The planner window runs from {@link PLAN_MIN_DAY_OFFSET} to
+ * {@link PLAN_MAX_DAY_OFFSET}. Junk clamps to today; an offset past either end
+ * clamps to that end rather than snapping home — "push this to tomorrow" from
+ * the final day must never silently mean "pull it back to today".
+ */
 export function clampDayOffset(raw: unknown): number {
   const n = Math.trunc(Number(raw));
-  return Number.isFinite(n) && n >= 0 && n < PLAN_HORIZON_DAYS ? n : 0;
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(PLAN_MIN_DAY_OFFSET, Math.min(n, PLAN_MAX_DAY_OFFSET));
 }
 
 /**
@@ -341,6 +369,12 @@ export interface OpenTaskOption {
   dueToday: boolean;
   /** Who assigned/created the task (name) — shown in the hover + detail pop-out. */
   assigner: string | null;
+  /** Scheduled block on the task (tasks.starts_at / ends_at), when one exists. */
+  startsAt: Date | null;
+  endsAt: Date | null;
+  allDay: boolean;
+  /** Planned effort in minutes (tasks.estimated_minutes), when recorded. */
+  estimatedMinutes: number | null;
 }
 
 /** Eisenhower rank: important-first, then urgent (0 = most important). */
@@ -360,7 +394,7 @@ function importanceRank(p: TaskPriority): number {
 export async function listOpenTasksForChecklist(
   employeeId: string,
   now: Date = new Date(),
-  opts: { horizonDays?: number; limit?: number } = {},
+  opts: { horizonDays?: number; limit?: number; excludePlannedAnyDay?: boolean } = {},
 ): Promise<OpenTaskOption[]> {
   const ymd = todayYmd(now);
   // Sir's To-Do rule: on the planner, only surface OVERDUE + due-within-N-days
@@ -383,6 +417,13 @@ export async function listOpenTasksForChecklist(
       dueAt: tasks.dueAt,
       revisedTargetDate: tasks.revisedTargetDate,
       assigner: employees.name,
+      // Real scheduling metadata (tier-4 `starts_at`/`ends_at` + mig 0176
+      // `estimated_minutes`) — the planner SHOWS these when set and shows
+      // nothing when they aren't. No time is ever invented.
+      startsAt: tasks.startsAt,
+      endsAt: tasks.endsAt,
+      allDay: tasks.allDay,
+      estimatedMinutes: tasks.estimatedMinutes,
     })
     .from(tasks)
     .leftJoin(employees, eq(tasks.createdById, employees.id))
@@ -395,12 +436,22 @@ export async function listOpenTasksForChecklist(
         horizonCutoff
           ? sql`${effectiveDueAtSql()} < ${horizonCutoff.toISOString()}::timestamptz`
           : sql`true`,
-        sql`not exists (
-          select 1 from ${dailyChecklist} dc
-          where dc.task_id = ${tasks.id}
-            and dc.employee_id = ${employeeId}
-            and dc.plan_date = ${ymd}
-        )`,
+        // A task already filed on a planner day is OFF the pull list. With
+        // `excludePlannedAnyDay` (the Plan My Day board) that means ANY day, not
+        // just today: one item lives on exactly one day, so a task you filed on
+        // Thursday must not still look pullable on the Tomorrow column.
+        opts.excludePlannedAnyDay
+          ? sql`not exists (
+              select 1 from ${dailyChecklist} dc
+              where dc.task_id = ${tasks.id}
+                and dc.employee_id = ${employeeId}
+            )`
+          : sql`not exists (
+              select 1 from ${dailyChecklist} dc
+              where dc.task_id = ${tasks.id}
+                and dc.employee_id = ${employeeId}
+                and dc.plan_date = ${ymd}
+            )`,
       ),
     )
     // Order BEFORE the cap so the rows kept are the most urgent — an unordered
@@ -429,6 +480,10 @@ export async function listOpenTasksForChecklist(
       overdue: dueYmd != null && dueYmd < ymd,
       dueToday: dueYmd === ymd,
       assigner: r.assigner ?? null,
+      startsAt: r.startsAt,
+      endsAt: r.endsAt,
+      allDay: r.allDay,
+      estimatedMinutes: r.estimatedMinutes,
     };
   });
 
@@ -587,6 +642,8 @@ export async function getOverdueItems(
         eq(dailyChecklist.employeeId, employeeId),
         lt(dailyChecklist.planDate, ymd),
         eq(dailyChecklist.done, false),
+        // Cancelled into the Recycle Bin (0186) — not "unfinished", gone.
+        isNull(dailyChecklist.abandonedAt),
         sql`(${dailyChecklist.taskId} is null or ${tasks.abandonedAt} is null)`,
       ),
     )

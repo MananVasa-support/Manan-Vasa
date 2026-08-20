@@ -2,89 +2,112 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { CheckCircle2, Check, Sunrise, ClipboardCheck, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock,
+  Copy,
+  Loader2,
+  PauseCircle,
+  Plus,
+  Sunrise,
+  UserRound,
+  X,
+} from "lucide-react";
 import { fireToast } from "@/lib/toast";
-import { ScoreRing } from "@/components/weekly-goals/score-ring";
 import type { PlanItem, PlanPhase } from "./types";
-import { setItemProgress, closeMyDay, reopenPlan } from "@/app/(app)/goals/plan/actions";
-import { TransferControl } from "./item-detail";
+import { closeMyDay, reopenPlan } from "@/app/(app)/goals/plan/actions";
+import { SourceTag, fmtYmd } from "./source-tag";
+import { minToClock, rangeFromHhmm } from "@/lib/goals/plan-time";
+import { PRIORITY_LABELS } from "@/db/enums";
+import { PlanItemHoverCard, TransferControl } from "./item-detail";
+import { HoverTip } from "@/components/ui/hover-tip";
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
 
 const GOALS_ACCENT = "#E10600";
 const GOALS_ACCENT_DEEP = "#A80400";
 const GOALS_GRADIENT = `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})`;
-
-/** Effective progress for a row: explicit % if logged, else 100 when ticked. */
-function pctOf(it: PlanItem): number {
-  if (it.donePct != null) return it.donePct;
-  return it.done ? 100 : 0;
-}
+const RISK = "var(--color-red-deep)";
+const WARN = "var(--color-amber-deep)";
 
 interface Props {
-  phase: Exclude<PlanPhase, "plan">;
+  phase: Extract<PlanPhase, "active" | "closeout" | "closed">;
   items: PlanItem[];
-  onToCloseout: () => void;
   onBackToPlan: () => void;
+  /** Move from the day-started screen into the close-out list. */
+  onToCloseout: () => void;
+  /** Back to the BOARD without un-starting the day — the plan stays committed,
+   *  you just want to look at it / move things around. */
+  onAdjust: () => void;
   onClosed: () => void;
   onReopened: () => void;
-  /** Carry an unfinished commitment forward to tomorrow (1) / day-after (2). */
-  onTransfer?: (id: string, off: number) => void;
+  /** All four decisions are the SAME handlers the kanban cards use, so review
+   *  and planning can never disagree about what "done" means. */
+  onToggleDone: (item: PlanItem) => void;
+  onPending: (item: PlanItem) => void;
+  onTransfer: (id: string, off: number) => void;
+  /** Copy a row onto the same day. */
+  onDuplicate: (item: PlanItem) => void;
+  /** The × — same as on the board: off the plan and into the Recycle Bin. */
+  onRemove: (item: PlanItem) => void;
+  /** Add a DAILY COMMITMENT to today straight from the day-started screen. */
+  onAddCommitment: (title: string, time?: { startMin: number | null; durationMin: number | null }) => void;
+  busyId: string | null;
 }
 
 /**
- * The post-"Start my day" half of the unified Plan My Day page (Sir's transcript).
- *   active   — "your day is planned, you're set to clock in" + a way into close-out.
- *   closeout — the SAME commitments (no pull panels), each marked done / 0-100%.
- *   closed   — a read-only summary of how the day went.
+ * END-OF-DAY REVIEW — one row per commitment and four buttons (Sir's rule 5).
+ *
+ * There is NO percentage here, and no slider: a commitment was delivered or it
+ * wasn't. If it wasn't, you say where it goes — tomorrow, the day after, or
+ * Pending (which parks it in Unfinished). That is the whole screen, so closing
+ * out a ten-item day is ten clicks and done.
  */
-export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, onClosed, onReopened, onTransfer }: Props) {
-  const [items, setItems] = React.useState<PlanItem[]>(initial);
+export function DayReview({
+  phase,
+  items,
+  onBackToPlan,
+  onToCloseout,
+  onAdjust,
+  onClosed,
+  onReopened,
+  onToggleDone,
+  onPending,
+  onTransfer,
+  onDuplicate,
+  onRemove,
+  onAddCommitment,
+  busyId,
+}: Props) {
   const [busy, setBusy] = React.useState<string | null>(null);
-  React.useEffect(() => setItems(initial), [initial]);
+  // Composer for the day-started screen — something always comes up after you
+  // have committed to the day, and going back to the board to type it was a
+  // detour (Sir).
+  const [draft, setDraft] = React.useState("");
+  const [at, setAt] = React.useState("");
+  const [until, setUntil] = React.useState("");
+  const range = rangeFromHhmm(at, until);
 
-  /** Carry an item forward — drop it from today's review, hand off to the parent. */
-  const transfer = React.useCallback(
-    (id: string, off: number) => {
-      setItems((p) => p.filter((x) => x.id !== id));
-      onTransfer?.(id, off);
-    },
-    [onTransfer],
-  );
+  function addCommitment(e: React.FormEvent) {
+    e.preventDefault();
+    const t = draft.trim();
+    if (t.length < 2) return;
+    if (!range.ok) return;
+    const { startMin, durationMin } = range;
+    onAddCommitment(t, startMin == null && durationMin == null ? undefined : { startMin, durationMin });
+    setDraft("");
+    setAt("");
+    setUntil("");
+  }
+  const isClosed = phase === "closed";
 
   const total = items.length;
   const doneCount = items.filter((i) => i.done).length;
-  const overallPct = total > 0 ? Math.round(items.reduce((s, i) => s + pctOf(i), 0) / total) : 0;
-
-  const persist = React.useCallback(
-    (id: string, done: boolean, pct: number | null, note?: string | null) => {
-      setBusy(id);
-      void setItemProgress(id, { done, pct, note })
-        .then((r) => {
-          if (!r.ok) fireToast({ message: r.error, type: "error" });
-        })
-        .finally(() => setBusy(null));
-    },
-    [],
-  );
-
-  const onToggle = (it: PlanItem) => {
-    const done = !it.done;
-    const pct = done ? 100 : 0;
-    setItems((p) => p.map((x) => (x.id === it.id ? { ...x, done, donePct: pct } : x)));
-    persist(it.id, done, pct);
-  };
-
-  const onSlide = (it: PlanItem, pct: number) => {
-    const done = pct === 100;
-    setItems((p) => p.map((x) => (x.id === it.id ? { ...x, donePct: pct, done } : x)));
-  };
-  const onSlideCommit = (it: PlanItem, pct: number) => persist(it.id, pct === 100, pct);
-
-  const onNoteChange = (it: PlanItem, note: string) =>
-    setItems((p) => p.map((x) => (x.id === it.id ? { ...x, doneNote: note } : x)));
-  const onNoteCommit = (it: PlanItem) => {
-    const done = pctOf(it) === 100 || it.done;
-    persist(it.id, done, it.donePct ?? (it.done ? 100 : 0), it.doneNote ?? "");
-  };
+  const openCount = total - doneCount;
 
   const onFinish = () => {
     setBusy("__finish");
@@ -95,14 +118,16 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
   const onReopen = () => {
     setBusy("__reopen");
     void reopenPlan()
-      .then((r) => (r.ok ? (phase === "active" ? onBackToPlan() : onReopened()) : fireToast({ message: r.error, type: "error" })))
+      .then((r) => (r.ok ? (phase === "closed" ? onReopened() : onBackToPlan()) : fireToast({ message: r.error, type: "error" })))
       .finally(() => setBusy(null));
   };
 
-  // ── ACTIVE — day planned, before close-out ──────────────────────────────
+  // ── ACTIVE — the day is started, before close-out ───────────────────────
+  // Restored (Sir). It is the one screen that says "you're set, go and work" —
+  // the board is for arranging the day, this is the moment you commit to it.
   if (phase === "active") {
     return (
-      <section className="mx-auto max-w-[720px] wg-rise">
+      <section className="w-full wg-rise">
         <div
           className="rounded-3xl border p-8 text-center max-md:p-6"
           style={{
@@ -118,44 +143,114 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
           </span>
           <h2
             className="mt-4 text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.02em" }}
+            style={{
+              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontWeight: 900,
+              fontSize: 26,
+              letterSpacing: "-0.02em",
+            }}
           >
             Your day is planned
           </h2>
-          <p className="mx-auto mt-1.5 max-w-[42ch] text-[15px] font-medium text-ink-muted">
-            You&apos;re set to clock in. {total} commitment{total === 1 ? "" : "s"} lined up for today —
-            come back at the end of the day to mark what you delivered.
+          <p className="mx-auto mt-1.5 max-w-[52ch] text-[15px] font-medium text-ink-muted">
+            You&apos;re set to clock in. {items.length} commitment{items.length === 1 ? "" : "s"} lined up for today
+            — come back at the end of the day to mark what you delivered.
           </p>
 
-          <ul className="mx-auto mt-6 flex max-w-[520px] flex-col gap-2 text-left">
+          {/* ADD ANOTHER — right at the top of the list, so a commitment that
+              turns up after you've started the day goes straight in. */}
+          <form onSubmit={addCommitment} className="mt-6 flex w-full flex-col gap-1.5 text-left">
+            <div className="flex items-center gap-1.5">
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Add a commitment…"
+                aria-label="Add a commitment to today"
+                maxLength={280}
+                className="h-9 min-w-0 flex-1 rounded-chip border border-hairline bg-surface-card px-3 text-[13px] text-ink-strong placeholder:text-ink-muted/60 focus-visible:outline-2"
+                style={{ outlineColor: GOALS_ACCENT }}
+              />
+              <button
+                type="submit"
+                disabled={draft.trim().length < 2 || !range.ok}
+                aria-label="Add commitment"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-chip text-white disabled:opacity-35"
+                style={{ background: GOALS_GRADIENT }}
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+            {draft.trim().length > 0 ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="time"
+                  value={at}
+                  onChange={(e) => setAt(e.target.value)}
+                  aria-label="Start time (optional)"
+                  className="h-8 rounded-lg border border-hairline bg-surface-card px-2 text-[12px] font-semibold tabular-nums text-ink-soft"
+                />
+                <span className="text-[12px] text-ink-muted">to</span>
+                <input
+                  type="time"
+                  value={until}
+                  onChange={(e) => setUntil(e.target.value)}
+                  aria-label="End time (optional)"
+                  className="h-8 rounded-lg border bg-surface-card px-2 text-[12px] font-semibold tabular-nums text-ink-soft"
+                  style={{ borderColor: range.error ? "var(--color-red-edge)" : "var(--color-hairline)" }}
+                />
+              </div>
+            ) : null}
+            {range.error ? (
+              <p className="text-[12px] font-semibold" style={{ color: "var(--color-red-deep)" }}>
+                {range.error}
+              </p>
+            ) : null}
+          </form>
+
+          <ul className="mt-2.5 flex w-full flex-col gap-2 text-left">
             {items.map((it) => (
               <li
                 key={it.id}
-                className="group flex items-center gap-2.5 rounded-chip border border-hairline bg-surface-card px-3.5 py-2.5"
+                className="rounded-chip border border-hairline bg-surface-card px-3.5 py-2.5"
               >
-                <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: GOALS_ACCENT }} />
-                <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-strong">{it.title}</span>
-                {onTransfer ? <TransferControl onTransfer={(off) => transfer(it.id, off)} /> : null}
+                {/* The WHOLE task, and what kind it is (Sir) — this list used to
+                    clip to one line, which hid both the end of the sentence and
+                    the category tag. */}
+                <p
+                  className="text-[14px] font-medium leading-[1.4] text-ink-strong"
+                  style={{ overflowWrap: "anywhere" }}
+                >
+                  {it.title}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <SourceTag kind={it.kind} />
+                  {it.timeLabel ? (
+                    <span className="text-[11.5px] font-semibold tabular-nums text-ink-muted">{it.timeLabel}</span>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
 
           <div className="mt-7 flex items-center justify-center gap-3 max-md:flex-col">
+            {/* Adjust FIRST (Sir) — it reads left-to-right as "go back and change
+                it, or go on and close it". Back to the board WITHOUT un-starting
+                the day: the header there carries "Review My Day", so the plan
+                stays committed and the review is one click away. */}
             <button
               type="button"
-              onClick={onToCloseout}
-              className="wg-btn wg-sheen inline-flex h-12 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] max-md:w-full"
-              style={{ background: GOALS_GRADIENT }}
+              onClick={onAdjust}
+              className="inline-flex h-12 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong max-md:w-full"
             >
-              <ClipboardCheck size={18} /> Close out my day
+              <ArrowLeft size={16} /> Adjust plan
             </button>
             <button
               type="button"
-              onClick={onReopen}
-              disabled={busy === "__reopen"}
-              className="inline-flex h-12 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
+              onClick={onToCloseout}
+              className="wg-btn inline-flex h-12 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] max-md:w-full"
+              style={{ background: GOALS_GRADIENT }}
             >
-              {busy === "__reopen" ? <Loader2 size={16} className="animate-spin" /> : <ArrowLeft size={16} />} Adjust plan
+              <ClipboardCheck size={18} /> Close out my day
             </button>
           </div>
         </div>
@@ -163,150 +258,350 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
     );
   }
 
-  // ── CLOSED — read-only summary ──────────────────────────────────────────
-  const isClosed = phase === "closed";
 
   return (
-    <section className="mx-auto max-w-[760px] wg-rise">
-      <header className="mb-5 flex items-center gap-4 rounded-2xl border border-hairline bg-surface-card p-5">
-        <div className={overallPct >= 100 ? "wg-ring-glow shrink-0" : "shrink-0"}>
-          <ScoreRing value={overallPct} size={64} label={`${overallPct}% of today delivered`} />
-        </div>
+    <section className="w-full wg-rise">
+      <header className="mb-3 flex items-center gap-3 rounded-2xl border border-hairline bg-surface-card px-4 py-3">
+        <span
+          className="grid size-9 shrink-0 place-items-center rounded-xl text-white"
+          style={{ background: GOALS_GRADIENT }}
+        >
+          <ClipboardCheck size={17} />
+        </span>
         <div className="min-w-0">
           <h2
             className="text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: "-0.02em" }}
+            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 17 }}
           >
-            {isClosed ? "Day closed" : "Close out your day"}
+            {isClosed ? "Day closed" : "Review today"}
           </h2>
-          <p className="text-[14px] font-medium text-ink-muted">
-            {isClosed
-              ? `You delivered ${doneCount} of ${total} — ${overallPct}% overall.`
-              : "Mark what you delivered — tick it, or drag the slider for partial progress."}
+          {/* A count, never a percentage (rule 5). */}
+          <p className="text-[13px] font-medium text-ink-muted">
+            {total === 0
+              ? "Nothing was planned for today."
+              : isClosed
+                ? `${doneCount} of ${total} completed.`
+                : `${doneCount} done · ${openCount} still open — mark each one.`}
           </p>
         </div>
       </header>
 
-      <ul className="flex flex-col gap-2.5">
+      <ul className="flex flex-col gap-2">
         {items.map((it) => {
-          const pct = pctOf(it);
+          const late = it.overdueDays != null && it.overdueDays > 0 ? it.overdueDays : null;
+          const showPriority = it.priority != null && it.priority !== "not_imp_not_urgent";
+          const start = it.startMin != null ? minToClock(it.startMin) : null;
+          const end =
+            it.startMin != null && it.durationMin != null ? minToClock(it.startMin + it.durationMin) : null;
           return (
-            <li
-              key={it.id}
-              className="rounded-2xl border bg-surface-card p-4"
-              style={{
-                borderColor: it.done
-                  ? "color-mix(in srgb, var(--color-green) 34%, transparent)"
-                  : "var(--color-hairline)",
-                background: it.done ? "color-mix(in srgb, var(--color-green) 5%, #fff)" : undefined,
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => onToggle(it)}
-                  disabled={isClosed || busy === it.id}
-                  aria-pressed={it.done}
-                  aria-label={it.done ? "Mark not done" : "Mark done"}
-                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border-2 transition-colors disabled:opacity-60"
-                  style={
-                    it.done
-                      ? { background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))", borderColor: "var(--color-green-deep)" }
-                      : { borderColor: "var(--color-ink-soft)", background: "#fff" }
-                  }
-                >
-                  {busy === it.id ? (
-                    <Loader2 size={14} className="animate-spin text-ink-subtle" />
-                  ) : it.done ? (
-                    <Check size={16} strokeWidth={3.2} className="text-white" />
-                  ) : null}
-                </button>
-                <span
-                  className={"min-w-0 flex-1 text-[15px] font-semibold " + (it.done ? "text-ink-subtle line-through" : "text-ink-strong")}
-                  style={{ overflowWrap: "anywhere" }}
-                >
-                  {it.title}
-                </span>
-                {!isClosed && !it.done && onTransfer ? (
-                  <TransferControl variant="button" onTransfer={(off) => transfer(it.id, off)} />
+            <ReviewRow key={it.id} item={it} disabled={isClosed}>
+              <div className="flex items-start gap-4 max-lg:flex-col max-lg:gap-2">
+                <div className="min-w-0 flex-1">
+                  {/* HOVER LIVES HERE — on the words, nowhere else (Sir). */}
+                  <PlanItemHoverCard item={it}>
+                    <p
+                      className={
+                        "w-fit max-w-full text-[14.5px] font-semibold leading-[1.4] " +
+                        (it.done ? "text-ink-subtle line-through" : "text-ink-strong")
+                      }
+                      style={{ overflowWrap: "anywhere" }}
+                    >
+                      {it.title}
+                    </p>
+                  </PlanItemHoverCard>
+
+                  {/* Everything you need to judge the row, on one line: what it
+                      is, how late, how important, who asked for it, and the
+                      block you set aside for it. */}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-muted">
+                    <SourceTag kind={it.kind} />
+                    {late ? (
+                      <span className="font-bold tabular-nums" style={{ color: RISK }}>
+                        {late} day{late === 1 ? "" : "s"} overdue
+                      </span>
+                    ) : null}
+                    {showPriority ? (
+                      <span
+                        className="font-bold"
+                        style={{ color: it.priority === "imp_urgent" ? RISK : WARN }}
+                      >
+                        {PRIORITY_LABELS[it.priority!]}
+                      </span>
+                    ) : null}
+                    {it.assignee ? (
+                      <span className="inline-flex items-center gap-1">
+                        <UserRound size={11} aria-hidden /> {it.assignee}
+                      </span>
+                    ) : null}
+                    {start ? (
+                      <span className="inline-flex items-center gap-1 tabular-nums">
+                        <Clock size={11} aria-hidden /> Start {start}
+                      </span>
+                    ) : null}
+                    {end ? <span className="tabular-nums">End {end}</span> : null}
+                    {!start ? <span className="text-ink-muted/70">Anytime</span> : null}
+                    {it.pending ? (
+                      <span className="font-bold uppercase tracking-[0.06em]" style={{ color: WARN }}>
+                        Pending
+                      </span>
+                    ) : null}
+                    {it.carriedForward ? (
+                      <span className="font-bold uppercase tracking-[0.06em]" style={{ color: WARN }}>
+                        Carried forward{it.fromYmd ? ` · from ${fmtYmd(it.fromYmd)}` : ""}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {!isClosed ? (
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                    <ReviewButton
+                      label={it.done ? "Undo" : "Mark Done"}
+                      tone={it.done ? "muted" : "green"}
+                      busy={busyId === it.id}
+                      onClick={() => onToggleDone(it)}
+                      icon={
+                        busyId === it.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Check size={12} strokeWidth={3} />
+                        )
+                      }
+                    />
+                    {!it.done ? (
+                      <>
+                        <ReviewButton
+                          label="Tomm"
+                          name="Tomorrow"
+                          tone="orange"
+                          onClick={() => onTransfer(it.id, 1)}
+                        />
+                        <ReviewButton label="Day After" tone="blue" onClick={() => onTransfer(it.id, 2)} />
+                        <ReviewButton
+                          label="Pending"
+                          tone="red"
+                          busy={busyId === it.id}
+                          onClick={() => onPending(it)}
+                          icon={<PauseCircle size={12} />}
+                        />
+                        <TransferControl onTransfer={(off) => onTransfer(it.id, off)} currentOffset={0} />
+                      </>
+                    ) : null}
+                    {/* Copy the row, and the same × the board carries — it sends
+                        the work to the Recycle Bin rather than destroying it. */}
+                    <ReviewButton
+                      label="Duplicate"
+                      tone="yellow"
+                      iconOnly
+                      onClick={() => onDuplicate(it)}
+                      icon={<Copy size={13} />}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onRemove(it)}
+                      aria-label={
+                        it.taskId
+                          ? `Cancel ${it.title} — moves it to the Recycle Bin`
+                          : `Cancel ${it.title}`
+                      }
+                      title="Cancel — moves it to the Recycle Bin"
+                      className="inline-flex size-7 items-center justify-center rounded-lg border border-hairline text-ink-muted/70 transition-colors hover:border-hairline-strong hover:text-ink-strong"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
                 ) : null}
-                <span
-                  className="shrink-0 rounded-full px-2.5 py-0.5 text-[12px] font-black tabular-nums"
-                  style={{
-                    background: pct >= 100 ? "color-mix(in srgb, var(--color-green) 14%, transparent)" : `color-mix(in srgb, ${GOALS_ACCENT} 12%, transparent)`,
-                    color: pct >= 100 ? "var(--color-green-deep)" : GOALS_ACCENT_DEEP,
-                  }}
-                >
-                  {pct}%
-                </span>
               </div>
-              {!isClosed && (
-                <>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={pct}
-                    onChange={(e) => onSlide(it, Number(e.target.value))}
-                    onMouseUp={(e) => onSlideCommit(it, Number((e.target as HTMLInputElement).value))}
-                    onTouchEnd={(e) => onSlideCommit(it, Number((e.target as HTMLInputElement).value))}
-                    onKeyUp={(e) => onSlideCommit(it, Number((e.target as HTMLInputElement).value))}
-                    aria-label={`Progress on ${it.title}`}
-                    className="plan-progress mt-3 w-full"
-                    style={{ accentColor: GOALS_ACCENT }}
-                  />
-                  <input
-                    type="text"
-                    value={it.doneNote ?? ""}
-                    onChange={(e) => onNoteChange(it, e.target.value)}
-                    onBlur={() => onNoteCommit(it)}
-                    maxLength={500}
-                    placeholder="Add a note (optional) — what happened?"
-                    aria-label={`Note on ${it.title}`}
-                    className="mt-2 w-full rounded-chip border border-hairline bg-surface-soft px-3 py-1.5 text-[13px] text-ink-soft placeholder:text-ink-muted/60 focus-visible:outline-2"
-                    style={{ outlineColor: GOALS_ACCENT }}
-                  />
-                </>
-              )}
-              {isClosed && it.doneNote ? (
-                <p className="mt-2 rounded-chip bg-surface-soft px-3 py-1.5 text-[13px] text-ink-soft">{it.doneNote}</p>
-              ) : null}
-            </li>
+            </ReviewRow>
           );
         })}
       </ul>
 
-      <div className="mt-6 flex items-center justify-between gap-3 max-md:flex-col-reverse">
+      <div className="mt-5 flex items-center justify-between gap-3 max-md:flex-col-reverse">
         <button
           type="button"
           onClick={onReopen}
           disabled={busy === "__reopen"}
-          className="inline-flex h-11 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
+          className="inline-flex h-10 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-4 text-[13.5px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
         >
-          {busy === "__reopen" ? <Loader2 size={16} className="animate-spin" /> : <ArrowLeft size={16} />} Back to planning
+          {busy === "__reopen" ? <Loader2 size={15} className="animate-spin" /> : <ArrowLeft size={15} />} Back to
+          planning
         </button>
         {!isClosed ? (
           <button
             type="button"
             onClick={onFinish}
             disabled={busy === "__finish"}
-            className="wg-btn wg-sheen inline-flex h-11 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] disabled:opacity-50 max-md:w-full"
+            className="wg-btn inline-flex h-10 items-center gap-2 rounded-chip px-5 text-[14px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.24)] disabled:opacity-50 max-md:w-full"
             style={{ background: GOALS_GRADIENT }}
           >
-            {busy === "__finish" ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />} Finish day
+            {busy === "__finish" ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Finish day
           </button>
         ) : (
           <motion.span
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 text-[14px] font-bold"
+            className="inline-flex items-center gap-2 text-[13.5px] font-bold"
             style={{ color: GOALS_ACCENT_DEEP }}
           >
-            <Sunrise size={16} /> Well done — that&apos;s a wrap on today.
+            <Sunrise size={15} /> That&apos;s a wrap on today.
           </motion.span>
         )}
       </div>
     </section>
+  );
+}
+
+/** Per-decision colours, from the app's existing palettes (globals.css):
+ *  Done green · Tomorrow orange · Day after blue · Pending red. Pale fill,
+ *  matching edge, strong text — the same weight as every other chip here. */
+const TONE_STYLE: Record<string, React.CSSProperties> = {
+  green: {
+    color: "var(--color-green-deep)",
+    borderColor: "var(--color-green-edge)",
+    background: "var(--color-green-bg)",
+  },
+  orange: {
+    color: "var(--color-orange-deep)",
+    borderColor: "var(--color-orange-edge)",
+    background: "var(--color-orange-bg)",
+  },
+  blue: {
+    color: "var(--color-blue-deep)",
+    borderColor: "var(--color-blue-edge)",
+    background: "var(--color-blue-bg)",
+  },
+  red: {
+    color: "var(--color-red-deep)",
+    borderColor: "var(--color-red-edge)",
+    background: "var(--color-red-bg)",
+  },
+  yellow: {
+    color: "var(--color-yellow-deep)",
+    borderColor: "var(--color-yellow-edge)",
+    background: "var(--color-yellow-bg)",
+  },
+  muted: {
+    color: "var(--color-ink-soft)",
+    borderColor: "var(--color-hairline)",
+    background: "var(--color-surface-card)",
+  },
+};
+
+function ReviewButton({
+  label,
+  name,
+  tone,
+  onClick,
+  icon,
+  busy,
+  iconOnly,
+}: {
+  label: string;
+  /**
+   * The action's real name, when the visible label is an abbreviation of it.
+   * A shortened word saves width on screen but would also shorten what a screen
+   * reader announces, so the full name is kept here and used as the accessible
+   * name — the letters get shorter, the meaning does not.
+   */
+  name?: string;
+  tone: "green" | "orange" | "blue" | "red" | "yellow" | "muted";
+  onClick: () => void;
+  icon?: React.ReactNode;
+  busy?: boolean;
+  /**
+   * Drop the word and keep the icon (Sir). The tone, border and height are
+   * unchanged, so an icon-only action still sits in the row as one of the set
+   * rather than as a different kind of thing — it just stops spending width on
+   * a label the icon already gives. The name comes back on hover, and `label`
+   * doubles as the accessible name so nothing is lost to a screen reader.
+   */
+  iconOnly?: boolean;
+}) {
+  const style = TONE_STYLE[tone] ?? TONE_STYLE.muted;
+  const button = (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      aria-label={iconOnly ? (name ?? label) : name}
+      className={
+        "inline-flex items-center gap-1 rounded-lg border text-[11.5px] font-bold transition-[filter] hover:brightness-95 disabled:opacity-50 " +
+        (iconOnly ? "size-[26px] justify-center" : "px-2 py-1")
+      }
+      style={style}
+    >
+      {icon}
+      {iconOnly ? null : label}
+    </button>
+  );
+  // The app's own tooltip, not the native one: it wraps, and it portals out of
+  // the row so an overflow-clipped column can't cut it off.
+  return iconOnly ? (
+    <HoverTip text={name ?? label} className="inline-flex">
+      {button}
+    </HoverTip>
+  ) : (
+    button
+  );
+}
+
+/**
+ * One review row — draggable onto the day strip above it (Sir's rule 10).
+ *
+ * The hover detail belongs to the TASK TEXT, not to this shell: wrapping the
+ * whole row meant the panel popped open over Mark Done / Tomorrow / Day after /
+ * Pending / Duplicate as the cursor crossed them (Sir).
+ *
+ * Dragging is the SAME gesture and the same server action the board uses, so a
+ * task moved here lands exactly where the kanban would have put it — no second
+ * code path, no chance of the two screens disagreeing.
+ */
+function ReviewRow({
+  item,
+  disabled,
+  children,
+}: {
+  item: PlanItem;
+  /** A closed day is history — nothing on it is draggable. */
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: item.id,
+    data: { type: "plan" },
+    disabled,
+  });
+
+  return (
+    <li className="list-none">
+        <div
+          ref={setNodeRef}
+          className="flex items-start gap-2 rounded-2xl border bg-surface-card px-4 py-3"
+          style={{
+            transform: CSS.Translate.toString(transform),
+            opacity: isDragging ? 0.4 : undefined,
+            borderColor: item.done
+              ? "color-mix(in srgb, var(--color-green) 34%, transparent)"
+              : item.pending
+                ? "color-mix(in srgb, var(--color-amber) 45%, transparent)"
+                : "var(--color-hairline)",
+            background: item.done ? "color-mix(in srgb, var(--color-green) 5%, #fff)" : undefined,
+          }}
+        >
+          {!disabled ? (
+            <button
+              type="button"
+              aria-label={`Drag ${item.title} onto another day`}
+              className="mt-0.5 shrink-0 cursor-grab touch-none rounded text-ink-muted/40 hover:text-ink-muted focus-visible:outline-2"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical size={15} />
+            </button>
+          ) : null}
+          <div className="min-w-0 flex-1">{children}</div>
+        </div>
+    </li>
   );
 }

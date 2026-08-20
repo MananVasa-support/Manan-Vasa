@@ -72,7 +72,7 @@ export default async function MyDayPage({
               href={"/goals/plan" as Route}
               className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:border-hairline-strong"
             >
-              <CalendarCheck2 size={13} /> Plan My Day
+              <CalendarCheck2 size={13} /> Daily Goals &amp; Commitments
             </Link>
           </div>
           <h1

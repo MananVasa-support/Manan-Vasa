@@ -3418,11 +3418,27 @@ export const dailyChecklist = pgTable(
     done: boolean("done").notNull().default(false),
     donePct: integer("done_pct"),
     doneNote: text("done_note"),
+    // WHEN in the day this commitment sits (migration 0185) - minutes from
+    // IST midnight + block length. The row is already pinned to a day by
+    // plan_date, so a wall-clock minute needs no timezone conversion and
+    // survives a move to another day unchanged. NULL = "Anytime" work.
+    startMin: integer("start_min"),
+    durationMin: integer("duration_min"),
     // When it entered today's plan (morning commit) and when it was closed out.
     committedAt: timestamp("committed_at", { withTimezone: true }).notNull().defaultNow(),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     // Set when this item was rolled forward from an earlier, unfinished day.
     movedFromDate: date("moved_from_date"),
+    // RECYCLE BIN for commitments (migration 0186). Cancelling a card used to
+    // DELETE this row outright when no WMS task backed it; now it is a soft
+    // delete, so a typed commitment can be restored just like an abandoned task.
+    // Every planner read must filter `abandoned_at IS NULL`.
+    abandonedAt: timestamp("abandoned_at", { withTimezone: true }),
+    abandonedById: uuid("abandoned_by_id").references(() => employees.id, { onDelete: "set null" }),
+    // Set when the END-OF-DAY sweep moved this row forward because nobody
+    // reviewed it (migration 0187). Distinguishes an automatic carry from a
+    // manual "→ Tomorrow", which also writes moved_from_date.
+    carriedForwardAt: timestamp("carried_forward_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

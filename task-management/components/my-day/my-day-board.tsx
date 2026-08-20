@@ -126,7 +126,7 @@ export function MyDayBoard({ payload }: { payload: MyDayPayload }) {
           Nothing planned for today yet
         </h2>
         <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] text-ink-muted">
-          My Day shows the work you committed to in Plan My Day. Line up your goals and tasks there
+          My Day shows the work you committed to in Daily Goals &amp; Commitments. Line up your goals and tasks there
           first — they&apos;ll appear here ready to work through.
         </p>
         <Link
@@ -134,7 +134,7 @@ export function MyDayBoard({ payload }: { payload: MyDayPayload }) {
           className="wg-btn mt-5 inline-flex h-10 items-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.28)]"
           style={{ background: GRADIENT }}
         >
-          Plan My Day <ArrowRight size={15} />
+          Daily Goals &amp; Commitments <ArrowRight size={15} />
         </Link>
       </section>
     );

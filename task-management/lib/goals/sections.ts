@@ -44,7 +44,7 @@ export const GOALS_SECTIONS: GoalsSection[] = [
   {
     href: "/goals/plan",
     order: 3,
-    title: "Plan Your Day",
+    title: "Daily Goals & Commitments",
     blurb:
       "The drag-and-drop day planner — pull from weekly, monthly, yearly goals and tasks into today's committed plan.",
     Icon: CalendarDays,

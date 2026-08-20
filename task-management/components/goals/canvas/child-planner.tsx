@@ -946,17 +946,11 @@ function DayStage(): React.JSX.Element {
         </div>
       ) : (
         <PlanBoard
-          key={state.payload.ymd}
+          key={state.payload.todayYmd}
           // This drawer always plans the CALLER's own day — no delegation here,
           // so an empty roster hides the "planning for" picker entirely.
           target={{ employeeId: "", name: "", isDelegated: false, roster: [] }}
-          initialPlan={state.payload.initialPlan}
-          sources={state.payload.sources}
-          minItems={state.payload.minItems}
-          isManager={state.payload.isManager}
-          initialPhase={state.payload.initialPhase}
-          ymd={state.payload.ymd}
-          dayOffset={state.payload.dayOffset}
+          payload={state.payload}
         />
       )}
     </section>
