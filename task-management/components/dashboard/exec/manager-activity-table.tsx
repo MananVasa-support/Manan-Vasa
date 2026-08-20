@@ -335,18 +335,23 @@ export function ManagerActivityTable({
   const [windowDays, setWindowDays] = React.useState<3 | 7>(7);
   const [full, setFull] = React.useState(false);
   const [state, setState] = React.useState<
-    | { kind: "loading" }
-    | { kind: "error"; message: string }
-    | { kind: "ok"; board: ManagerActivityBoard }
+    | { kind: "loading"; forWindow?: number }
+    | { kind: "error"; message: string; forWindow: number }
+    | { kind: "ok"; board: ManagerActivityBoard; forWindow: number }
   >({ kind: "loading" });
+
+  // The loading reset is DERIVED, not set in the effect. Stamping each result
+  // with the window it was fetched for means a stale response for the previous
+  // window is ignored during render — so switching the toggle shows "loading"
+  // immediately without a setState-in-effect and its extra render pass.
+  const showLoading = state.kind === "loading" || state.forWindow !== windowDays;
 
   React.useEffect(() => {
     let cancelled = false;
-    setState({ kind: "loading" });
     void getManagerActivityBoard(windowDays).then((res) => {
       if (cancelled) return;
-      if ("error" in res) setState({ kind: "error", message: res.error });
-      else setState({ kind: "ok", board: res });
+      if ("error" in res) setState({ kind: "error", message: res.error, forWindow: windowDays });
+      else setState({ kind: "ok", board: res, forWindow: windowDays });
     });
     return () => {
       cancelled = true;
@@ -404,14 +409,14 @@ export function ManagerActivityTable({
 
   const body = (
     <>
-      {state.kind === "loading" && (
+      {showLoading && (
         <div className="flex items-center justify-center gap-2 py-16 text-gray-500">
           <Loader2 size={18} className="animate-spin" strokeWidth={2.4} />
           <span className="text-[13.5px] font-semibold">Loading activity…</span>
         </div>
       )}
 
-      {state.kind === "error" && (
+      {!showLoading && state.kind === "error" && (
         <div className="flex flex-col items-center gap-1.5 py-16 text-center">
           <p className="text-[14px] font-bold text-ink-soft">Could not load the activity board</p>
           <p className="max-w-[320px] text-[12.5px] font-semibold text-ink-subtle">
@@ -420,7 +425,7 @@ export function ManagerActivityTable({
         </div>
       )}
 
-      {state.kind === "ok" && state.board.rows.length === 0 && (
+      {!showLoading && state.kind === "ok" && state.board.rows.length === 0 && (
         <div className="flex flex-col items-center gap-1.5 py-16 text-center">
           <Users size={22} strokeWidth={2} className="text-gray-400" />
           <p className="text-[14px] font-bold text-ink-soft">No managers with direct reports yet</p>
@@ -430,7 +435,7 @@ export function ManagerActivityTable({
         </div>
       )}
 
-      {state.kind === "ok" && state.board.rows.length > 0 && (
+      {!showLoading && state.kind === "ok" && state.board.rows.length > 0 && (
         /* The 600px scroll box, matching the scorecard widget beside it. In
            fullscreen the cap is lifted -- a 600px window inside a viewport-sized
            overlay is the one place it stops helping. */
