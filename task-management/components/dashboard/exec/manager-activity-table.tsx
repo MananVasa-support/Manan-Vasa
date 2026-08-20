@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronDown, Loader2, Maximize2, Minimize2, Users } from "lucide-react";
+import { ChevronDown, Loader2, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { getManagerActivityBoard } from "@/app/(app)/dashboard/manager-activity-actions";
 // From the CONTRACT module, not the query module. The query module is
@@ -21,6 +21,7 @@ import {
   DEFAULT_ACTIVITY_PERIOD,
 } from "@/lib/dashboard/manager-activity-contract";
 import { ActivityCellPopover, activityHref } from "./activity-cell-popover";
+import { CollapseToggle, CollapsibleBody } from "../section-chrome";
 
 /* ────────────────────────────────────────────────────────────────────────
    ManagerActivityTable — one row per manager across the three activity
@@ -385,9 +386,13 @@ export function ManagerActivityTable({
   avatarById?: Record<string, string | null>;
 }) {
   const [period, setPeriod] = React.useState<ActivityPeriod>(DEFAULT_ACTIVITY_PERIOD);
-  const [expanded, setExpanded] = React.useState(false);
-  // Which manager breakdowns are open. Lifted out of the rows so Maximize can
-  // open all of them at once.
+  // Section collapse, the SAME control every other dashboard section uses
+  // (CollapseToggle + CollapsibleBody in section-chrome). This board used to
+  // own a bespoke toggle that expanded it in place, so the one button that
+  // looks identical across the dashboard did something different here.
+  const [open, setOpen] = React.useState(true);
+  // Which manager breakdowns are open. Lifted out of the rows so the bulk
+  // control can open all of them at once.
   const [openIds, setOpenIds] = React.useState<ReadonlySet<string>>(new Set());
   const [state, setState] = React.useState<
     | { kind: "loading"; forWindow?: ActivityPeriod }
@@ -440,12 +445,14 @@ export function ManagerActivityTable({
     });
   }, []);
 
-  /** Maximize opens every breakdown; minimize returns to the compact default. */
-  const toggleExpanded = React.useCallback(() => {
-    setExpanded((wasExpanded) => {
-      setOpenIds(wasExpanded ? new Set() : new Set(rows.map((r) => r.managerId)));
-      return !wasExpanded;
-    });
+  // Opening every breakdown was previously welded to the maximize button. It is
+  // a genuinely useful action, so it survives as its own control rather than
+  // disappearing with the button it happened to ride on.
+  const allRowsOpen = rows.length > 0 && openIds.size === rows.length;
+  const toggleAllRows = React.useCallback(() => {
+    setOpenIds((cur) =>
+      cur.size === rows.length ? new Set() : new Set(rows.map((r) => r.managerId)),
+    );
   }, [rows]);
 
   const controls = (
@@ -465,20 +472,25 @@ export function ManagerActivityTable({
           </option>
         ))}
       </select>
-      <button
-        type="button"
-        onClick={toggleExpanded}
-        aria-expanded={expanded}
-        aria-label={expanded ? "Minimize view" : "Maximize view"}
-        title={expanded ? "Minimize View" : "Maximize View"}
-        className="grid size-9 cursor-pointer place-items-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
-      >
-        {expanded ? (
-          <Minimize2 size={15} strokeWidth={2.4} />
-        ) : (
-          <Maximize2 size={15} strokeWidth={2.4} />
-        )}
-      </button>
+      {rows.length > 0 && (
+        <button
+          type="button"
+          onClick={toggleAllRows}
+          aria-pressed={allRowsOpen}
+          title={allRowsOpen ? "Collapse every breakdown" : "Expand every breakdown"}
+          className="inline-flex h-9 shrink-0 cursor-pointer items-center rounded-lg px-2 text-[13px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
+        >
+          {allRowsOpen ? "Collapse all" : "Expand all"}
+        </button>
+      )}
+      {/* The shared section control, not a bespoke one. Every other section on
+          this dashboard folds with this exact button; this board was the only
+          one where it did something else. */}
+      <CollapseToggle
+        expanded={open}
+        onToggle={() => setOpen((v) => !v)}
+        label="the activity board"
+      />
     </div>
   );
 
@@ -511,12 +523,10 @@ export function ManagerActivityTable({
       )}
 
       {!showLoading && state.kind === "ok" && state.board.rows.length > 0 && (
-        /* The 600px scroll box, matching the scorecard widget beside it. When
-           maximized the cap is lifted so the table renders at its full height:
-           holding a 600px window while every breakdown is force-open would put
-           an inner scrollbar inside an expanded view, which is the opposite of
-           what expanding it was for. */
-        <div className={expanded ? "overflow-y-auto" : "max-h-[600px] overflow-y-auto"}>
+        /* The 600px scroll box, matching the scorecard widget beside it. This
+           is the section's default height now — folding it away entirely is the
+           section control's job, not this box's. */
+        <div className="max-h-[600px] overflow-y-auto">
           <table className="min-w-full border-collapse">
             <thead className="sticky top-0 z-10" style={{ background: "#f9fafb" }}>
               <tr>
@@ -573,16 +583,12 @@ export function ManagerActivityTable({
     </div>
   );
 
-  /* ONE render path. Maximize used to portal a `fixed inset-0` overlay to
-     <body> — a modal in everything but name: it covered the page, trapped Esc
-     and locked body scroll. It now expands IN PLACE, so the widget stays in the
-     document flow where the reader left it and the rest of the dashboard stays
-     reachable by scrolling.
-
-     The card is already `w-full max-w-none`, i.e. 100% of its parent content
-     container, in both states — what Maximize actually changes is the 600px
-     scroll cap (lifted, so every row renders at full height) and the open set
-     (every breakdown expanded). */
+  /* The HEADER stays put and the card's BODY folds — the same shape every other
+     section on this dashboard has. CollapsibleBody animates grid-template-rows
+     1fr -> 0fr over 300ms rather than transitioning `height`, which is what
+     lets it animate to the body's natural height instead of a hardcoded one,
+     and it marks the folded content `inert` so collapsed rows leave the tab
+     order instead of being invisible tab stops. */
   return (
     <section className="relative min-w-0" aria-label="Manager activity board">
       {header}
@@ -590,7 +596,11 @@ export function ManagerActivityTable({
         className="wms-card w-full max-w-none overflow-hidden rounded-2xl bg-white shadow-xs"
         style={{ border: "1px solid var(--color-hairline)" }}
       >
-        {body}
+        {/* CARD OUTSIDE, body inside — the nesting matters. Collapsed, this
+            leaves the card shell as a thin empty bar under the header rather
+            than removing it outright, which is how Status Distribution folds
+            and what keeps the section's footprint legible when it is shut. */}
+        <CollapsibleBody expanded={open}>{body}</CollapsibleBody>
       </div>
     </section>
   );
