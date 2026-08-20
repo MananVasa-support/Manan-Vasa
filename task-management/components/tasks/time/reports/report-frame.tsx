@@ -3,7 +3,8 @@ import { Timer } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { TimeReportTabs } from "./report-tabs";
-import { ReportHero, EmptyState } from "./report-ui";
+import { EmptyState } from "./report-ui";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 
 /**
  * Shared chrome for the /tasks/time report pages — header, PageShell, glass
@@ -25,13 +26,14 @@ export function TimeReportFrame({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="wide">
-        <ReportHero
-          eyebrow="WMS · Task Time Intelligence"
-          title={title}
-          subtitle={subtitle}
-          Icon={Timer}
-          actions={actions}
-        />
+        {/* MINIMAL HEADER (Sir) — the shared PageCommandBar, i.e. the Yearly
+            Goals band. ReportHero put a red icon tile, a "WMS · TASK TIME
+            INTELLIGENCE" eyebrow, a 44px headline and a full-width subtitle
+            above the tab row — so the KPI cards, which are the point of the
+            page, started below the fold. This frame wraps EVERY Time
+            Intelligence tab (Overview, Employees, Tasks, Goals, Manager), so
+            the change lands on all five at once. */}
+        <PageCommandBar title={title} hint={subtitle} actions={actions} />
         <TimeReportTabs />
         {children}
       </PageShell>
@@ -45,11 +47,7 @@ export function TimeIntelDisabledScreen() {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="wide">
-        <ReportHero
-          eyebrow="WMS · Task Time Intelligence"
-          title="Time Intelligence"
-          Icon={Timer}
-        />
+        <PageCommandBar title="Time Intelligence" />
         <EmptyState
           Icon={Timer}
           title="Time Intelligence is turned off"

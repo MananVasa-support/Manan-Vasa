@@ -413,22 +413,39 @@ export function StatusTable({
           className="bg-surface-card rounded-section border border-hairline"
           style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
         >
-          {/* NOTE: no `overflow-x-auto` here — an overflow ancestor would make
-              the <thead> stick to THIS box instead of the viewport (the header
-              floated mid-table). Without it, the sticky <thead> pins correctly
-              under the filter bar as the page scrolls. */}
+          {/* NOTE: no `overflow-x-auto` here. It was originally left off because
+              an overflow ancestor changes what a sticky <thead> sticks TO; the
+              <thead> is no longer sticky (see below), so that reason is spent —
+              but the table still has `min-w-[640px]`, so adding an overflow
+              container now would be a real layout change, not a tidy-up. Left
+              as-is deliberately. */}
           {/* min-w drops 720 -> 640 with the Department column. `w-full` already
               spreads the remaining eight across the container; the floor only
               exists to stop the count columns collapsing, and leaving it at the
               nine-column figure would force a horizontal squeeze that no longer
               has a reason to exist. */}
           <table className="w-full min-w-[640px]">
-            {/* WMS uses the vertical left rail now (no horizontal top header), so
-                the column labels pin just below the sticky filter bar (~64px) —
-                NOT the old 96px-header + filter-bar (160px), which floated the
-                header mid-table. Mobile: rail top bar (56px) + filter bar. z-20
-                sits above body rows; the first cell keeps its left-0 freeze. */}
-            <thead className="sticky top-[64px] max-md:top-[116px] z-20">
+            {/* NOT vertically sticky — deliberately (Sir, 2026-08-20).
+                The header used to be `sticky top-[64px]`, which is what put a
+                tall blank band between the card's top edge and the column
+                labels: once the table scrolled under the filter bar the <thead>
+                detached, pinned itself 64px down the viewport, and left its own
+                row-space in the table empty. The band's height was however far
+                the table had scrolled past the pin — so it grew as you scrolled,
+                and it was always completely blank.
+
+                The offset was also simply wrong: the filter bar above pins at
+                `--app-topbar-h` (56px on desktop, see globals.css), not 64px,
+                so the labels never lined up with it either. A previous pass
+                already moved this number once for the same symptom ("floated
+                the header mid-table") — the number was never the problem, the
+                sticky was.
+
+                Dropping it costs almost nothing here: PAGE = 10, so the table
+                is ten rows tall and the header is on screen for essentially all
+                of it. The first cell keeps its own `left-0` freeze for
+                horizontal scroll, which is unaffected. */}
+            <thead>
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id} className="border-b border-hairline">
                   {hg.headers.map((h, i) => {

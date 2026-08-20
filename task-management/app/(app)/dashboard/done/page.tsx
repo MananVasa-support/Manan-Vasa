@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Route } from "next";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 import { DashboardHeader } from "@/components/layout/header";
 import { DoneDashboardView } from "@/components/dashboard/done/done-dashboard-view";
@@ -44,13 +43,6 @@ export default async function DoneDashboardPage() {
 
       <main>
         <PageShell as="section" width="full" py={false} className="pt-10 max-md:pt-6 pb-2">
-          <Link
-            href={"/dashboard" as Route}
-            className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-subtle transition-colors hover:text-ink-strong"
-          >
-            <ArrowLeft size={15} strokeWidth={2.6} />
-            Back to Dashboard
-          </Link>
           <div className="mt-4 flex items-center gap-3.5">
             <span
               className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl text-white"

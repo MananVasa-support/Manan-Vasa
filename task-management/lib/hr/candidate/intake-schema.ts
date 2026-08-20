@@ -213,7 +213,7 @@ export const INTAKE_SECTIONS: IntakeSection[] = [
   {
     id: "declaration",
     title: "Declaration & Sign-off",
-    subtitle: "Photograph, signature, recruiter remarks and confirmation.",
+    subtitle: "Recruiter remarks and confirmation.",
     declaration: true,
     fields: [
       { key: "name", label: "Recruiter's Name", type: "text", required: true },
@@ -304,22 +304,21 @@ export function intakeRequiredKeys(
 }
 
 /**
- * 0-100 completion %, counting required value keys plus the two Declaration
- * uploads (photo + signature). Used for the wizard progress bar AND the
- * draft/Records "X% done" labels, so they always agree.
+ * 0-100 completion %, counting the required value keys.
+ *
+ * The Declaration photograph + signature uploads USED to count as two extra
+ * required units here (Sir: both removed 2026-08-20). They are gone from the
+ * form entirely, so counting them would have pinned every completed record at
+ * roughly 95% forever — and the same number drives the wizard progress bar and
+ * the draft/Records "X% done" label, so both would have been wrong together.
  */
 export function intakeProgress(
   values: Record<string, string>,
   instances: Record<string, string[]>,
-  photoDone: boolean,
-  signDone: boolean,
 ): number {
   const keys = intakeRequiredKeys(values, instances);
-  let filled = keys.filter((k) => (values[k] ?? "").trim() !== "").length;
-  const total = keys.length + 2;
-  if (photoDone) filled++;
-  if (signDone) filled++;
-  return Math.round((filled / Math.max(total, 1)) * 100);
+  const filled = keys.filter((k) => (values[k] ?? "").trim() !== "").length;
+  return Math.round((filled / Math.max(keys.length, 1)) * 100);
 }
 
 /** True once the form has ANY real content — the trigger to create the draft row. */

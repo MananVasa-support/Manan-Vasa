@@ -10,10 +10,8 @@
  * client <AppraisalWorkspace/>. Access is enforced by getScorecardData, which
  * throws for anyone out of scope (→ the picker prompt, never someone else's data).
  */
-import Link from "next/link";
-import type { Route } from "next";
 import { and, asc, eq, inArray, or } from "drizzle-orm";
-import { ArrowLeft, Award } from "lucide-react";
+import { Award } from "lucide-react";
 import { db, employees } from "@/lib/db";
 import { apprConfig } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
@@ -78,13 +76,6 @@ export default async function TeamAppraisalPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[1400px] overflow-x-hidden px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
-        <Link
-          href={"/productivity/team" as Route}
-          className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted transition hover:text-ink-strong"
-        >
-          <ArrowLeft size={15} strokeWidth={2.4} /> Back to Team Performance
-        </Link>
-
         <header
           className="wg-rise relative mb-5 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-4 max-md:py-5"
           style={{

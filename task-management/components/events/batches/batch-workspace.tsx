@@ -1,5 +1,7 @@
 "use client";
 
+import { PageCommandBar } from "@/components/layout/page-command-bar";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/format";
@@ -61,47 +63,27 @@ export function BatchWorkspace({
 
   return (
     <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-      <header className="mb-7 flex flex-wrap items-end justify-between gap-4 wg-rise">
-        <div>
-          <span
-            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
-            style={{ color: "#ffffff", background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+      {/* MINIMAL HEADER (Sir) — the shared PageCommandBar (the Yearly Goals
+          band). The poster hero here was a gradient eyebrow pill, a 38px
+          headline naming all four batch types, and a three-line paragraph —
+          roughly a screen of chrome above a list that is usually one card long.
+          New Schedule moves into the band's actions slot. */}
+      <PageCommandBar
+        title="Batch Schedules"
+        hint="Enter a batch's dates and times — the calendar auto-blocks the whole range."
+        actions={
+          <button
+            type="button"
+            onClick={openNew}
+            disabled={noTypes}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-[13.5px] font-bold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ background: "var(--color-altus-red)" }}
           >
-            <CalendarClock size={13} strokeWidth={2.6} />
-            Batch Schedules
-          </span>
-          <h1
-            className="mt-2 text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(26px, 3vw, 38px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.05,
-            }}
-          >
-            PS · BSS · Conclave · Graduate — auto-blocked
-          </h1>
-          <p className="mt-2 max-w-[62ch] text-[15px] font-medium text-ink-muted">
-            Enter a batch&apos;s dates, times and days — the calendar auto-creates
-            locked blocks across the whole range. Editing reconciles them; nothing
-            ever duplicates.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={openNew}
-          disabled={noTypes}
-          className="brand-btn wg-btn inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white disabled:opacity-50"
-          style={{
-            background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
-            boxShadow: "0 10px 24px -12px rgba(8,145,178,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
-          }}
-        >
-          <Plus size={17} strokeWidth={2.6} />
-          New Schedule
-        </button>
-      </header>
+            <Plus size={15} strokeWidth={2.6} />
+            New Schedule
+          </button>
+        }
+      />
 
       {noTypes && (
         <div

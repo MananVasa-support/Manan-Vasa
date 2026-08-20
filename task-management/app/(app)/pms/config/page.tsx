@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Route } from "next";
-import Link from "next/link";
-import { Settings, ArrowLeft } from "lucide-react";
+import { Settings } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { DashboardHeader } from "@/components/layout/header";
@@ -26,12 +25,6 @@ export default async function PmsConfigPage() {
       <main className="mx-auto w-full max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
         {/* Back link */}
         <div className="mb-5 wg-rise">
-          <Link
-            href={"/pms" as Route}
-            className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
-          >
-            <ArrowLeft size={15} strokeWidth={2.6} /> Back to Roster
-          </Link>
         </div>
 
         {/* ── Glass hero ── */}

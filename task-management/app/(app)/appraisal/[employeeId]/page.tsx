@@ -1,7 +1,6 @@
-import Link from "next/link";
 import type { Route } from "next";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+
 import { requireUser } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -109,10 +108,6 @@ export default async function AppraisalEmployeePage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[1000px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
-        <Link href={`/appraisal?cycle=${cycleId}` as Route} className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-subtle hover:text-ink-strong">
-          <ArrowLeft size={15} /> Back to Appraisal
-        </Link>
-
         <header className="wg-rise mb-5 flex items-center gap-4 rounded-[22px] bg-surface-card px-6 py-5" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 18px 44px -30px rgba(15,23,42,0.25)" }}>
           <EmployeeAvatar name={card.employee.name} size="lg" />
           <div className="min-w-0 flex-1">

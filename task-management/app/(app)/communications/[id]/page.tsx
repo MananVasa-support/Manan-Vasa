@@ -1,17 +1,5 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { notFound } from "next/navigation";
-import {
-  ArrowLeft,
-  Megaphone,
-  Paperclip,
-  Download,
-  Users,
-  CheckCircle2,
-  Clock,
-  ShieldCheck,
-  Lock,
-} from "lucide-react";
+import { Megaphone, Paperclip, Download, Users, CheckCircle2, Clock, ShieldCheck, Lock } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
@@ -108,13 +96,6 @@ export default async function BroadcastReadPage({ params }: PageProps) {
       {receipt && <MarkRead broadcastId={b.id} active={receipt.status === "pending"} />}
 
       <PageShell width="wide" style={{ maxWidth: "1180px" }}>
-        <Link
-          href={"/communications" as Route}
-          className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted transition hover:text-ink-strong"
-        >
-          <ArrowLeft size={15} strokeWidth={2.4} /> Back to Communications
-        </Link>
-
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
           {/* ── The message ─────────────────────────────────────────── */}
           <article className="wg-rise min-w-0">

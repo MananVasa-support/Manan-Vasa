@@ -1,7 +1,5 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ShieldAlert, Lock } from "lucide-react";
+import { ShieldAlert, Lock } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listCaCredentials, listCaReturns } from "@/lib/queries/accounts-ca";
@@ -22,13 +20,6 @@ export default async function CaHandoverPage() {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-        <Link
-          href={"/accounts" as Route}
-          className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-soft hover:text-ink-strong transition-colors"
-        >
-          <ArrowLeft size={15} strokeWidth={2.6} aria-hidden /> Back to Accounts Index
-        </Link>
-
         <header className="mt-4 mb-6 wg-rise">
           <div className="flex items-center gap-2.5 flex-wrap">
             <span

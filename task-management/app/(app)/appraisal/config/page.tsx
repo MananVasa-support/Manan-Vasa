@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
-import { ArrowLeft, BookOpen, Settings } from "lucide-react";
+import { BookOpen, Settings } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
 import { requireAppraisal } from "@/lib/pms/appraisal-flag";
@@ -25,9 +25,6 @@ export default async function AppraisalConfigPage() {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[900px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
-        <Link href={"/appraisal" as Route} className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-subtle hover:text-ink-strong">
-          <ArrowLeft size={15} /> Back to Appraisal
-        </Link>
         <header className="mb-5">
           <span className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}>
             <Settings size={13} strokeWidth={2.6} /> Appraisal · Config

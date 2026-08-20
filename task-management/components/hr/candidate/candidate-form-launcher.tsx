@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import type { IntakeInitial, IntakeActions } from "@/components/hr/candidate/intake-wizard";
 import {
   saveOwnCandidateDraft,
-  uploadOwnCandidateFile,
   submitOwnCandidateForm,
 } from "@/app/candidate/candidate-self-actions";
 
@@ -18,7 +17,6 @@ const IntakeWizard = dynamic(
 /** Owner-scoped writes — every call targets the caller's OWN row server-side. */
 const CANDIDATE_ACTIONS: IntakeActions = {
   save: saveOwnCandidateDraft,
-  upload: uploadOwnCandidateFile,
   submit: submitOwnCandidateForm,
 };
 
