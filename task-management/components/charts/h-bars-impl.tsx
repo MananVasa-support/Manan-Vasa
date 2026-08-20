@@ -106,8 +106,12 @@ export function HBars({
               position="right"
               content={
                 rightLabel
-                  ? (props: { x?: number; y?: number; width?: number; height?: number; index?: number }) => {
-                      const { x = 0, y = 0, width = 0, height = 0, index = 0 } = props;
+                  ? (props) => {
+                      const x = Number(props.x ?? 0);
+                      const y = Number(props.y ?? 0);
+                      const width = Number(props.width ?? 0);
+                      const height = Number(props.height ?? 0);
+                      const index = Number(props.index ?? 0);
                       const row = data[index];
                       if (!row) return null;
                       return (

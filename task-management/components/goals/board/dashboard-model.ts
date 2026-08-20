@@ -477,7 +477,7 @@ export function computeWeightConcentration(rows: Row[]): WeightConcentration | n
   if (weights.length < 2 || total <= 0) return null;
   let running = 0;
   for (let i = 0; i < weights.length; i++) {
-    running += weights[i];
+    running += weights[i] ?? 0;
     const pct = Math.round((running / total) * 100);
     if (pct >= 50 || i === weights.length - 1) return { topN: i + 1, topPct: pct };
   }
@@ -532,8 +532,8 @@ export function buildSmartInsights(model: Model, rows: Row[]): string[] {
     );
   }
 
-  if (model.byArea.length > 0) {
-    const top = model.byArea[0];
+  const top = model.byArea[0];
+  if (top) {
     insights.push(`${top.label} has the most goals (${top.count}).`);
   }
 
