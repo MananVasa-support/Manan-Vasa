@@ -3,6 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
+import {
+  STATUS_COLORS,
+  statusCardStyle,
+  STATUS_CARD_BADGE,
+  STATUS_CARD_BADGE_ACTIVE,
+  type StatusColorKey,
+} from "@/lib/status-palette";
 import { ArrowUpRight } from "lucide-react";
 import type { NeonKey } from "./kpi-card";
 import { KpiDetailPanel } from "./kpi-detail-panel";
@@ -20,22 +27,27 @@ interface Entry {
   sublabel: string;
   neonKey: NeonKey;
   href: Route;
-  /** Solid card fill. Every card is one flat block of colour with white type on
-   *  it, so the status reads from across the room instead of from a 3px accent
-   *  rail on a white surface. Literal Tailwind classes, not a computed string —
-   *  Tailwind scans source text, so `bg-${x}-600` would never be generated. */
-  fill: string;
+  /** Which entry in the shared status palette paints this card. A KEY, not a
+   *  colour: the hex lives in lib/status-palette.ts so this strip and the
+   *  Status Distribution tiles cannot drift apart again. */
+  color: StatusColorKey;
 }
 
 // One compact card per KPI, in a single row. The first (Total) reads as the
 // anchor; the rest follow in the operational reading order.
+//
+// NEED INFO / NOT APPROVED WERE INVERTED HERE. This strip painted Need Info
+// bright red (red-600) and Not Approved dark red (red-900); the Status
+// Distribution tiles on the same screen painted them the other way round. Both
+// now read `needInfo` and `notApproved` from the palette, so the pair can only
+// ever be one way round.
 const ITEMS: Entry[] = [
-  { key: "total", label: "Total", sublabel: "All Tasks", neonKey: "total", href: "/tasks", fill: "bg-slate-900" },
-  { key: "needHelp", label: "Need Info", sublabel: "Awaiting info", neonKey: "need-help", href: "/tasks?status=need_info", fill: "bg-red-600" },
-  { key: "notApproved", label: "Not Approved", sublabel: "Sent Back", neonKey: "not-approved", href: "/tasks?status=not_approved", fill: "bg-red-900" },
-  { key: "done", label: "Done", sublabel: "Done + Approved", neonKey: "done", href: "/tasks?status=done,approved", fill: "bg-emerald-600" },
-  { key: "pending", label: "Pending", sublabel: "In Progress", neonKey: "pending", href: "/tasks?status=initiated,follow_up", fill: "bg-blue-600" },
-  { key: "notStarted", label: "Not Started", sublabel: "Awaiting Pickup", neonKey: "not-started", href: "/tasks?status=not_started", fill: "bg-slate-700" },
+  { key: "total", label: "Total", sublabel: "All Tasks", neonKey: "total", href: "/tasks", color: "total" },
+  { key: "needHelp", label: "Need Info", sublabel: "Awaiting info", neonKey: "need-help", href: "/tasks?status=need_info", color: "needInfo" },
+  { key: "notApproved", label: "Not Approved", sublabel: "Sent Back", neonKey: "not-approved", href: "/tasks?status=not_approved", color: "notApproved" },
+  { key: "done", label: "Done", sublabel: "Done + Approved", neonKey: "done", href: "/tasks?status=done,approved", color: "done" },
+  { key: "pending", label: "Pending", sublabel: "In Progress", neonKey: "pending", href: "/tasks?status=initiated,follow_up", color: "pending" },
+  { key: "notStarted", label: "Not Started", sublabel: "Awaiting Pickup", neonKey: "not-started", href: "/tasks?status=not_started", color: "notStarted" },
 ];
 
 /**
@@ -179,9 +191,15 @@ export function KpiStrip({
                   use for it. Open state reads as a white ring rather than a
                   coloured border, which would vanish against its own fill. */}
               <div
-                className={`group relative h-full overflow-hidden rounded-xl p-4 text-white shadow-sm transition-all duration-200 ${item.fill} ${
+                className={`group relative h-full overflow-hidden rounded-xl p-4 text-white shadow-xs transition-all duration-200 hover:shadow-sm ${
                   isOpen ? "ring-2 ring-white/70 ring-inset" : ""
                 }`}
+                /* Gradient, not a flat block: a fully saturated card-sized
+                   fill has no shading for the eye to rest against, so it reads
+                   louder than it is. The white hairline comes with it -- these
+                   sit on a near-white page, where a dark edge would read as a
+                   shadow gluing the card to the background. */
+                style={statusCardStyle(STATUS_COLORS[item.color])}
               >
                 <div>
                  <div className="flex items-start justify-between gap-1.5">
@@ -231,8 +249,8 @@ export function KpiStrip({
                     // slate-900 to emerald-600, with no per-status tuning. Open
                     // state just raises the opacity — a coloured fill would be
                     // invisible against the card it sits on.
-                    className={`inline-flex shrink-0 items-center justify-center rounded-full px-2.5 py-1 font-medium uppercase tracking-[0.04em] text-white backdrop-blur-sm transition-colors ${
-                      isOpen ? "bg-white/40 hover:bg-white/50" : "bg-white/20 hover:bg-white/30"
+                    className={`inline-flex shrink-0 items-center justify-center rounded-full px-2.5 py-1 font-medium uppercase tracking-[0.04em] ${
+                      isOpen ? STATUS_CARD_BADGE_ACTIVE : STATUS_CARD_BADGE
                     }`}
                     style={{ fontSize: 11 }}
                   >

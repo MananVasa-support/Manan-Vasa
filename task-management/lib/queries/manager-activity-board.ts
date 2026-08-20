@@ -41,50 +41,26 @@ const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
  * That property is what lets the manager row be a plain sum of its members.
  */
 
-/** Flat target baselines. Per Sir's spec: goals 15, tasks 25, commitments 15. */
-export const ACTIVITY_TARGETS = { goals: 15, tasks: 25, commitments: 15 } as const;
+// The shared shape lives in a module with NO `server-only` and no DB import,
+// and is re-exported here so every existing server-side importer is unchanged.
+// `ACTIVITY_TARGETS` in particular has to be reachable from the client table,
+// and a value import from THIS file would drag Drizzle into the browser bundle
+// and trip server-only at build time. See the note in the contract module.
+export {
+  ACTIVITY_TARGETS,
+  type ActivitySplit,
+  type MemberActivityRow,
+  type ManagerActivityRow,
+  type ManagerActivityBoard,
+} from "@/lib/dashboard/manager-activity-contract";
 
-export interface ActivitySplit {
-  /** A — originated by this row's manager. */
-  delegate: number;
-  /** B — originated by anyone else (the member included). */
-  counterpart: number;
-  /** A + B. Every item counts once, so this is the member's real total. */
-  total: number;
-}
-
-export interface MemberActivityRow {
-  employeeId: string;
-  employeeName: string;
-  /** True for the manager's own row, which always sorts first. */
-  isSelf: boolean;
-  goals: ActivitySplit;
-  tasks: ActivitySplit;
-  commitments: ActivitySplit;
-  /** Grand total across all three families. */
-  grandTotal: number;
-}
-
-export interface ManagerActivityRow {
-  managerId: string;
-  managerName: string;
-  directReports: number;
-  /** Family totals across Self + every direct report. */
-  goals: number;
-  tasks: number;
-  commitments: number;
-  /** goals + tasks + commitments. */
-  total: number;
-  members: MemberActivityRow[];
-}
-
-export interface ManagerActivityBoard {
-  windowDays: number;
-  /** Inclusive IST date bounds the counts were taken over, as YYYY-MM-DD. */
-  from: string;
-  to: string;
-  rows: ManagerActivityRow[];
-}
+import type {
+  ActivitySplit,
+  MemberActivityRow,
+  ManagerActivityRow,
+  ManagerActivityBoard,
+} from "@/lib/dashboard/manager-activity-contract";
+import { ACTIVITY_TARGETS } from "@/lib/dashboard/manager-activity-contract";
 
 const emptySplit = (): ActivitySplit => ({ delegate: 0, counterpart: 0, total: 0 });
 

@@ -14,6 +14,7 @@ import {
   STATUS_LABELS_FALLBACK,
   STATUS_TONES_FALLBACK,
 } from "@/lib/format";
+import { STATUS_COLORS, statusCardStyle } from "@/lib/status-palette";
 import { CollapseToggle, CollapsibleBody } from "./section-chrome";
 import { DashboardSectionHeader } from "./section-header";
 
@@ -55,33 +56,31 @@ interface StatusPaint {
  * text at all. Each fill below is dark enough for white type.
  */
 const STATUS_PAINT: Record<TaskStatus, StatusPaint> = {
-  done:         { fill: "#059669", ink: "#ffffff" },  // emerald-600
-  not_approved: { fill: "#dc2626", ink: "#ffffff" },  // red-600 — bright red
-  need_info:    { fill: "#881337", ink: "#ffffff" },  // rose-900 — dark crimson
-  need_help:    { fill: "#881337", ink: "#ffffff" },  // retired alias of need_info
-  not_started:  { fill: "#334155", ink: "#ffffff" },  // slate-700
-  // "Not Read". One step darker than not_started rather than the same
-  // slate-700: they are different statuses and sit adjacent in the grid, where
-  // two identical fills read as a rendering fault rather than a shared family.
-  dont_know:    { fill: "#1e293b", ink: "#ffffff" },  // slate-800
-  initiated:    { fill: "#1d4ed8", ink: "#ffffff" },  // blue-700 — pending family,
-                                                      // a step off the Pending tile
-  approved:     { fill: "#7c3aed", ink: "#ffffff" },  // violet-600
-  on_hold:      { fill: "#d97706", ink: "#ffffff" },  // amber-600
-  follow_up:    { fill: "#0891b2", ink: "#ffffff" },  // cyan-600
-  follow_up_1:  { fill: "#0891b2", ink: "#ffffff" },
-  follow_up_2:  { fill: "#0891b2", ink: "#ffffff" },
-  follow_up_3:  { fill: "#0891b2", ink: "#ffffff" },
-  cancelled:    { fill: "#64748b", ink: "#ffffff" },  // slate-500 (retired)
-  transferred:  { fill: "#64748b", ink: "#ffffff" },  // slate-500 (retired)
+  done:         { fill: STATUS_COLORS.done,        ink: "#ffffff" },
+  not_approved: { fill: STATUS_COLORS.notApproved, ink: "#ffffff" },
+  need_info:    { fill: STATUS_COLORS.needInfo,    ink: "#ffffff" },
+  need_help:    { fill: STATUS_COLORS.needInfo,    ink: "#ffffff" },  // retired alias
+  not_started:  { fill: STATUS_COLORS.notStarted,  ink: "#ffffff" },
+  // "Not Read". A step off not_started rather than the same slate: they are
+  // different statuses and sit adjacent in the grid, where two identical fills
+  // read as a rendering fault rather than a shared family.
+  dont_know:    { fill: STATUS_COLORS.notRead,     ink: "#ffffff" },
+  initiated:    { fill: STATUS_COLORS.initiated,   ink: "#ffffff" },
+  approved:     { fill: STATUS_COLORS.approved,    ink: "#ffffff" },
+  on_hold:      { fill: STATUS_COLORS.onHold,      ink: "#ffffff" },
+  follow_up:    { fill: STATUS_COLORS.followUp,    ink: "#ffffff" },
+  follow_up_1:  { fill: STATUS_COLORS.followUp,    ink: "#ffffff" },
+  follow_up_2:  { fill: STATUS_COLORS.followUp,    ink: "#ffffff" },
+  follow_up_3:  { fill: STATUS_COLORS.followUp,    ink: "#ffffff" },
+  cancelled:    { fill: STATUS_COLORS.retired,     ink: "#ffffff" },
+  transferred:  { fill: STATUS_COLORS.retired,     ink: "#ffffff" },
 };
 
 /** The summary tiles are not statuses, so they carry their own paint. */
 const SUMMARY_PAINT = {
-  pending: { fill: "#2563eb", ink: "#ffffff" },      // blue-600
-  notApproved: { fill: "#dc2626", ink: "#ffffff" },  // red-600
-  archived: { fill: "#475569", ink: "#ffffff" },     // slate-600 (was gray-400,
-                                                     // too pale for white type)
+  pending: { fill: STATUS_COLORS.pending, ink: "#ffffff" },
+  notApproved: { fill: STATUS_COLORS.notApproved, ink: "#ffffff" },
+  archived: { fill: STATUS_COLORS.archived, ink: "#ffffff" },
 } as const;
 
 export function StatusDistributionChart({
@@ -189,6 +188,11 @@ export function StatusDistributionChart({
               style={{
                 width: `${widthPct}%`,
                 minWidth: 6,
+                // FLAT here, while the cards below are a gradient. A segment
+                // is 16px tall and its job is to be compared by WIDTH against
+                // its neighbours; shading across it adds a second variable to
+                // that comparison for no gain. The cards are large enough to
+                // need the shading, the ribbon is not.
                 background: paint.fill,
                 // The outline that used to rescue the near-white "Not Read"
                 // tier is gone with it — every fill is now dark enough to read
@@ -298,8 +302,8 @@ function SummaryTile({
         // Matches StatTile exactly — solid fill, white type, no rail, no chip —
         // so the summary tiles keep blending into the same grid rather than
         // reading as a second, paler species of card beside them.
-        className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl p-4 text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
-        style={{ background: paint.fill, color: paint.ink }}
+        className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl p-4 text-white shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
+        style={{ ...statusCardStyle(paint.fill), color: paint.ink }}
       >
         <div className="flex items-center gap-2">
           <span
@@ -424,10 +428,10 @@ function StatTile({
         // Solid block of the status colour. The accent rail and the colour chip
         // are BOTH gone: they existed to carry the status hue onto a white
         // card, and a card that IS the hue has no use for either.
-        className={`group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl p-4 text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${
+        className={`group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl p-4 text-white shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${
           highlighted ? "-translate-y-0.5 shadow-md ring-2 ring-white/60 ring-inset" : ""
         }`}
-        style={{ background: paint.fill, color: paint.ink }}
+        style={{ ...statusCardStyle(paint.fill), color: paint.ink }}
       >
         {/* Label row */}
         <div className="flex items-center gap-2">
