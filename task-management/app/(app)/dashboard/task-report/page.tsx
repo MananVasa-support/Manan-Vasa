@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Route } from "next";
-import { BarChart3 } from "lucide-react";
+import { ArrowLeft, BarChart3 } from "lucide-react";
 
 import { DashboardHeader } from "@/components/layout/header";
 import { TaskReportView } from "@/components/dashboard/task-report/task-report-view";
@@ -53,6 +54,19 @@ export default async function TaskReportPage() {
       <main>
         {/* Page masthead + back link */}
         <PageShell as="section" width="full" py={false} className="pt-10 max-md:pt-6 pb-2">
+          {/* Breadcrumb back to the dashboard, above the masthead.
+              A <Link>, not a button with router.push: it renders a real <a
+              href>, so it is Tab-focusable and Enter-activated for free, shows
+              its destination on hover, and middle-click / ctrl-click open a new
+              tab. A button reimplements the first two and loses the rest.
+              `w-fit` so the hover target is the text, not the full page width. */}
+          <Link
+            href={"/dashboard" as Route}
+            className="mb-2 flex w-fit items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-900"
+          >
+            <ArrowLeft size={14} strokeWidth={2.4} aria-hidden />
+            Back to Dashboard
+          </Link>
           <div className="mt-4 flex items-center gap-3.5">
             <span
               className="inline-flex size-12 items-center justify-center rounded-2xl text-white shrink-0"
