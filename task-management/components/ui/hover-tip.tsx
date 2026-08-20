@@ -14,9 +14,12 @@ import { createPortal } from "react-dom";
 export function HoverTip({
   text,
   children,
+  className,
 }: {
   text: string;
   children: React.ReactNode;
+  /** Classes for the wrapper span — e.g. layout hints when it sits in a flex row. */
+  className?: string;
 }) {
   const ref = React.useRef<HTMLSpanElement>(null);
   const [pos, setPos] = React.useState<{ left: number; top: number; below: boolean } | null>(null);
@@ -35,7 +38,7 @@ export function HoverTip({
   const hide = React.useCallback(() => setPos(null), []);
 
   return (
-    <span ref={ref} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
+    <span ref={ref} className={className} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
       {children}
       {pos && text
         ? createPortal(

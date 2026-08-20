@@ -16,6 +16,10 @@ import {
   List,
   Columns3,
   LayoutDashboard,
+  Maximize2,
+  Minimize2,
+  ArrowUpDown,
+  Download,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { fireToast } from "@/lib/toast";
@@ -24,19 +28,32 @@ import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { Select } from "@/components/ui/select";
-import { PageShell } from "@/components/layout/page-shell";
 import { ViewingSelect } from "@/components/goals/shared/viewing-select";
 import { WeekSelect, formatWeekRangeShort } from "./week-select";
 import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
 import { CascadeGoalCard } from "./cascade-goal-card";
-import { GoalTableView } from "@/components/goals/board/goal-table-view";
+import { GoalTableView, ALL_VISIBLE_COLS, QUARTER_TYPE_OPTIONS } from "@/components/goals/board/goal-table-view";
 import { WEEKLY_TABLE_ACTIONS } from "@/components/goals/board/weekly-table-actions";
 import { CommitDialog } from "@/components/goals/commit/commit-dialog";
 import type { CommitMember } from "@/components/goals/commit/types";
-import type { GoalDTO } from "@/components/goals/cascade/util";
+import { effectiveGoalPct, type GoalDTO } from "@/components/goals/cascade/util";
 import { WeeklyKanban } from "./weekly-kanban";
 import { WeeklyDashboard } from "./weekly-dashboard";
+import {
+  GoalStatChip,
+  MultiPickFilter,
+  ColumnsPicker,
+  SORT_OPTIONS,
+  statusBand,
+  csvCell,
+  useColOrder,
+  type SortKey,
+} from "@/components/goals/board/goals-level-board";
+import { GOAL_TYPE_LABELS, type GoalType } from "@/db/enums";
 import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption, RosterMember } from "./types";
+
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-soft)]";
 
 /** localStorage key for the weekly board's List ⇄ Kanban preference. */
 const WEEKLY_VIEW_STORE_KEY = "goals-weekly-view";
@@ -154,6 +171,17 @@ export function WeeklyCascadeBoard({
   const router = useRouter();
   const [commitOpen, setCommitOpen] = React.useState(false);
 
+  // Full screen — the same toggle the Yearly/Quarterly/Monthly boards use.
+  const [fullscreen, setFullscreen] = React.useState(false);
+  React.useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
   // Resolve a creator id → name from the loaded roster (load-neutral) so an
   // assigned weekly goal reads "Assigned by …".
   const nameById = React.useMemo(() => new Map(roster.map((r) => [r.id, r.name] as const)), [roster]);
@@ -203,6 +231,124 @@ export function WeeklyCascadeBoard({
   const adopted = rows.filter((r) => r.adopted);
   const dropped = rows.filter((r) => !r.adopted);
 
+  // GoalDTO projection of the adopted goals — the filters, sort, export and
+  // the table itself all operate on this shape, same as the Yearly/Quarterly/
+  // Monthly boards.
+  const adoptedGoals = React.useMemo(() => adopted.map((g) => weeklyToGoalDTO(g, nameOf)), [adopted, nameOf]);
+
+  const goalTypeLabel = React.useCallback(
+    (g: GoalDTO) => (g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? g.goalType : ""),
+    [],
+  );
+
+  // Header stat chips — the same Total/Done/On track/Behind read the Yearly/
+  // Quarterly/Monthly boards use, computed over the adopted (not crossed-out)
+  // goals for this week. Clicking one narrows the LIST view the same way.
+  const [completion, setCompletion] = React.useState<"all" | "done" | "ontrack" | "behind">("all");
+  const chipCounts = React.useMemo(() => {
+    let done = 0;
+    let ontrack = 0;
+    let behind = 0;
+    for (const g of adoptedGoals) {
+      const p = effectiveGoalPct(g);
+      if (p >= 100) done++;
+      else if (p >= 50) ontrack++;
+      else behind++;
+    }
+    return { all: adoptedGoals.length, done, ontrack, behind };
+  }, [adoptedGoals]);
+
+  // Sort · Area · Type filters, Rows-per-page + Columns — the SAME toolbar
+  // controls the Yearly/Quarterly/Monthly boards have.
+  const [sortKey, setSortKey] = React.useState<SortKey>("position");
+  const [areaFilter, setAreaFilter] = React.useState<Set<string>>(new Set());
+  const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
+  const [rowsPerPage, setRowsPerPage] = React.useState<number | "all">(25);
+  const [visibleCols, setVisibleCols] = React.useState<Set<string>>(() => new Set(ALL_VISIBLE_COLS));
+  const [colOrder, setColOrder] = useColOrder();
+
+  // Area dropdown options: the managed lookup set FIRST, then any area found
+  // on an existing goal that isn't already listed.
+  const areaFilterOptions = React.useMemo(() => {
+    const seen = new Set(areaOptions.map((a) => a.toLowerCase()));
+    const extra = [...new Set(adoptedGoals.map((g) => g.area).filter((a): a is string => !!a))]
+      .filter((a) => !seen.has(a.toLowerCase()))
+      .sort();
+    return [...areaOptions, ...extra];
+  }, [areaOptions, adoptedGoals]);
+
+  const filterGoal = React.useCallback(
+    (g: GoalDTO) => {
+      if (completion !== "all") {
+        const p = effectiveGoalPct(g);
+        if (completion === "behind" && p >= 50) return false;
+        if (completion === "ontrack" && (p < 50 || p >= 100)) return false;
+        if (completion === "done" && p < 100) return false;
+      }
+      if (areaFilter.size > 0 && !areaFilter.has(g.area ?? "")) return false;
+      if (typeFilter.size > 0 && !typeFilter.has(goalTypeLabel(g))) return false;
+      return true;
+    },
+    [completion, areaFilter, typeFilter, goalTypeLabel],
+  );
+
+  // Sort comparator — mirrors the level boards' (Sr. No. / Score / Weight /
+  // At-risk / A→Z).
+  const sortCmp = React.useCallback(
+    (a: GoalDTO, b: GoalDTO): number => {
+      const posTie = a.position - b.position || a.title.localeCompare(b.title);
+      switch (sortKey) {
+        case "score-desc":
+          return effectiveGoalPct(b) - effectiveGoalPct(a) || posTie;
+        case "score-asc":
+          return effectiveGoalPct(a) - effectiveGoalPct(b) || posTie;
+        case "weight":
+          return b.weight - a.weight || posTie;
+        case "risk":
+          return (
+            statusBand(effectiveGoalPct(a)) - statusBand(effectiveGoalPct(b)) ||
+            effectiveGoalPct(a) - effectiveGoalPct(b) ||
+            posTie
+          );
+        case "az":
+          return a.title.localeCompare(b.title) || posTie;
+        default:
+          return 0; // "position" — already Sr.-No. ordered
+      }
+    },
+    [sortKey],
+  );
+
+  const displayed = React.useMemo(() => {
+    const list = adoptedGoals.filter(filterGoal);
+    return sortKey === "position" ? list : [...list].sort(sortCmp);
+  }, [adoptedGoals, filterGoal, sortKey, sortCmp]);
+
+  const pagedGoals = React.useMemo(
+    () => (rowsPerPage === "all" ? displayed : displayed.slice(0, rowsPerPage)),
+    [displayed, rowsPerPage],
+  );
+
+  // ── Export the CURRENTLY-VISIBLE goals to CSV (client-side Blob) ──────
+  const exportCsv = React.useCallback(() => {
+    const header = ["Sr", "Goal", "Area", "Weight", "% done", "Status"];
+    const body = displayed.map((g, i) => {
+      const pct = effectiveGoalPct(g);
+      const status = pct >= 100 ? "Done" : pct >= 50 ? "On track" : "At risk";
+      return [String(i + 1), g.title, g.area ?? "", String(g.weight), String(pct), status];
+    });
+    const csv = [header, ...body].map((r) => r.map(csvCell).join(",")).join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Weekly-Goals-W${weekNo}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [displayed, weekNo]);
+
   // Ritual state IN CONTEXT — mirrors of committed_at / approved_by_manager_at
   // (the pages own the logic; these chips only read the stamps + deep-link).
   const committedCount = adopted.filter((r) => r.committed).length;
@@ -216,114 +362,150 @@ export function WeeklyCascadeBoard({
     people.find((p) => p.id === scopeEmp)?.name ?? rows[0]?.employeeName ?? (isSelf ? "My goals" : "Teammate");
 
   return (
-    <PageShell as="main" width="full" py={false} className="pt-8 pb-5 max-md:pt-6 max-md:pb-4">
-      {/* ── HEADER — the SAME quiet command band the level boards use: a plain
-          card, hairline border, one soft shadow. The red gradient wash, the two
-          aurora radials and the left accent rail were dropped so Weekly reads as
-          the same product as Yearly/Quarterly/Monthly.
-          LEFT = identity; RIGHT = [ Week ] [ Viewing ]. ── */}
-      <section
-        className="wg-rise relative mb-5 overflow-hidden rounded-[20px]"
-        style={{
-          background: "var(--color-surface-card)",
-          border: "1px solid var(--color-hairline)",
-          boxShadow:
-            "0 1px 2px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(15,23,42,0.22)",
-        }}
-      >
-        {/* Same compact band the Yearly / Quarterly boards use — `heading ·
-            [period] [Viewing]` at min-h-56 with a 3-unit gap. Weekly keeps its
-            breadcrumb eyebrow above the title; the level boards have no
-            equivalent, which is the only difference between the two bands. */}
-        <div className="relative flex min-h-[56px] flex-wrap items-center gap-3 px-5 py-2.5 max-md:gap-2.5 max-md:px-4">
-          {/* 1 · identity — eyebrow + compact title only */}
-          <div className="min-w-[200px] flex-1">
-            <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-subtle">
-              Goals · W{weekNo} · {isSelf ? "My goals" : viewedName}
-            </div>
-            <h1
-              className="mt-0.5"
-              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(22px, 2vw, 32px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
-            >
-              Weekly Goals
-            </h1>
-          </div>
-
-          {/* 2 · week + person — one horizontal band, same divider as the level boards */}
-          {/* No rule between the title and the controls: with the flex gap
-              already separating them the divider only added a mark to look at.
-              The pair is narrow, so it drops to its own row late. */}
-          <div className="flex shrink-0 flex-row items-center gap-2.5 max-sm:w-full max-sm:justify-between">
-            {/* Week selector FIRST — the period control leads the band, the
-                person picker follows: [ W19 · 10 Aug – 16 Aug ▾ ] [ Viewing ].
-                Same box as the level boards' FY stepper; the centre opens the
-                grouped week popover rather than jumping a fixed step. The old
-                separate "This Week" button is gone — the popover's CURRENT group
-                is the way back, so the band stays two controls wide. */}
-            <WeekSelect value={weekStart} thisWeek={thisWeek} onPick={goWeek} />
-
-            {canPickPerson && people.length > 0 && (
-              <ViewingSelect
-                people={people}
-                value={scopeEmp}
-                viewedName={viewedName}
-                onChange={(v) => goPerson(v)}
-                myEmployeeId={me.id}
-              />
-            )}
+    <div
+      className={
+        fullscreen
+          ? "fixed inset-0 z-50 flex flex-col overflow-auto bg-surface-soft px-7 pt-4 pb-10 max-md:px-4 max-md:pt-3"
+          : "relative mx-auto w-full min-w-0 max-w-[1560px] px-7 pt-4 pb-16 max-md:px-4 max-md:pt-3"
+      }
+      style={{ color: "var(--color-ink-strong)" }}
+    >
+      {/* ── HEADER — the SAME Tasks-page treatment as Yearly/Quarterly/Monthly:
+          a slim title+stat-chip header, then a compact glass-strip control row
+          for Week / Viewing. ── */}
+      <header className="wg-rise relative mb-3 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-x-4 gap-y-2 flex-wrap min-w-0">
+          <h1
+            className="text-ink-strong shrink-0"
+            style={{
+              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontWeight: 900,
+              fontSize: "clamp(20px, 1.8vw, 25px)",
+              letterSpacing: "-0.028em",
+              lineHeight: 1,
+            }}
+          >
+            Weekly Goals
+          </h1>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <GoalStatChip
+              label="Total"
+              value={chipCounts.all}
+              tone="slate"
+              active={completion === "all"}
+              onClick={() => setCompletion("all")}
+            />
+            <GoalStatChip
+              label="Done"
+              value={chipCounts.done}
+              tone="green"
+              active={completion === "done"}
+              onClick={() => setCompletion(completion === "done" ? "all" : "done")}
+            />
+            <GoalStatChip
+              label="On track"
+              value={chipCounts.ontrack}
+              tone="amber"
+              active={completion === "ontrack"}
+              onClick={() => setCompletion(completion === "ontrack" ? "all" : "ontrack")}
+            />
+            <GoalStatChip
+              label="Behind"
+              value={chipCounts.behind}
+              tone="red"
+              active={completion === "behind"}
+              onClick={() => setCompletion(completion === "behind" ? "all" : "behind")}
+            />
           </div>
         </div>
-      </section>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setFullscreen((v) => !v)}
+            aria-pressed={fullscreen}
+            aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+            title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
+            className={`inline-flex shrink-0 items-center gap-1.5 h-9 px-3.5 rounded-pill text-[13px] font-bold border border-hairline bg-surface-card text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-all cursor-pointer ${FOCUS_RING}`}
+          >
+            {fullscreen ? <Minimize2 size={14} strokeWidth={2.4} /> : <Maximize2 size={14} strokeWidth={2.4} />}
+            {fullscreen ? "Exit" : "Full screen"}
+          </button>
+        </div>
+      </header>
 
-      {/* Controls — ONE row (scrolls horizontally on narrow widths, never wraps) */}
-      <div className="mb-6 flex flex-nowrap items-center gap-2 overflow-x-auto py-1 wg-rise" style={{ animationDelay: "0.06s" }}>
-        {/* Create — a single weekly goal (composer drawer) + bulk file import.
-            Both write into the week + person in view via the cascade weekly
-            engine (addWeekGoal / importWeeklyGoals). */}
-        {/* The ONE primary action on the bar. Flat accent fill — the gradient,
-            the sheen sweep and the coloured glow were three decorations on a
-            12px button, and with the ritual chips also tinted red the row read
-            as five alerts rather than one call to action. */}
+      <div
+        className="wg-rise mb-3 flex items-center gap-2 flex-wrap rounded-section border border-hairline px-3 py-2 max-md:px-3"
+        style={{
+          background: "linear-gradient(180deg, rgba(255,255,255,0.82), rgba(250,251,252,0.72))",
+          backdropFilter: "blur(14px) saturate(140%)",
+          WebkitBackdropFilter: "blur(14px) saturate(140%)",
+          boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
+        }}
+      >
+        {/* Week selector FIRST — the period control leads the strip, the person
+            picker follows: [ W19 · 10 Aug – 16 Aug ▾ ] [ Viewing ]. */}
+        <WeekSelect value={weekStart} thisWeek={thisWeek} onPick={goWeek} />
+
+        {canPickPerson && people.length > 0 && (
+          <div className="ml-auto flex shrink-0 items-center">
+            <ViewingSelect
+              people={people}
+              value={scopeEmp}
+              viewedName={viewedName}
+              onChange={(v) => goPerson(v)}
+              myEmployeeId={me.id}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ── Feature toolbar — Add Weekly Goal · view toggle · ritual chips ·
+          Sort · Areas · Types · Rows · Columns · Export · Bulk upload, ALL in
+          one wrapping line (no horizontal scroll) — same glass instrument
+          strip + control order as the Yearly/Quarterly/Monthly toolbar. ── */}
+      <div
+        className="wg-rise mb-3 flex flex-wrap items-center gap-1 rounded-section border border-hairline px-2.5 py-1.5 max-md:px-2.5"
+        style={{
+          background: "linear-gradient(180deg, rgba(255,255,255,0.82), rgba(250,251,252,0.72))",
+          backdropFilter: "blur(14px) saturate(140%)",
+          WebkitBackdropFilter: "blur(14px) saturate(140%)",
+          boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
+        }}
+      >
+        {/* Create — a single weekly goal (composer drawer). Writes into the
+            week + person in view via the cascade weekly engine (addWeekGoal). */}
         <button
           type="button"
           onClick={() => quickAddRef.current?.open()}
-          className="wg-btn inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-bold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 h-7 rounded-pill px-2 text-[11px] font-bold text-white ${FOCUS_RING}`}
           style={{ background: ACCENT }}
         >
-          <Plus size={14} strokeWidth={2.8} />
-          Add Weekly Goal
+          <Plus size={12} strokeWidth={2.8} />
+          Add Goal
         </button>
-        <div className="shrink-0">
-          <WeeklyGoalsImport
-            employeeId={scopeEmp}
-            weekStart={weekStart}
-            weekLabel={weekLabel}
-            isAdmin={me.isAdmin}
-          />
-        </div>
 
-        {/* View toggle — List | Kanban (mirrors the monthly board's control) */}
+        {/* View toggle — List | Kanban | Dashboard */}
         <div
           role="group"
           aria-label="Board view"
-          className="inline-flex shrink-0 items-center overflow-hidden rounded-full border border-hairline-strong bg-surface-soft"
+          className="inline-flex h-7 shrink-0 items-center overflow-hidden rounded-pill border border-hairline-strong bg-surface-soft"
         >
           <ViewToggleButton
             active={view === "list"}
             label="List"
-            icon={<List size={14} strokeWidth={2.4} />}
+            icon={<List size={11} strokeWidth={2.4} />}
             onClick={() => pickView("list")}
           />
           <ViewToggleButton
             active={view === "kanban"}
             label="Kanban"
-            icon={<Columns3 size={14} strokeWidth={2.4} />}
+            icon={<Columns3 size={11} strokeWidth={2.4} />}
             onClick={() => pickView("kanban")}
           />
           <ViewToggleButton
             active={view === "dashboard"}
             label="Dashboard"
-            icon={<LayoutDashboard size={14} strokeWidth={2.4} />}
+            icon={<LayoutDashboard size={11} strokeWidth={2.4} />}
             onClick={() => pickView("dashboard")}
           />
         </div>
@@ -331,13 +513,13 @@ export function WeeklyCascadeBoard({
         {/* Ritual state — Saturday commit / Monday approve, reachable in context.
             The chips read the existing stamps; the ritual pages keep the logic. */}
         {adopted.length > 0 && (
-          <div className="flex shrink-0 flex-nowrap items-center gap-1.5" role="group" aria-label="Weekly ritual status">
+          <>
             {commit ? (
               <button
                 type="button"
                 onClick={() => setCommitOpen(true)}
                 title="Freeze next week (Saturday commit)"
-                className="wg-btn inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-pill border px-2.5 py-1.5 text-[12px] font-bold transition-colors hover:bg-surface-soft"
+                className={`inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-pill border px-2 text-[11px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
                 style={
                   // Green once the week is actually frozen; otherwise NEUTRAL.
                   // "Not yet committed" is the ordinary mid-week state, not a
@@ -352,13 +534,13 @@ export function WeeklyCascadeBoard({
                       }
                 }
               >
-                <Snowflake size={13} strokeWidth={2.4} />
-                {committedCount === adopted.length ? "Next week frozen" : "Commit next week"}
+                <Snowflake size={11} strokeWidth={2.4} />
+                {committedCount === adopted.length ? "Frozen" : "Commit"}
               </button>
             ) : (
               <RitualChip
                 href={"/goals/commit" as Route}
-                icon={<CheckCircle2 size={13} strokeWidth={2.4} />}
+                icon={<CheckCircle2 size={11} strokeWidth={2.4} />}
                 label={`Committed ${committedCount}/${adopted.length}`}
                 done={committedCount === adopted.length}
                 title="Open the Saturday commit ritual"
@@ -367,7 +549,7 @@ export function WeeklyCascadeBoard({
             {(me.isAdmin || canPickPerson) && (
               <RitualChip
                 href={"/goals/approve" as Route}
-                icon={<BadgeCheck size={13} strokeWidth={2.4} />}
+                icon={<BadgeCheck size={11} strokeWidth={2.4} />}
                 label={`Approved ${approvedCount}/${adopted.length}`}
                 done={approvedCount === adopted.length}
                 title="Open the Monday approve ritual"
@@ -376,21 +558,89 @@ export function WeeklyCascadeBoard({
             {(me.isAdmin || canPickPerson) && (
               <RitualChip
                 href={"/goals/review" as Route}
-                icon={<ClipboardList size={13} strokeWidth={2.4} />}
+                icon={<ClipboardList size={11} strokeWidth={2.4} />}
                 label="Review"
                 done={false}
                 title="Open the weekly review scorecard"
               />
             )}
-          </div>
+          </>
         )}
 
+        {/* Sort · Areas · Types · Rows · Columns · Export · Bulk upload — the
+            SAME controls the Yearly/Quarterly/Monthly toolbar has (compact
+            sizing here — Weekly's line carries the ritual chips too), only
+            shown for the list view (Kanban/Dashboard lay out every matching
+            goal, unpaged). */}
+        {view === "list" && (
+          <>
+            <div className="relative inline-flex h-7 shrink-0 items-center rounded-pill border border-hairline bg-surface-card pl-5 pr-2 transition-colors focus-within:border-altus-red hover:border-hairline-strong">
+              <ArrowUpDown size={11} strokeWidth={2.4} className="pointer-events-none absolute left-1.5 text-ink-subtle" />
+              <Select
+                value={sortKey}
+                onValueChange={(v) => setSortKey(v as SortKey)}
+                ariaLabel="Sort goals"
+                unstyled
+                className="flex min-w-[4.25rem] cursor-pointer items-center gap-1 text-[11px] font-bold text-ink-soft"
+                options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              />
+            </div>
+
+            <MultiPickFilter label="Areas" options={areaFilterOptions} selected={areaFilter} onChange={setAreaFilter} compact />
+            <MultiPickFilter label="Types" options={QUARTER_TYPE_OPTIONS} selected={typeFilter} onChange={setTypeFilter} compact />
+
+            <div className="inline-flex h-7 shrink-0 items-center gap-1 rounded-pill border border-hairline bg-surface-card px-2 transition-colors focus-within:border-altus-red hover:border-hairline-strong">
+              <span className="text-[11px] font-semibold text-ink-subtle">Rows</span>
+              <Select
+                value={String(rowsPerPage)}
+                onValueChange={(v) => setRowsPerPage(v === "all" ? "all" : Number(v))}
+                ariaLabel="Rows per page"
+                unstyled
+                className="flex min-w-[2rem] cursor-pointer items-center gap-1 text-[11px] font-bold text-ink-strong"
+                options={[
+                  { value: "25", label: "25" },
+                  { value: "50", label: "50" },
+                  { value: "100", label: "100" },
+                  { value: "all", label: "All" },
+                ]}
+              />
+            </div>
+
+            <ColumnsPicker
+              visibleCols={visibleCols}
+              onChange={setVisibleCols}
+              colOrder={colOrder}
+              onReorder={setColOrder}
+              compact
+            />
+
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={displayed.length === 0}
+              aria-label="Export visible goals to CSV"
+              className={`inline-flex shrink-0 items-center gap-1 h-7 px-2 rounded-pill text-[11px] font-bold border border-hairline bg-surface-card text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${FOCUS_RING}`}
+            >
+              <Download size={11} strokeWidth={2.4} /> Export
+            </button>
+          </>
+        )}
+
+        {/* Bulk upload — the weekly cascade engine's own bulk file import. */}
+        <div className="shrink-0">
+          <WeeklyGoalsImport
+            employeeId={scopeEmp}
+            weekStart={weekStart}
+            weekLabel={weekLabel}
+            isAdmin={me.isAdmin}
+          />
+        </div>
       </div>
 
       {/* Body — analytics dashboard, classic list, or the drag-to-plan Kanban */}
       {view === "dashboard" ? (
         <WeeklyDashboard
-          goals={adopted.map((g) => weeklyToGoalDTO(g, nameOf))}
+          goals={adoptedGoals}
           weekNo={weekNo}
           weekStart={weekStart}
           viewedName={isSelf ? null : viewedName}
@@ -435,7 +685,7 @@ export function WeeklyCascadeBoard({
         <div className="flex flex-col gap-3">
           <GoalTableView
             ownerNameOf={(g) => roster.find((r) => r.id === g.employeeId)?.name ?? null}
-            goals={adopted.map((g) => weeklyToGoalDTO(g, nameOf))}
+            goals={pagedGoals}
             canWrite
             isAdmin={me.isAdmin}
             roster={roster}
@@ -448,7 +698,20 @@ export function WeeklyCascadeBoard({
             variant="weekly"
             actions={WEEKLY_TABLE_ACTIONS}
             detailKind="weekly"
+            visibleCols={visibleCols}
+            colOrder={colOrder}
+            onColOrderChange={setColOrder}
           />
+
+          {rowsPerPage !== "all" && displayed.length > pagedGoals.length && (
+            <button
+              type="button"
+              onClick={() => setRowsPerPage("all")}
+              className={`self-start cursor-pointer rounded-full border border-hairline-strong bg-surface-card px-4 py-2 text-[13px] font-bold text-ink-soft transition-colors hover:text-ink-strong ${FOCUS_RING}`}
+            >
+              Show all ({displayed.length - pagedGoals.length} more)
+            </button>
+          )}
 
           {dropped.length > 0 && (
             <>
@@ -501,7 +764,7 @@ export function WeeklyCascadeBoard({
           weekStart={commit.weekStart}
         />
       )}
-    </PageShell>
+    </div>
   );
 }
 
@@ -526,7 +789,7 @@ function ViewToggleButton({
       onClick={onClick}
       aria-pressed={active}
       aria-label={`${label} view`}
-      className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+      className="cursor-pointer inline-flex h-full items-center gap-1 px-2 text-[11px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
       style={
         // Selection is carried by the raised white chip against the grey track,
         // not by red ink — a view toggle is navigation, not a status.
@@ -568,7 +831,7 @@ function RitualChip({
     <Link
       href={href}
       title={title}
-      className="wg-btn inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border px-2.5 py-1.5 text-[12px] font-bold transition-colors hover:bg-surface-soft outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+      className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-pill border px-2 text-[11px] font-bold transition-colors hover:bg-surface-soft outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
       style={
         // Same rule as the commit button: green means finished, neutral means
         // "still in progress". Pending is not an error state.

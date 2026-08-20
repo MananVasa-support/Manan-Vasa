@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Trash2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
@@ -8,14 +7,17 @@ import { goalsSpace } from "@/lib/goals/space";
 import { loadPersonalWD } from "@/app/(app)/goals/personal-wd-data";
 import { PersonalWDBoard } from "@/components/goals/board/personal-wd-board";
 import { PlanBoard } from "@/components/goals/plan/plan-board";
-import { getPlanDayPayload } from "@/app/(app)/goals/plan/payload";
-import { clampDayOffset } from "@/lib/queries/daily-checklist";
+import {
+  getPlanDayPayload,
+  clampWindowStart,
+  clampWindowDays,
+} from "@/app/(app)/goals/plan/payload";
 import { resolvePlanTarget } from "@/lib/goals/plan-target";
 
 export const dynamic = "force-dynamic";
 
 /**
- * WMS · Plan My Day — the drag-drop day planner.
+ * WMS · Daily Goals & Commitments — the drag-drop day planner.
  *
  * This page MOVED here from `/goals/plan` (2026-08). The planner is the WMS
  * daily surface now: `/goals/plan` is a redirect stub, and the Goals rail no
@@ -50,8 +52,12 @@ export default async function MyDayPage({
 
   const sp = await searchParams;
   const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  // Which planner day (?d=0…6 → today through six days out).
-  const dayOffset = clampDayOffset(pick(sp.d));
+  // HOW MANY days at once (?v=1|2|3|4|7) — the view dropdown — and WHICH window
+  // (?d=…), where `d` is the offset of the LEFTMOST column, so the arrows slide
+  // the whole board by a day. The start is clamped against the span, so widening
+  // near the far end can't leave the board beginning past the horizon.
+  const windowDays = clampWindowDays(pick(sp.v));
+  const windowStart = clampWindowStart(pick(sp.d), windowDays);
 
   // WHOSE day (?emp=<id>) — admins may plan for anyone, managers for their
   // downline. resolvePlanTarget falls back to the caller when not permitted, so
@@ -72,51 +78,28 @@ export default async function MyDayPage({
     );
   }
 
-  const payload = await getPlanDayPayload(target.employeeId, new Date(), dayOffset);
-  const isManager = payload.isManager;
+  const payload = await getPlanDayPayload(
+    target.employeeId,
+    new Date(),
+    windowStart,
+    { owner: target.name, manager: target.manager, managerManager: target.managerManager },
+    windowDays,
+  );
 
   return (
     <>
+      {/* A WHITE ground for the planner (Sir). The app-wide `body` rule in
+          globals.css washes every page with three radial gradients (purple, red,
+          green) over a grey base — editing that would repaint the WHOLE app, so
+          this lays a plain white sheet behind this route only. Fixed + -z-10 so
+          it covers the viewport without ever intercepting a click or a drag. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white" />
       <DashboardHeader generatedAt={new Date()} />
-      <PageShell width="full" py={false} className="pt-5 pb-12 max-md:pt-4 max-md:pb-10">
-        {/* The header is now just the manager utility row. The eyebrow pill
-            ("WMS · Daily Loop") is gone and the title moved INLINE with the day
-            tabs — see PlanBoard’s `heading` prop — so the planner starts at the
-            top of the page instead of under two stacked chrome rows. */}
-        {isManager && (
-          <div className="mb-2 flex justify-end wg-rise">
-            <a
-              href="/goals/recycle-bin"
-              className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:border-hairline-strong"
-            >
-              <Trash2 size={13} /> Recycle Bin
-            </a>
-          </div>
-        )}
-        <PlanBoard
-          heading={
-            <h1
-              className="mr-1 text-ink-strong wg-rise"
-              style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontWeight: 900,
-                fontSize: "clamp(19px, 1.9vw, 24px)",
-                letterSpacing: "-0.025em",
-                lineHeight: 1.04,
-              }}
-            >
-              Plan My Day
-            </h1>
-          }
-          target={target}
-          initialPlan={payload.initialPlan}
-          sources={payload.sources}
-          minItems={payload.minItems}
-          isManager={payload.isManager}
-          initialPhase={payload.initialPhase}
-          ymd={payload.ymd}
-          dayOffset={payload.dayOffset}
-        />
+      <PageShell width="full" py={false} className="pt-3 pb-10 max-md:pt-2 max-md:pb-8">
+        {/* No `heading` prop and no separate Recycle Bin row any more: the board
+            carries its own title, the employee picker and the Recycle Bin link
+            in ONE header bar, so a second row above it would just be chrome. */}
+        <PlanBoard target={target} payload={payload} />
       </PageShell>
     </>
   );

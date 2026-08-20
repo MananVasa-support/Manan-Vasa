@@ -88,6 +88,10 @@ function buildColumns(
       // codepoint comparison would.
       enableSorting: true,
       sortingFn: "text",
+      // Overrides the numeric default: a name column opens A→Z. Without this
+      // the shared `sortDescFirst: true` would make the first click on Employee
+      // sort Z→A, which nobody expects from a name.
+      sortDescFirst: false,
       cell: (info) => (
         <span className="inline-flex items-center gap-3">
           <Avatar
@@ -267,16 +271,26 @@ export function StatusTable({
 
   const columns = React.useMemo(() => buildColumns(avatarById, view), [avatarById, view]);
 
-  // Sorting was already wired to a row model but never given state, so it
-  // could not actually change. Only Employee and Critical opt in (see
-  // buildColumns) — `defaultColumn` closes the rest so the count columns do
-  // not sprout affordances nobody asked for.
+  // EVERY column sorts now. `defaultColumn` used to close sorting so only
+  // Employee and Critical opted in; that left six count columns carrying no
+  // affordance, which reads as "these are not sortable" rather than "these were
+  // not enabled yet" — and a status breakdown is exactly the table you want to
+  // re-rank by whichever count you are chasing.
+  //
+  // sortingFn "basic" is the numeric comparator and the right default here:
+  // seven of the eight columns are counts. Employee overrides it with "text"
+  // in buildColumns, so alphabetical stays alphabetical.
+  //
+  // sortDescFirst matches the intent per type — a count column opens
+  // biggest-first (who has the most Not Approved), a name column opens A→Z.
+  // TanStack infers this per column, and the explicit default keeps the count
+  // columns predictable regardless of what the first row happens to hold.
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
   const table = useReactTable({
     data: filtered,
     columns,
-    defaultColumn: { enableSorting: false },
+    defaultColumn: { enableSorting: true, sortingFn: "basic", sortDescFirst: true },
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),

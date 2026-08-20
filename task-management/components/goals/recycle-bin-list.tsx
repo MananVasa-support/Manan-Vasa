@@ -25,7 +25,22 @@ function whenLabel(iso: string | null): string {
   return formatDate(iso);
 }
 
-export function RecycleBinList({ items: initial }: { items: BinItem[] }) {
+/**
+ * One list, two families. Abandoned TASKS and cancelled DAILY COMMITMENTS
+ * (migration 0186) look identical in the bin and offer the same two verbs, so
+ * the actions are props rather than a second near-identical component.
+ */
+export function RecycleBinList({
+  items: initial,
+  restore = restoreTask,
+  purge = purgeTask,
+  restoredMessage = "Restored to the daily loop.",
+}: {
+  items: BinItem[];
+  restore?: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  purge?: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  restoredMessage?: string;
+}) {
   const router = useRouter();
   const [items, setItems] = React.useState(initial);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -34,11 +49,11 @@ export function RecycleBinList({ items: initial }: { items: BinItem[] }) {
 
   const onRestore = (it: BinItem) => {
     setBusy(it.id);
-    void restoreTask(it.id)
+    void restore(it.id)
       .then((r) => {
         if (r.ok) {
           setItems((p) => p.filter((x) => x.id !== it.id));
-          fireToast({ message: "Restored to the daily loop.", type: "success" });
+          fireToast({ message: restoredMessage, type: "success" });
           router.refresh();
         } else fireToast({ message: r.error, type: "error" });
       })
@@ -47,7 +62,7 @@ export function RecycleBinList({ items: initial }: { items: BinItem[] }) {
 
   const onPurge = (it: BinItem) => {
     setBusy(it.id);
-    void purgeTask(it.id)
+    void purge(it.id)
       .then((r) => {
         if (r.ok) {
           setItems((p) => p.filter((x) => x.id !== it.id));

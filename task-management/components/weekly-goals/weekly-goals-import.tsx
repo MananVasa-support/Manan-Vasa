@@ -95,9 +95,9 @@ export function WeeklyGoalsImport(props: Props) {
           setError(null);
           setResult(null);
         }}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14.5px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all hover:brightness-95 active:scale-[0.98]"
+        className="inline-flex h-7 shrink-0 items-center gap-1 px-2 rounded-pill text-[11px] font-bold border border-hairline bg-surface-card text-ink-soft transition-all hover:border-hairline-strong hover:text-ink-strong active:scale-[0.98]"
       >
-        <Upload size={16} strokeWidth={2.4} />
+        <Upload size={11} strokeWidth={2.4} />
         Bulk Upload
       </button>
 

@@ -154,26 +154,13 @@ export function GoalCaptureBox(props: {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="group inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red"
-            style={{ borderColor: "var(--color-hairline-strong)" }}
+            className="group inline-flex h-9 items-center gap-2 rounded-pill border px-3.5 text-[13px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red"
+            style={{ borderColor: "var(--color-hairline)" }}
           >
             <Sparkles size={15} strokeWidth={2.4} className="text-altus-red" />
             Capture goals with AI
             <span className="hidden text-[11px] font-semibold text-ink-subtle sm:inline">— type it in plain words</span>
           </button>
-          {props.voiceEnabled && (
-            <button
-              type="button"
-              onClick={() => { if (recording) stopRecording(); else { setOpen(true); void startRecording(); } }}
-              disabled={transcribing}
-              aria-label="Record your goals"
-              className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-bold transition-colors disabled:opacity-60"
-              style={{ borderColor: "var(--color-hairline-strong)" }}
-            >
-              {transcribing ? <Loader2 size={15} className="animate-spin text-altus-red" /> : <Mic size={15} className="text-altus-red" strokeWidth={2.4} />}
-              {transcribing ? "Transcribing…" : "Speak"}
-            </button>
-          )}
         </div>
       ) : (
         <div

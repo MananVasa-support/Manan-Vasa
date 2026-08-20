@@ -419,7 +419,15 @@ export async function addUnfinishedToPlan(
   if (!src || src.employeeId !== me.id) return { ok: false, error: "That item isn't yours." };
 
   const ymd = ymdForOffset(dayOffset);
-  if (src.planDate === ymd) return { ok: true, item: null }; // already on that day
+  if (src.planDate === ymd) {
+    // Already on that day — the only thing re-planning it can mean is "un-park
+    // it", so clear the Pending stamp and leave the single row where it is.
+    await db
+      .update(dailyChecklist)
+      .set({ closedAt: null, done: false, updatedAt: new Date() })
+      .where(and(eq(dailyChecklist.id, rowId), eq(dailyChecklist.employeeId, me.id)));
+    return { ok: true, item: null };
+  }
   try {
     // Same goal/task already on the target day → the carried row is redundant;
     // delete it so it just leaves "Unfinished" (no duplicate on the plan).
@@ -534,6 +542,9 @@ export async function transferPlanItem(
         position: nextPosition,
         done: false,
         closedAt: null,
+        // The PERSON moved it, so it is no longer an automatic carry-forward —
+        // clearing this keeps the CARRIED FORWARD chip honest.
+        carriedForwardAt: null,
         updatedAt: new Date(),
       })
       .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, ownerId)));
@@ -578,6 +589,8 @@ export async function addAdhocToPlan(
   titleRaw: string,
   dayOffset: number = 0,
   forEmployeeId?: string,
+  /** Optional slot in the day — the time the user typed alongside the work. */
+  time?: PlanItemTime,
 ): Promise<ActionResult<{ item: PlanItem }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
@@ -601,9 +614,14 @@ export async function addAdhocToPlan(
         origin: "standalone",
         title,
         position: nextPosition,
+        ...(time ? cleanTime(time) : {}),
       })
       .returning(PLAN_ITEM_RETURNING);
-    return { ok: true, item: rowToPlanItem(row!, "adhoc") };
+    const slot = time ? cleanTime(time) : { startMin: null, durationMin: null };
+    return {
+      ok: true,
+      item: { ...rowToPlanItem(row!, "adhoc"), startMin: slot.startMin, durationMin: slot.durationMin },
+    };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -762,7 +780,11 @@ export async function setItemProgress(
         donePct: pct,
         status: done ? "done" : "not_started",
         ...(note === undefined ? {} : { doneNote: note }),
-        closedAt: new Date(),
+        // Only a real close-out stamps closed_at. Un-ticking an item must CLEAR
+        // it — a stamped-but-not-done row is precisely what "Pending" means
+        // (see setPlanItemPending), so leaving the stamp behind would quietly
+        // drop an un-ticked item into Unfinished.
+        closedAt: done ? new Date() : null,
         updatedAt: new Date(),
       })
       .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)))
@@ -900,6 +922,231 @@ async function reflectIncremental(
     } catch {
       // 0141 unapplied — provenance reflection unavailable, never fatal.
     }
+  }
+}
+
+
+/** A time on a commitment: minutes from IST midnight + how long it runs. */
+export interface PlanItemTime {
+  /** 0-1439, or null to send it back to "Anytime". */
+  startMin: number | null;
+  /** 1-1440, or null when only the position is known. */
+  durationMin: number | null;
+}
+
+/** Clamp a caller-supplied time to a real minute of a real day (mirrors the
+ *  CHECK constraints migration 0185 puts on the columns). */
+function cleanTime(t: PlanItemTime): PlanItemTime {
+  const startMin =
+    t.startMin == null || !Number.isFinite(t.startMin)
+      ? null
+      : Math.max(0, Math.min(1439, Math.round(t.startMin)));
+  const durationMin =
+    t.durationMin == null || !Number.isFinite(t.durationMin)
+      ? null
+      : Math.max(5, Math.min(1440, Math.round(t.durationMin)));
+  return { startMin, durationMin };
+}
+
+/**
+ * WHEN a commitment happens (Sir: "like Google Calendar — when a person adds
+ * their work, I want their time").
+ *
+ * Writes ONLY the planner's own `start_min`/`duration_min`; it never edits the
+ * linked WMS task's calendar block. Planning your day is your arrangement of the
+ * work — it shouldn't silently reschedule a task other people are looking at.
+ * The plan row's time wins over the task's when both exist (see effectiveTime).
+ *
+ * Managers may re-time a plan they own for someone in their downline, same
+ * authority as moving the item to another day.
+ */
+export async function setPlanItemTime(itemId: string, time: PlanItemTime): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
+  const ownerId = await ownerIfPermitted(me, itemId);
+  if (!ownerId) return { ok: false, error: "That item isn't on your plan." };
+
+  const { startMin, durationMin } = cleanTime(time);
+  try {
+    const updated = await db
+      .update(dailyChecklist)
+      .set({ startMin, durationMin, updatedAt: new Date() })
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, ownerId)))
+      .returning({ id: dailyChecklist.id });
+    if (updated.length === 0) return { ok: false, error: "That item isn't on your plan." };
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * PENDING (Sir's rule 5/6) — "I looked at it, and it isn't happening today."
+ *
+ * It is NOT a completion and NOT a move: the row stays on the day it was
+ * committed to (that is the honest record of what was planned) and is stamped
+ * `closed_at` with `done = false`, which is exactly what the Unfinished box
+ * looks for. So a task the user marks Pending shows up under Unfinished
+ * immediately and can be re-planned onto any day from there.
+ *
+ * Deliberately the caller's OWN rows only, like `setItemProgress`: reporting on
+ * your day is the doer's act, not something a manager types on your behalf.
+ */
+export async function setPlanItemPending(itemId: string): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
+
+  try {
+    const updated = await db
+      .update(dailyChecklist)
+      .set({
+        done: false,
+        donePct: null,
+        status: "not_started",
+        closedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)))
+      .returning({ id: dailyChecklist.id });
+    if (updated.length === 0) return { ok: false, error: "That item isn't on your plan." };
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * The card's × — take it OFF the plan and, when it's a WMS task, send that task
+ * to the RECYCLE BIN (Sir: "when I click cancel this should go to Recycle Bin").
+ *
+ * One action rather than two round-trips, so the plan row and the task can't end
+ * up disagreeing about whether the work still exists.
+ *
+ * EVERYTHING LANDS IN THE BIN (Sir). A task-linked card stamps
+ * `tasks.abandoned_at`; anything else — a typed commitment, a goal row — is
+ * SOFT-deleted via `daily_checklist.abandoned_at` (migration 0186) rather than
+ * being erased. Both are restorable from the Recycle Bin, so a mis-click never
+ * destroys work.
+ *
+ * Abandoning obeys the SAME rule as the source-card bin button
+ * ({@link abandonTask}): the doer, or an admin. A manager tidying someone else's
+ * plan can still drop the row — they just don't silently bin that person's task.
+ */
+export async function abandonPlanItem(itemId: string): Promise<ActionResult<{ abandoned: boolean }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
+  const ownerId = await ownerIfPermitted(me, itemId);
+  if (!ownerId) return { ok: false, error: "That item isn't on your plan." };
+
+  try {
+    const [row] = await db
+      .select({ taskId: dailyChecklist.taskId })
+      .from(dailyChecklist)
+      .where(eq(dailyChecklist.id, itemId))
+      .limit(1);
+
+    let taskBinned = false;
+    if (row?.taskId) {
+      const [t] = await db
+        .select({ doerId: tasks.doerId, abandonedAt: tasks.abandonedAt })
+        .from(tasks)
+        .where(eq(tasks.id, row.taskId))
+        .limit(1);
+      if (t && !t.abandonedAt && (t.doerId === me.id || me.isAdmin)) {
+        await db
+          .update(tasks)
+          .set({ abandonedAt: new Date(), abandonedById: me.id, updatedAt: new Date() })
+          .where(eq(tasks.id, row.taskId));
+        taskBinned = true;
+      }
+    }
+
+    // The TASK is the recyclable thing when there is one, so its plan row goes.
+    // Otherwise the plan row IS the work — soft-delete it into the bin.
+    if (taskBinned) {
+      const removed = await db
+        .delete(dailyChecklist)
+        .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, ownerId)))
+        .returning({ id: dailyChecklist.id });
+      if (removed.length === 0) return { ok: false, error: "That item isn't on your plan." };
+      return { ok: true, abandoned: true };
+    }
+
+    const binned = await db
+      .update(dailyChecklist)
+      .set({ abandonedAt: new Date(), abandonedById: me.id, updatedAt: new Date() })
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, ownerId)))
+      .returning({ id: dailyChecklist.id });
+    if (binned.length === 0) return { ok: false, error: "That item isn't on your plan." };
+    return { ok: true, abandoned: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * DUPLICATE a commitment onto the same day (Sir — the review screen's copy
+ * button). The copy is a plain standalone commitment: it keeps the title and the
+ * time slot, but NOT the goal/task link.
+ *
+ * That is deliberate. A WMS task is one record with one owner, and the planner's
+ * rule is one item on exactly one day — cloning the link would give you two rows
+ * both claiming to be that task, and ticking either would fight over its status.
+ * A duplicate is therefore a NEW piece of work that happens to read the same.
+ */
+export async function duplicatePlanItem(itemId: string): Promise<ActionResult<{ item: PlanItem }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
+  const ownerId = await ownerIfPermitted(me, itemId);
+  if (!ownerId) return { ok: false, error: "That item isn't on your plan." };
+
+  try {
+    const [src] = await db
+      .select({
+        planDate: dailyChecklist.planDate,
+        title: dailyChecklist.title,
+        client: dailyChecklist.client,
+        subject: dailyChecklist.subject,
+        startMin: dailyChecklist.startMin,
+        durationMin: dailyChecklist.durationMin,
+      })
+      .from(dailyChecklist)
+      .where(eq(dailyChecklist.id, itemId))
+      .limit(1);
+    if (!src) return { ok: false, error: "That item isn't on your plan." };
+
+    const { count, nextPosition } = await countAndNextPosition(ownerId, src.planDate);
+    if (count >= MAX_ITEMS_PER_DAY)
+      return { ok: false, error: `That day already has ${MAX_ITEMS_PER_DAY} items.` };
+
+    const [row] = await db
+      .insert(dailyChecklist)
+      .values({
+        employeeId: ownerId,
+        planDate: src.planDate,
+        origin: "standalone",
+        title: src.title,
+        client: src.client,
+        subject: src.subject,
+        startMin: src.startMin,
+        durationMin: src.durationMin,
+        position: nextPosition,
+      })
+      .returning(PLAN_ITEM_RETURNING);
+    return {
+      ok: true,
+      item: { ...rowToPlanItem(row!, "adhoc"), startMin: src.startMin, durationMin: src.durationMin },
+    };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 

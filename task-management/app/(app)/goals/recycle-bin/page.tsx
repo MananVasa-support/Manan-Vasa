@@ -10,9 +10,11 @@ import {
 } from "@/components/layout/page-command-bar";
 import { requireUser } from "@/lib/auth/current";
 import { db } from "@/lib/db";
-import { tasks, employees, goals } from "@/db/schema";
+import { tasks, employees, goals, dailyChecklist } from "@/db/schema";
 import { isManagerWithReports } from "@/lib/manager-gates";
 import { RecycleBinList } from "@/components/goals/recycle-bin-list";
+import { restoreCommitment, purgeCommitment } from "./actions";
+import { formatDate } from "@/lib/format";
 import { RecycleBinGoals, type BinGoal } from "@/components/goals/recycle-bin-goals";
 import { goalCode, periodKeyLabel } from "@/components/goals/cascade/util";
 import { goalsSpace } from "@/lib/goals/space";
@@ -107,6 +109,40 @@ export default async function RecycleBinPage() {
     deletedAt: g.updatedAt ? g.updatedAt.toISOString() : null,
   }));
 
+  // ── Cancelled COMMITMENTS — the daily_checklist half of the bin (0186) ──
+  const cmtOwner = alias(employees, "cmt_owner");
+  const cmtBinner = alias(employees, "cmt_binner");
+  const cmtRows = await db
+    .select({
+      id: dailyChecklist.id,
+      title: dailyChecklist.title,
+      client: dailyChecklist.client,
+      planDate: dailyChecklist.planDate,
+      abandonedAt: dailyChecklist.abandonedAt,
+      ownerName: cmtOwner.name,
+      binnedByName: cmtBinner.name,
+    })
+    .from(dailyChecklist)
+    .leftJoin(cmtOwner, eq(cmtOwner.id, dailyChecklist.employeeId))
+    .leftJoin(cmtBinner, eq(cmtBinner.id, dailyChecklist.abandonedById))
+    .where(
+      scopeIds
+        ? and(isNotNull(dailyChecklist.abandonedAt), inArray(dailyChecklist.employeeId, scopeIds))
+        : isNotNull(dailyChecklist.abandonedAt),
+    )
+    .orderBy(desc(dailyChecklist.abandonedAt))
+    .limit(300);
+
+  const binCommitments = cmtRows.map((r) => ({
+    id: r.id,
+    taskNo: null,
+    title: r.title,
+    client: r.client ?? (r.planDate ? `Planned for ${formatDate(r.planDate)}` : null),
+    doerName: r.ownerName ?? null,
+    abandonedByName: r.binnedByName ?? null,
+    abandonedAt: r.abandonedAt ? r.abandonedAt.toISOString() : null,
+  }));
+
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
@@ -125,6 +161,21 @@ export default async function RecycleBinPage() {
             Abandoned tasks
           </h2>
           <RecycleBinList items={items} />
+        </section>
+
+        {/* Cancelled DAILY COMMITMENTS — the card's × on a row with no WMS task
+            behind it. Soft-deleted (0186) rather than erased, so they can come
+            back to the day they were planned on. */}
+        <section className="mt-10">
+          <h2 className="mb-3 text-[13px] font-black uppercase tracking-[0.08em] text-ink-muted">
+            Cancelled commitments
+          </h2>
+          <RecycleBinList
+            items={binCommitments}
+            restore={restoreCommitment}
+            purge={purgeCommitment}
+            restoredMessage="Restored to its day."
+          />
         </section>
       </PageShell>
     </>

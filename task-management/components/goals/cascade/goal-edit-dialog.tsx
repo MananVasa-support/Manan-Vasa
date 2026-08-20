@@ -89,11 +89,16 @@ export function GoalEditDialog({
   roster,
   open,
   onOpenChange,
+  onSaved,
 }: {
   mode: Mode;
   roster: RosterMember[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Edit mode only — fires with the server's updated row right after a
+   *  successful save, for callers with no server-refetch of their own
+   *  (e.g. a standalone detail page hydrated from sessionStorage). */
+  onSaved?: (row: GoalDTO) => void;
 }) {
   const router = useRouter();
   const [f, setF] = React.useState<FieldState>(() => initial(mode));
@@ -153,7 +158,7 @@ export function GoalEditDialog({
 
     start(async () => {
       let res:
-        | { ok: true; id?: string }
+        | { ok: true; id?: string; row?: GoalDTO }
         | { ok: false; error: string };
       if (mode.kind === "create") {
         res = await createGoal({
@@ -182,6 +187,7 @@ export function GoalEditDialog({
         return;
       }
       fireToast({ message: isEdit ? "Goal updated" : "Goal added", type: "success" });
+      if (isEdit && res.row) onSaved?.(res.row);
       onOpenChange(false);
       router.refresh();
     });

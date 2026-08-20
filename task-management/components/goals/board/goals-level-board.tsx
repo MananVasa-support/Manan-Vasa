@@ -25,9 +25,9 @@ import {
   rectSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { ChevronLeft, ChevronRight, Search, X, Target, Trash2, List, Columns3, LayoutDashboard, Plus, Download, ArrowUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X, Target, Trash2, List, Columns3, LayoutDashboard, Plus, Download, ArrowUpDown, ChevronDown, Check, Maximize2, Minimize2, GripVertical } from "lucide-react";
 import { Select } from "@/components/ui/select";
-import { PageShell } from "@/components/layout/page-shell";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ViewingSelect } from "@/components/goals/shared/viewing-select";
 import { QuarterWindowNav } from "./quarter-window-nav";
 import { MonthWindowNav, monthWindowQuarters } from "./month-window-nav";
@@ -67,7 +67,8 @@ import {
   moveWeeklyToWeek,
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalBoardCard, ProgressRing, type SharedCardProps } from "./goal-board-card";
-import { GoalTableView } from "./goal-table-view";
+import { GoalTableView, QUARTER_TYPE_OPTIONS, ALL_VISIBLE_COLS, REORDERABLE_COLUMNS, reconcileColOrder } from "./goal-table-view";
+import { GOAL_TYPE_LABELS, type GoalType } from "@/db/enums";
 import { LEVEL_TABLE_ACTIONS } from "./level-table-actions";
 import { PersonalStartPrompt } from "./personal-start-prompt";
 import { BoardQuickAdd, type BoardQuickAddHandle } from "./board-quick-add";
@@ -75,6 +76,7 @@ import { GoalCaptureBox } from "@/components/goals/capture/goal-capture-box";
 import { GoalsBulkUpload } from "./goals-bulk-upload";
 import { HierarchyKanban } from "./hierarchy-kanban";
 import { GoalsDashboard } from "./goals-dashboard";
+import { DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from "./dashboard-model";
 import type { GoalsLevelBoardProps } from "./types";
 
 /** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
@@ -86,6 +88,44 @@ const BUCKET_DROP_PREFIX = "bucket:";
 /** localStorage key for the List ⇄ Kanban preference (shared by the level pages). */
 const VIEW_STORE_KEY = "goals-board-view";
 
+/** localStorage key for the table's column drag-order (shared by every board
+ *  that renders GoalTableView + ColumnsPicker — level boards + Weekly).
+ *  Bumped to "-v2" once (Sr No/Area/Goal joined the reorderable set): a "-v1"
+ *  save predates them and reconcileColOrder's position-aware merge only
+ *  fires on THIS key going forward — a fresh key sidesteps needing it for
+ *  that one-time gap too. */
+const COL_ORDER_STORE_KEY = "goals-board-col-order-v2";
+
+/** Loads/persists the table's column drag-order. A stored order missing a
+ *  since-added column (or naming one that no longer exists) is reconciled
+ *  against REORDERABLE_COLUMNS' declared order (reconcileColOrder — inserted
+ *  at its declared position, not appended past everything else) on load, so
+ *  a stale save never hides, loses, or misplaces a column. SSR renders the
+ *  declared default; the stored order (if any) applies after mount, same
+ *  pattern as the List/Kanban view preference. */
+export function useColOrder(): [string[], (next: string[]) => void] {
+  const [order, setOrder] = React.useState<string[]>(() => reconcileColOrder(undefined));
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(COL_ORDER_STORE_KEY);
+      const stored: unknown = raw ? JSON.parse(raw) : null;
+      if (!Array.isArray(stored) || !stored.every((k) => typeof k === "string")) return;
+      setOrder(reconcileColOrder(stored));
+    } catch {
+      /* storage unavailable — stay on the declared default */
+    }
+  }, []);
+  const persist = React.useCallback((next: string[]) => {
+    setOrder(next);
+    try {
+      window.localStorage.setItem(COL_ORDER_STORE_KEY, JSON.stringify(next));
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+  return [order, persist];
+}
+
 /** Stable empty-children identity — keeps React.memo effective for the
  *  (majority of) cards that have no children. */
 const EMPTY_CHILDREN: GoalDTO[] = [];
@@ -96,8 +136,8 @@ const EMPTY_KEYS: string[] = [];
 
 /** Sort modes for the rendered list. Sr. No. keeps the drag-reorder line alive;
  *  every other key is a read-only projection (drag is paused while it's on). */
-type SortKey = "position" | "score-desc" | "score-asc" | "weight" | "risk" | "az";
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+export type SortKey = "position" | "score-desc" | "score-asc" | "weight" | "risk" | "az";
+export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "position", label: "Sr. No." },
   { value: "score-desc", label: "Score high → low" },
   { value: "score-asc", label: "Score low → high" },
@@ -107,12 +147,12 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ];
 
 /** Status band for the risk sort / export status column (0 behind → 2 done). */
-function statusBand(pct: number): 0 | 1 | 2 {
+export function statusBand(pct: number): 0 | 1 | 2 {
   return pct >= 100 ? 2 : pct >= 50 ? 1 : 0;
 }
 
 /** CSV field escape — quote anything with a comma, quote or newline. */
-function csvCell(v: string): string {
+export function csvCell(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
@@ -395,6 +435,36 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
   const deferredSearch = React.useDeferredValue(search);
   const [completion, setCompletion] = React.useState<QuickChip>("all");
   const [sortKey, setSortKey] = React.useState<SortKey>("position");
+  // Area / Type filters — empty set = no restriction (matches every goal).
+  const [areaFilter, setAreaFilter] = React.useState<Set<string>>(new Set());
+  const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
+  const [visibleCols, setVisibleCols] = React.useState<Set<string>>(() => new Set(ALL_VISIBLE_COLS));
+  const [colOrder, setColOrder] = useColOrder();
+  const [rowsPerPage, setRowsPerPage] = React.useState<number | "all">(25);
+  const [fullscreen, setFullscreen] = React.useState(false);
+
+  // ── Dashboard view's OWN filter set (Area/Type/Owner/Delegate/Status) —
+  //    separate from the List view's search/quick-chip filters above; drives
+  //    every chart on the Dashboard tab.
+  const [dashboardFilters, setDashboardFilters] = React.useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
+
+  // Esc exits full screen (mirrors the Tasks module's own fullscreen mode).
+  React.useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  /** A goal's Type as it reads in the simplified table's own fixed list
+   *  (built-in code → its label; admin-added custom type → its raw value) —
+   *  the same resolution goal-table-view.tsx's Type column already uses. */
+  const goalTypeLabel = React.useCallback(
+    (g: GoalDTO) => (g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? g.goalType : ""),
+    [],
+  );
 
   const filterGoal = React.useCallback(
     (g: GoalDTO) => {
@@ -405,6 +475,8 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
         if (completion === "done" && p < 100) return false;
         if (completion === "unfilled" && p > 0) return false;
       }
+      if (areaFilter.size > 0 && !areaFilter.has(g.area ?? "")) return false;
+      if (typeFilter.size > 0 && !typeFilter.has(goalTypeLabel(g))) return false;
       const q = deferredSearch.trim().toLowerCase();
       if (q) {
         const hay = `${g.title} ${g.area ?? ""} ${g.notes ?? ""}`.toLowerCase();
@@ -412,7 +484,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
       }
       return true;
     },
-    [deferredSearch, completion],
+    [deferredSearch, completion, areaFilter, typeFilter, goalTypeLabel],
   );
 
   // Sort comparator — Sr. No. keeps the position order (drag stays live); every
@@ -494,11 +566,25 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     : displayed.length;
   const scopeTotal = kanban ? levelGoals.length : inBucket.length;
 
-  const activeFilterCount = (search.trim() ? 1 : 0) + (completion !== "all" ? 1 : 0);
+  const activeFilterCount =
+    (search.trim() ? 1 : 0) +
+    (completion !== "all" ? 1 : 0) +
+    (areaFilter.size > 0 ? 1 : 0) +
+    (typeFilter.size > 0 ? 1 : 0);
   const clearFilters = () => {
     setSearch("");
     setCompletion("all");
+    setAreaFilter(new Set());
+    setTypeFilter(new Set());
   };
+
+  // Rows-per-page — a plain slice of the already-filtered/sorted list view;
+  // Kanban and Dashboard show every matching goal, unpaged (they lay out by
+  // bucket/lane, not a scrolling row list).
+  const pagedGoals = React.useMemo(
+    () => (rowsPerPage === "all" ? displayed : displayed.slice(0, rowsPerPage)),
+    [displayed, rowsPerPage],
+  );
 
   // ── Export the CURRENTLY-VISIBLE goals to CSV (client-side Blob) ──────
   const exportCsv = React.useCallback(() => {
@@ -918,182 +1004,101 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
 
   return (
     <div
-      className="relative flex flex-1 flex-col"
-      style={{
-        background:
-          "linear-gradient(180deg, var(--color-surface-soft) 0%, color-mix(in srgb, var(--color-surface-track) 60%, var(--color-surface-soft)) 100%)",
-        color: "var(--color-ink-strong)",
-      }}
+      className={
+        fullscreen
+          ? "fixed inset-0 z-50 flex flex-col overflow-auto bg-surface-soft px-7 pt-4 pb-10 max-md:px-4 max-md:pt-3"
+          : "relative mx-auto w-full min-w-0 max-w-[1560px] px-7 pt-4 pb-16 max-md:px-4 max-md:pt-3"
+      }
+      style={{ color: "var(--color-ink-strong)" }}
     >
-      <PageShell
-        as="div"
-        width="full"
-        py={false}
-        className="relative flex flex-1 flex-col pt-6 pb-8 max-md:pt-5 max-md:pb-6"
-      >
+      <div className="relative flex flex-col">
         {/* ── HEADER — ONE unified command bar: identity + tabs · overview
             (dial + donut) · person + FY, all in a single creative band. ── */}
-        <section
-          className="wg-rise relative mb-4 overflow-hidden rounded-[20px]"
-          style={{
-            background: "var(--color-surface-card)",
-            border: "1px solid var(--color-hairline)",
-            boxShadow:
-              "0 1px 2px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(15,23,42,0.22)",
-          }}
-        >
-
-          {/* No level carries period pills inside the band any more — Yearly has
-              none, Quarterly's and Monthly's live on the row below — so the band
-              is just `<heading> · [FY] [Viewing]`. A shorter band and a smaller
-              gap keep the two ends of one line visually related instead of
-              stranded at opposite edges. */}
-          <div className="relative flex min-h-[56px] flex-wrap items-center gap-3 px-5 py-2.5 max-md:gap-2.5 max-md:px-4">
-            {/* 1 · identity — the title. It holds a sensible min width and WRAPS
-                (never overflows) so it can't collide with the controls; when the
-                band is tight, the person/FY pair wraps to the next line instead. */}
-            <div className="min-w-[200px] flex-1">
-              <h1
-                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(22px, 2vw, 32px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
-              >
-                {props.heading}
-              </h1>
-            </div>
-
-            {/* 2 · person + FY — side by side on one horizontal band. No rule
-                between title and controls: with the pills gone the divider would
-                float in the middle of empty space, reading as a stray mark
-                rather than a separator. The pair is narrow (stepper + picker),
-                so it only drops to its own full-width row on genuinely small
-                screens. */}
-            <div className="flex shrink-0 flex-row items-center gap-2.5 max-sm:w-full max-sm:justify-between">
-              {/* FY stepper FIRST — the period control leads the band, the
-                  person picker follows: [ FY ] [ Viewing ]. */}
-              <div
-                className="inline-flex items-center overflow-hidden rounded-lg border border-hairline-strong bg-surface-card"
-              >
-                <button
-                  type="button"
-                  aria-label="Previous financial year"
-                  onClick={() => go({ fy: fy - 1 })}
-                  className={`cursor-pointer px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
-                >
-                  <ChevronLeft size={15} strokeWidth={2.4} />
-                </button>
-                <span
-                  className="border-x border-hairline-strong px-2.5 py-1.5 text-[12.5px] font-bold tabular-nums text-ink-strong"
-                >
-                  {fyLabel(fy)}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Next financial year"
-                  onClick={() => go({ fy: fy + 1 })}
-                  className={`cursor-pointer px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
-                >
-                  <ChevronRight size={15} strokeWidth={2.4} />
-                </button>
-              </div>
-
-              {props.roster.length > 1 && (
-                <ViewingSelect
-                  people={props.roster}
-                  value={props.viewedEmployeeId}
-                  viewedName={props.viewedName}
-                  onChange={(v) => go({ emp: v })}
-                  myEmployeeId={props.myEmployeeId}
-                />
-              )}
+        {/* ── Every level (Yearly / Quarterly / Monthly) gets the SAME
+            Tasks-page treatment: a slim title+stat-chip header, then a
+            compact glass-strip control row for search / bucket nav / FY /
+            Viewing. Only the bucket-nav control inside the strip changes
+            per level (quarters, months, or nothing for Yearly). ── */}
+        <header className="wg-rise relative mb-3 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-x-4 gap-y-2 flex-wrap min-w-0">
+            <h1
+              className="text-ink-strong shrink-0"
+              style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(20px, 1.8vw, 25px)",
+                letterSpacing: "-0.028em",
+                lineHeight: 1,
+              }}
+            >
+              {props.heading}
+            </h1>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <GoalStatChip
+                label="Total"
+                value={chipCounts.all}
+                tone="slate"
+                active={completion === "all"}
+                onClick={() => setCompletion("all")}
+              />
+              <GoalStatChip
+                label="Done"
+                value={chipCounts.done}
+                tone="green"
+                active={completion === "done"}
+                onClick={() => setCompletion(completion === "done" ? "all" : "done")}
+              />
+              <GoalStatChip
+                label="On track"
+                value={chipCounts.ontrack}
+                tone="amber"
+                active={completion === "ontrack"}
+                onClick={() => setCompletion(completion === "ontrack" ? "all" : "ontrack")}
+              />
+              <GoalStatChip
+                label="Behind"
+                value={chipCounts.behind}
+                tone="red"
+                active={completion === "behind"}
+                onClick={() => setCompletion(completion === "behind" ? "all" : "behind")}
+              />
             </div>
           </div>
-
-          {/* ── BUCKET NAV — the level's rolling window, on its own row under the
-              band. Both navigators need two lines (an FY label over its groups),
-              so neither can sit inline the way the old month chips did. Divided
-              from the band by a hairline rather than a card of its own: it is
-              part of the same header object, not a second one. ── */}
-          {(isQuarterly || isMonthly) && (
-            <div className="border-t border-hairline px-5 py-3 max-md:px-4">
-              <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-                {isQuarterly ? (
-                  <QuarterWindowNav
-                    anchorKey={quarterAnchorKey}
-                    extraKeys={revealedQuarters}
-                    selectedKey={props.periodKey}
-                    currentKey={currentQuarterKey}
-                    countOf={quarterCountOf}
-                    onPick={(k) => go({ fy: fyStartYearOfKey(k), period: k })}
-                  />
-                ) : (
-                  <MonthWindowNav
-                    anchorQuarterKey={monthAnchorQuarterKey}
-                    extraQuarterKeys={revealedPastQuarters}
-                    selectedKey={props.periodKey}
-                    currentMonthKey={currentMonthKey}
-                    countOf={monthCountOf}
-                    // A month in the window's other FY (Apr, viewed from a
-                    // January board) needs the LOADER moved with it, not just
-                    // the selection — the fy hop is what fetches its goals.
-                    onPick={(k) => go({ fy: fyStartYearOfMonthKey(k), period: k })}
-                  />
-                )}
-
-                {/* The reveal. Everything before the window is off-screen by
-                    design, and on Quarterly this is the only way back to the
-                    loaded FY's earlier quarters without stepping the FY. */}
-                {(isMonthly ? pastQuarterKeys : hiddenPastQuarters).length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPast((v) => !v)}
-                    aria-pressed={showPast}
-                    className={`mt-3.5 shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
-                    style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
-                  >
-                    {showPast
-                      ? "Hide past"
-                      : isMonthly
-                        ? "Show past"
-                        : `Show past (${hiddenPastQuarters.length})`}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-        </section>
-
-        {/* ── Feature toolbar — New goal · Search · Sort · Export · Bulk upload.
-            One compact row, shown on ALL levels (Yearly included). ────── */}
-        <div
-          className="wg-rise mb-4 flex flex-wrap items-center gap-2.5"
-          style={{ animationDelay: "30ms" }}
-        >
-          {canWrite && (
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={openComposer}
-              title="New goal — press G"
-              aria-keyshortcuts="G"
-              className={`pastel-cta wg-btn inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold transition-all hover:-translate-y-px cursor-pointer ${FOCUS_RING}`}
+              onClick={() => setFullscreen((v) => !v)}
+              aria-pressed={fullscreen}
+              aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+              title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
+              className={`inline-flex shrink-0 items-center gap-1.5 h-9 px-3.5 rounded-pill text-[13px] font-bold border border-hairline bg-surface-card text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-all cursor-pointer ${FOCUS_RING}`}
             >
-              <Plus size={16} strokeWidth={2.8} /> New goal
-              <kbd
-                className="ml-0.5 hidden rounded border px-1.5 py-0.5 text-[10px] font-black leading-none opacity-70 sm:inline-block"
-                style={{ borderColor: "currentColor" }}
-                aria-hidden
-              >
-                G
-              </kbd>
+              {fullscreen ? <Minimize2 size={14} strokeWidth={2.4} /> : <Maximize2 size={14} strokeWidth={2.4} />}
+              {fullscreen ? "Exit" : "Full screen"}
             </button>
-          )}
+          </div>
+        </header>
 
-          <div className="relative min-w-[200px] flex-1 max-w-[420px]">
-            <Search size={16} strokeWidth={2.4} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle" />
+        <div
+          className="wg-rise mb-3 flex items-center gap-2 flex-wrap rounded-section border border-hairline px-3 py-2 max-md:px-3"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.82), rgba(250,251,252,0.72))",
+            backdropFilter: "blur(14px) saturate(140%)",
+            WebkitBackdropFilter: "blur(14px) saturate(140%)",
+            boxShadow:
+              "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
+          }}
+        >
+          <div className="relative min-w-[180px] max-w-[360px] flex-1 shrink-0">
+            <Search size={15} strokeWidth={2.4} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-subtle" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Local search — goals, areas, notes" title="Local search — filters only the list on this page" aria-label="Local search — goals, areas, notes — this page only"
-              className={`w-full rounded-full border border-hairline bg-surface-card pl-9 pr-9 py-2 text-[14px] font-medium text-ink-strong transition-colors focus:border-altus-red ${FOCUS_RING}`}
+              placeholder="Local search — goals, areas, notes"
+              title="Local search — filters only the list on this page"
+              aria-label="Local search — goals, areas, notes — this page only"
+              className={`w-full h-9 rounded-pill border border-hairline bg-surface-card pl-9 pr-9 text-[13.5px] font-medium text-ink-strong transition-colors focus:border-altus-red ${FOCUS_RING}`}
             />
             {search && (
               <button
@@ -1102,49 +1107,126 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                 aria-label="Clear search"
                 className={`absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-full text-ink-subtle hover:text-ink-strong ${FOCUS_RING}`}
               >
-                <X size={15} />
+                <X size={14} />
               </button>
             )}
           </div>
 
-          {/* Sort — premium Select inside a pill shell (matches the toolbar row). */}
-          <div className="relative inline-flex h-[38px] items-center rounded-full border border-hairline-strong bg-surface-card pl-9 pr-3 transition-colors focus-within:border-altus-red hover:border-hairline-strong">
-            <ArrowUpDown size={15} strokeWidth={2.4} className="pointer-events-none absolute left-3 text-ink-subtle" />
-            <Select
-              value={sortKey}
-              onValueChange={(v) => setSortKey(v as SortKey)}
-              ariaLabel="Sort goals"
-              unstyled
-              className="flex min-w-[6.5rem] cursor-pointer items-center gap-1.5 text-[13px] font-bold text-ink-soft"
-              options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+          {/* Bucket nav — quarters (Quarterly), months (Monthly), nothing (Yearly). */}
+          {isQuarterly && (
+            <QuarterWindowNav
+              anchorKey={quarterAnchorKey}
+              extraKeys={revealedQuarters}
+              selectedKey={props.periodKey}
+              currentKey={currentQuarterKey}
+              countOf={quarterCountOf}
+              onPick={(k) => go({ fy: fyStartYearOfKey(k), period: k })}
             />
+          )}
+          {isMonthly && (
+            <MonthWindowNav
+              anchorQuarterKey={monthAnchorQuarterKey}
+              extraQuarterKeys={revealedPastQuarters}
+              selectedKey={props.periodKey}
+              currentMonthKey={currentMonthKey}
+              countOf={monthCountOf}
+              // A month in the window's other FY (Apr, viewed from a January
+              // board) needs the LOADER moved with it, not just the selection
+              // — the fy hop is what fetches its goals.
+              onPick={(k) => go({ fy: fyStartYearOfMonthKey(k), period: k })}
+            />
+          )}
+
+          {isQuarterly && hiddenPastQuarters.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowPast((v) => !v)}
+              aria-pressed={showPast}
+              className={`shrink-0 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
+              style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
+            >
+              {showPast ? "Hide past" : `Show past (${hiddenPastQuarters.length})`}
+            </button>
+          )}
+          {isMonthly && pastQuarterKeys.length > 0 && (
+            // `self-stretch` — MonthWindowNav beside it is a multi-row bracket
+            // box (FY legend + quarter caption + month pills), so it's taller
+            // than a one-line button. Stretching to match its height (instead
+            // of floating short at `items-center`) is what keeps the two
+            // boxes reading as the same height in the row.
+            <button
+              type="button"
+              onClick={() => setShowPast((v) => !v)}
+              aria-pressed={showPast}
+              className={`shrink-0 self-stretch inline-flex items-center gap-1 rounded-lg px-2.5 text-[13px] font-bold text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
+              style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
+            >
+              {showPast ? "Hide past" : "Show past"}
+            </button>
+          )}
+
+          <div className="ml-auto flex shrink-0 items-center gap-2.5">
+            <div className="inline-flex items-center overflow-hidden rounded-lg border border-hairline-strong bg-surface-card">
+              <button
+                type="button"
+                aria-label="Previous financial year"
+                onClick={() => go({ fy: fy - 1 })}
+                className={`cursor-pointer px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
+              >
+                <ChevronLeft size={15} strokeWidth={2.4} />
+              </button>
+              <span className="border-x border-hairline-strong px-2.5 py-1.5 text-[13px] font-bold tabular-nums text-ink-strong">
+                {fyLabel(fy)}
+              </span>
+              <button
+                type="button"
+                aria-label="Next financial year"
+                onClick={() => go({ fy: fy + 1 })}
+                className={`cursor-pointer px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
+              >
+                <ChevronRight size={15} strokeWidth={2.4} />
+              </button>
+            </div>
+
+            {props.roster.length > 1 && (
+              <ViewingSelect
+                people={props.roster}
+                value={props.viewedEmployeeId}
+                viewedName={props.viewedName}
+                onChange={(v) => go({ emp: v })}
+                myEmployeeId={props.myEmployeeId}
+              />
+            )}
           </div>
+        </div>
 
-          {/* Export */}
-          <button
-            type="button"
-            onClick={exportCsv}
-            disabled={displayed.length === 0}
-            aria-label="Export visible goals to CSV"
-            className={`wg-btn inline-flex items-center gap-1.5 rounded-full border border-hairline-strong bg-surface-card px-3.5 py-2 text-[13px] font-bold text-ink-soft transition-colors hover:text-ink-strong disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${FOCUS_RING}`}
-          >
-            <Download size={15} strokeWidth={2.4} /> Export
-          </button>
-
-          {/* Bulk upload */}
+        {/* ── Feature toolbar — New goal · Sort · Export · Bulk upload ·
+            filters · Columns · Full screen · view toggle, all in one
+            glass instrument strip (matches the Tasks table's own toolbar).
+            Search sits on its own row, directly above the table. Shown on
+            ALL levels (Yearly included). ── */}
+        <div
+          className="wg-rise mb-3 flex flex-wrap items-center gap-1.5 rounded-section border border-hairline px-3 py-2 max-md:px-3"
+          style={{
+            animationDelay: "30ms",
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.82), rgba(250,251,252,0.72))",
+            backdropFilter: "blur(14px) saturate(140%)",
+            WebkitBackdropFilter: "blur(14px) saturate(140%)",
+            boxShadow:
+              "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
+          }}
+        >
           {canWrite && (
-            <GoalsBulkUpload
-              employeeId={props.viewedEmployeeId}
-              level={props.level}
-              periodKey={props.periodKey}
-              areaOptions={areaOptions}
-              measureOptions={measureOptions}
-              typeOptions={typeOptions}
-              roster={props.roster}
-              existingTitles={levelGoals
-                .filter((g) => g.periodKey === props.periodKey)
-                .map((g) => g.title)}
-            />
+            <button
+              type="button"
+              onClick={openComposer}
+              title="New goal — press G"
+              aria-keyshortcuts="G"
+              className={`pastel-cta wg-btn inline-flex shrink-0 items-center gap-1.5 h-9 rounded-pill px-3.5 text-[13px] font-bold transition-all hover:-translate-y-px cursor-pointer ${FOCUS_RING}`}
+            >
+              <Plus size={14} strokeWidth={2.8} /> New goal
+            </button>
           )}
 
           {/* View toggle — List | Kanban. Now on EVERY level: the Yearly board
@@ -1152,7 +1234,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
           <div
             role="group"
             aria-label="Board view"
-            className="inline-flex items-center overflow-hidden rounded-full border border-hairline-strong bg-surface-soft"
+            className="inline-flex h-9 shrink-0 items-center overflow-hidden rounded-pill border border-hairline-strong bg-surface-soft"
           >
             <ViewToggleButton
               active={!kanban && !dashboard}
@@ -1173,6 +1255,88 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               onClick={() => pickView("dashboard")}
             />
           </div>
+
+          {/* Sort — premium Select inside a pill shell (matches the toolbar row). */}
+          <div className="relative inline-flex h-9 shrink-0 items-center rounded-pill border border-hairline bg-surface-card pl-7 pr-3 transition-colors focus-within:border-altus-red hover:border-hairline-strong">
+            <ArrowUpDown size={13} strokeWidth={2.4} className="pointer-events-none absolute left-2.5 text-ink-subtle" />
+            <Select
+              value={sortKey}
+              onValueChange={(v) => setSortKey(v as SortKey)}
+              ariaLabel="Sort goals"
+              unstyled
+              className="flex min-w-[5.5rem] cursor-pointer items-center gap-1 text-[13px] font-bold text-ink-soft"
+              options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            />
+          </div>
+
+          {/* Area / Type filters — Goals' own dimensions (no Client/Department
+              concept here), same checklist-popover pattern as the rest of the
+              toolbar. */}
+          {!kanban && !dashboard && (
+            <>
+              <MultiPickFilter label="Areas" options={areaOptions} selected={areaFilter} onChange={setAreaFilter} />
+              <MultiPickFilter
+                label="Types"
+                options={QUARTER_TYPE_OPTIONS}
+                selected={typeFilter}
+                onChange={setTypeFilter}
+              />
+
+              {/* Rows per page */}
+              <div className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3 transition-colors focus-within:border-altus-red hover:border-hairline-strong">
+                <span className="text-[13px] font-semibold text-ink-subtle">Rows</span>
+                <Select
+                  value={String(rowsPerPage)}
+                  onValueChange={(v) => setRowsPerPage(v === "all" ? "all" : Number(v))}
+                  ariaLabel="Rows per page"
+                  unstyled
+                  className="flex min-w-[2.5rem] cursor-pointer items-center gap-1 text-[13px] font-bold text-ink-strong"
+                  options={[
+                    { value: "25", label: "25" },
+                    { value: "50", label: "50" },
+                    { value: "100", label: "100" },
+                    { value: "all", label: "All" },
+                  ]}
+                />
+              </div>
+
+              {/* Columns — show/hide the optional columns; Area, Goal, Target,
+                  % Done stay structural and are never in this list. */}
+              <ColumnsPicker
+                visibleCols={visibleCols}
+                onChange={setVisibleCols}
+                colOrder={colOrder}
+                onReorder={setColOrder}
+              />
+            </>
+          )}
+
+          {/* Export */}
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={displayed.length === 0}
+            aria-label="Export visible goals to CSV"
+            className={`inline-flex shrink-0 items-center gap-1.5 h-9 px-3.5 rounded-pill text-[13px] font-bold border border-hairline bg-surface-card text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${FOCUS_RING}`}
+          >
+            <Download size={14} strokeWidth={2.4} /> Export
+          </button>
+
+          {/* Bulk upload */}
+          {canWrite && (
+            <GoalsBulkUpload
+              employeeId={props.viewedEmployeeId}
+              level={props.level}
+              periodKey={props.periodKey}
+              areaOptions={areaOptions}
+              measureOptions={measureOptions}
+              typeOptions={typeOptions}
+              roster={props.roster}
+              existingTitles={levelGoals
+                .filter((g) => g.periodKey === props.periodKey)
+                .map((g) => g.title)}
+            />
+          )}
         </div>
 
         {/* Sort pauses drag-reorder — tell the user how to get it back. */}
@@ -1202,6 +1366,8 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             childrenByParent={childrenByParent}
             managesViewed={props.managesViewed}
             isAdmin={props.isAdmin}
+            filters={dashboardFilters}
+            onFiltersChange={setDashboardFilters}
           />
         ) : kanban ? (
           <HierarchyKanban
@@ -1255,7 +1421,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                    Members · Share · Type + bulk bar). */
                 <GoalTableView
                   ownerNameOf={ownerNameOf}
-                  goals={displayed}
+                  goals={pagedGoals}
                   canWrite={canWrite}
                   isAdmin={props.isAdmin}
                   roster={props.roster}
@@ -1270,11 +1436,25 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                   codeOf={codeOf}
                   level={props.level}
                   actions={LEVEL_TABLE_ACTIONS}
+                  visibleCols={visibleCols}
+                  colOrder={colOrder}
+                  onColOrderChange={setColOrder}
                 />
               )}
 
-              {canWrite && props.captureEnabled && (
-                <div className="mb-3">
+              {rowsPerPage !== "all" && displayed.length > pagedGoals.length && (
+                <button
+                  type="button"
+                  onClick={() => setRowsPerPage("all")}
+                  className={`mt-3 self-start cursor-pointer rounded-full border border-hairline-strong bg-surface-card px-4 py-2 text-[13px] font-bold text-ink-soft transition-colors hover:text-ink-strong ${FOCUS_RING}`}
+                >
+                  Show all ({displayed.length - pagedGoals.length} more)
+                </button>
+              )}
+
+              {/* Capture goals with AI + Add New Goal — side by side. */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                {canWrite && props.captureEnabled && (
                   <GoalCaptureBox
                     employeeId={props.viewedEmployeeId}
                     level={props.level}
@@ -1286,31 +1466,32 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                       ] ?? props.level
                     }
                   />
-                </div>
-              )}
+                )}
 
-              {canWrite && (
-                <BoardQuickAdd
-                  ref={quickAddRef}
-                  employeeId={props.viewedEmployeeId}
-                  level={props.level}
-                  periodKey={props.periodKey}
-                  parent={parentGoal}
-                  areaOptions={areaOptions}
-                  measureOptions={measureOptions}
-                  typeOptions={typeOptions}
-                  customLookups={customLookups}
-                  isAdmin={props.isAdmin}
-                  roster={props.roster}
-                  projects={props.projects}
-                  vendors={props.vendors}
-                  currentCount={inBucket.length}
-                  mutation={mutation}
-                  existingTitles={levelGoals
-                    .filter((g) => g.periodKey === props.periodKey)
-                    .map((g) => g.title)}
-                />
-              )}
+                {canWrite && (
+                  <BoardQuickAdd
+                    ref={quickAddRef}
+                    compact
+                    employeeId={props.viewedEmployeeId}
+                    level={props.level}
+                    periodKey={props.periodKey}
+                    parent={parentGoal}
+                    areaOptions={areaOptions}
+                    measureOptions={measureOptions}
+                    typeOptions={typeOptions}
+                    customLookups={customLookups}
+                    isAdmin={props.isAdmin}
+                    roster={props.roster}
+                    projects={props.projects}
+                    vendors={props.vendors}
+                    currentCount={inBucket.length}
+                    mutation={mutation}
+                    existingTitles={levelGoals
+                      .filter((g) => g.periodKey === props.periodKey)
+                      .map((g) => g.title)}
+                  />
+                )}
+              </div>
             </div>
 
             {/* Drag ghost — a lean copy of the row being carried. The overlay
@@ -1342,7 +1523,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             </DragOverlay>
           </DndContext>
         )}
-      </PageShell>
+      </div>
 
       {/* One shared archive dialog for the whole board. */}
       <ArchiveGoalDialog
@@ -1382,7 +1563,7 @@ function ViewToggleButton({
       onClick={onClick}
       aria-pressed={active}
       aria-label={`${label} view`}
-      className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-bold transition-colors ${FOCUS_RING}`}
+      className={`cursor-pointer inline-flex h-full items-center gap-1.5 px-3 text-[12.5px] font-bold transition-colors ${FOCUS_RING}`}
       style={
         active
           ? {
@@ -1396,6 +1577,318 @@ function ViewToggleButton({
       {icon}
       {label}
     </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* GoalStatChip — a light, flat stat chip for the Quarterly header,     */
+/* modeled 1:1 on the Tasks page's own StatChip (task-list-page.tsx):   */
+/* tone dot · bold number · label, no shadows, no icon tiles. Clicking  */
+/* toggles the board's existing `completion` quick-chip filter.         */
+/* ------------------------------------------------------------------ */
+
+export function GoalStatChip({
+  label,
+  value,
+  tone,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  tone: "slate" | "green" | "amber" | "red";
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`${active ? "Remove" : "Add"} ${label.toLowerCase()} filter`}
+      className="group inline-flex items-center gap-2 rounded-xl transition-colors cursor-pointer"
+      style={{
+        padding: "5px 10px",
+        background: active
+          ? `color-mix(in srgb, var(--color-${tone}) 8%, var(--color-surface-card))`
+          : "var(--color-surface-card)",
+        boxShadow: active
+          ? `inset 0 0 0 1.5px var(--color-${tone}-deep)`
+          : "inset 0 0 0 1px var(--color-hairline)",
+      }}
+    >
+      <span
+        aria-hidden
+        className="inline-block size-2 rounded-full shrink-0"
+        style={{ background: `var(--color-${tone})` }}
+      />
+      <span
+        className="tabular-nums leading-none text-ink-strong"
+        style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 900,
+          fontSize: 16,
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {value}
+      </span>
+      <span
+        className="font-semibold leading-none"
+        style={{ fontSize: 11.5, color: active ? `var(--color-${tone}-deep)` : "var(--color-ink-soft)" }}
+      >
+        {label}
+      </span>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* MultiPickFilter — a checklist popover pill, shared by the toolbar's   */
+/* Area / Type filters. Empty selection reads as "All <noun>".          */
+/* ------------------------------------------------------------------ */
+
+export function MultiPickFilter({
+  label,
+  options,
+  selected,
+  onChange,
+  compact,
+}: {
+  label: string;
+  options: string[];
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+  /** Tighter pill — for toolbars with many controls (e.g. Weekly's, which
+   *  also carries the ritual chips + bulk upload on the same line). */
+  compact?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const active = selected.size > 0;
+  const summary =
+    selected.size === 0
+      ? `All ${label}`
+      : selected.size === 1
+        ? [...selected][0]
+        : `${selected.size} ${label}`;
+
+  const toggle = (v: string) => {
+    const next = new Set(selected);
+    if (next.has(v)) next.delete(v);
+    else next.add(v);
+    onChange(next);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`inline-flex shrink-0 items-center rounded-pill border font-bold transition-all cursor-pointer ${
+            compact ? "h-7 gap-1 px-2 text-[11px]" : "h-9 gap-1.5 px-3.5 text-[13px]"
+          } ${FOCUS_RING}`}
+          style={
+            active
+              ? {
+                  borderColor: "color-mix(in srgb, var(--color-altus-red) 45%, transparent)",
+                  background: "color-mix(in srgb, var(--color-altus-red) 7%, transparent)",
+                  color: "var(--color-altus-red-deep)",
+                }
+              : { borderColor: "var(--color-hairline)", background: "var(--color-surface-card)", color: "var(--color-ink-soft)" }
+          }
+        >
+          {summary}
+          <ChevronDown size={compact ? 11 : 14} strokeWidth={2.4} className={`opacity-60 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[220px] p-1.5">
+        <div className="max-h-[280px] overflow-auto">
+          {options.length === 0 && (
+            <p className="px-2 py-2 text-[12.5px] text-ink-subtle">No {label.toLowerCase()} yet.</p>
+          )}
+          {options.map((o) => {
+            const checked = selected.has(o);
+            return (
+              <button
+                key={o}
+                type="button"
+                onClick={() => toggle(o)}
+                className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
+              >
+                <span
+                  className="inline-flex size-4 shrink-0 items-center justify-center rounded border"
+                  style={
+                    checked
+                      ? { background: "var(--color-altus-red)", borderColor: "var(--color-altus-red)" }
+                      : { borderColor: "var(--color-hairline-strong)" }
+                  }
+                >
+                  {checked && <Check size={11} strokeWidth={3} className="text-white" />}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{o}</span>
+              </button>
+            );
+          })}
+        </div>
+        {active && (
+          <button
+            type="button"
+            onClick={() => onChange(new Set())}
+            className={`mt-1 flex w-full cursor-pointer items-center justify-center rounded-md py-1.5 text-[12px] font-bold text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
+          >
+            Clear
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* ColumnsPicker — show/hide + drag-reorder the table's columns.        */
+/* ------------------------------------------------------------------ */
+
+export function ColumnsPicker({
+  visibleCols,
+  onChange,
+  colOrder,
+  onReorder,
+  compact,
+}: {
+  visibleCols: Set<string>;
+  onChange: (next: Set<string>) => void;
+  /** Left-to-right column order (Target/% Done included — they can move,
+   *  just never hide). Omitted → REORDERABLE_COLUMNS' declared order and the
+   *  list renders without drag handles (order becomes fixed). */
+  colOrder?: string[];
+  onReorder?: (next: string[]) => void;
+  /** Tighter pill — for toolbars with many controls (e.g. Weekly's). */
+  compact?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [dragKey, setDragKey] = React.useState<string | null>(null);
+  const declared = React.useMemo(() => REORDERABLE_COLUMNS.map((c) => c.key), []);
+  const order = colOrder ?? declared;
+  const byKey = React.useMemo(() => new Map(REORDERABLE_COLUMNS.map((c) => [c.key, c])), []);
+  const draggable = !!onReorder;
+
+  // Pointer-based reorder, NOT the native HTML5 draggable attribute — native
+  // drag-start never reliably fires from inside a Radix Popover's portal
+  // (its pointer-down handling swallows the gesture before dragstart can
+  // begin), so a plain draggable/onDragStart version silently did nothing.
+  // This tracks the button held down on the grip handle and re-sorts live as
+  // the pointer crosses another row, ending on the next pointerup anywhere.
+  const orderRef = React.useRef(order);
+  React.useEffect(() => {
+    orderRef.current = order;
+  }, [order]);
+  const dragKeyRef = React.useRef<string | null>(null);
+
+  function startDrag(key: string) {
+    if (!draggable) return;
+    dragKeyRef.current = key;
+    setDragKey(key);
+  }
+  function crossRow(targetKey: string) {
+    const from0 = dragKeyRef.current;
+    if (!onReorder || !from0 || from0 === targetKey) return;
+    const cur = orderRef.current;
+    const from = cur.indexOf(from0);
+    const to = cur.indexOf(targetKey);
+    if (from < 0 || to < 0) return;
+    const next = [...cur];
+    next.splice(from, 1);
+    next.splice(to, 0, from0);
+    orderRef.current = next;
+    onReorder(next);
+  }
+  React.useEffect(() => {
+    if (!draggable) return;
+    function endDrag() {
+      dragKeyRef.current = null;
+      setDragKey(null);
+    }
+    window.addEventListener("pointerup", endDrag);
+    return () => window.removeEventListener("pointerup", endDrag);
+  }, [draggable]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`inline-flex shrink-0 items-center rounded-pill border border-hairline bg-surface-card font-bold text-ink-soft transition-all hover:border-hairline-strong hover:text-ink-strong cursor-pointer ${
+            compact ? "h-7 gap-1 px-2 text-[11px]" : "h-9 gap-1.5 px-3.5 text-[13px]"
+          } ${FOCUS_RING}`}
+        >
+          <Columns3 size={compact ? 11 : 14} strokeWidth={2.2} /> Columns
+          <ChevronDown size={compact ? 11 : 14} strokeWidth={2.4} className={`opacity-60 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[220px] p-1.5">
+        {draggable && (
+          <p className="px-2 pb-1 pt-0.5 text-[10.5px] font-bold uppercase tracking-wide text-ink-subtle">
+            Drag to reorder
+          </p>
+        )}
+        {order.map((key) => {
+          const c = byKey.get(key);
+          if (!c) return null;
+          const checked = visibleCols.has(key);
+          return (
+            <div
+              key={key}
+              onPointerEnter={() => crossRow(key)}
+              onPointerUp={() => crossRow(key)}
+              className={`flex w-full select-none items-center gap-1 rounded-md transition-opacity ${dragKey === key ? "opacity-40" : ""}`}
+            >
+              {draggable && (
+                <span
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    startDrag(key);
+                  }}
+                  className="shrink-0 cursor-grab touch-none text-ink-subtle/60 active:cursor-grabbing"
+                  aria-hidden="true"
+                >
+                  <GripVertical size={13} strokeWidth={2.2} />
+                </span>
+              )}
+              <button
+                type="button"
+                disabled={!c.pickable}
+                onClick={() => {
+                  if (!c.pickable) return; // structural — position moves, visibility doesn't
+                  const next = new Set(visibleCols);
+                  if (checked) next.delete(key);
+                  else next.add(key);
+                  onChange(next);
+                }}
+                className={`flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft disabled:cursor-default disabled:hover:bg-transparent ${
+                  c.pickable ? "cursor-pointer" : "cursor-default"
+                } ${FOCUS_RING}`}
+              >
+                {c.pickable ? (
+                  <span
+                    className="inline-flex size-4 shrink-0 items-center justify-center rounded border"
+                    style={
+                      checked
+                        ? { background: "var(--color-altus-red)", borderColor: "var(--color-altus-red)" }
+                        : { borderColor: "var(--color-hairline-strong)" }
+                    }
+                  >
+                    {checked && <Check size={11} strokeWidth={3} className="text-white" />}
+                  </span>
+                ) : (
+                  <span className="inline-flex size-4 shrink-0" aria-hidden="true" />
+                )}
+                {c.label}
+              </button>
+            </div>
+          );
+        })}
+      </PopoverContent>
+    </Popover>
   );
 }
 

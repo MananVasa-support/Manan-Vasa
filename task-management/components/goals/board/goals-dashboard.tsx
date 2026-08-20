@@ -13,7 +13,6 @@
  * (`deriveHealth` · `expectedPct` · `rollupPct`), NOT static ≥80/≥60 cutoffs.
  *
  * Sections:
- *   1. HERO — weighted OKR attainment gauge + pace read + forecast chip.
  *   2. KPI row — weighted attainment · on-pace · at-risk · overdue · done ·
  *      ₹ attainment · cascade coverage. Each clickable → drill.
  *   3. Pace / health distribution — segmented bar across the 6 derived bands.
@@ -36,19 +35,25 @@ import {
   Target,
   CheckCircle2,
   TrendingUp,
-  TrendingDown,
   CalendarClock,
   AlertTriangle,
   X,
   GitBranch,
   Users,
-  IndianRupee,
   Gauge,
-  Sparkles,
   Network,
   ShieldCheck,
   HandCoins,
   Boxes,
+  BarChart3,
+  LayoutDashboard,
+  LineChart,
+  ChevronDown,
+  Check,
+  ArrowLeftRight,
+  Grid3x3,
+  Lightbulb,
+  Share2,
 } from "lucide-react";
 import {
   type GoalDTO,
@@ -58,6 +63,11 @@ import {
   fyLabel,
 } from "@/components/goals/cascade/util";
 import { CardGrid } from "@/components/layout/card-grid";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { HBars, type HBarRow } from "@/components/charts/h-bars";
+import { VBars } from "@/components/charts/v-bars";
+import { Donut, type DonutSlice } from "@/components/charts/donut";
+import { TrendLine } from "@/components/charts/trend-line";
 import type { GoalPeriod } from "@/lib/goals/types";
 // The numbers live in ONE place — see `dashboard-model.ts`. This file owns the
 // executive LAYOUT over them; the Weekly board renders its own layout over the
@@ -70,16 +80,31 @@ import {
   RED_DEEP,
   SLATE,
   BLUE,
+  YELLOW,
+  ORANGE,
+  PURPLE,
+  TEAL,
   DISPLAY,
   BAND_META,
   BAND_ORDER,
   classify,
   pillarOf,
   buildModel,
+  buildQuarterBreakdown,
+  matchesFilters,
+  computeDelegationStats,
+  computeWeightConcentration,
+  computeAreaTypeMatrix,
+  buildSmartInsights,
+  aggregateMeasures,
+  DEFAULT_DASHBOARD_FILTERS,
   type DisplayBand,
   type Row,
   type Group,
   type Model,
+  type QuarterPoint,
+  type DashboardFilters,
+  type DelegationStats,
 } from "./dashboard-model";
 
 const FOCUS_RING =
@@ -145,18 +170,6 @@ interface Drill {
   test: (r: Row) => boolean;
 }
 
-/* ── SVG gauge geometry ────────────────────────────────────────────────── */
-function polar(cx: number, cy: number, r: number, angleDeg: number) {
-  const a = ((angleDeg - 90) * Math.PI) / 180;
-  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
-}
-function arcPath(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
-  const start = polar(cx, cy, r, startAngle);
-  const end = polar(cx, cy, r, endAngle);
-  const large = endAngle - startAngle <= 180 ? 0 : 1;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y}`;
-}
-
 /* ====================================================================== */
 /* Props                                                                  */
 /* ====================================================================== */
@@ -180,10 +193,16 @@ export interface GoalsDashboardProps {
   childrenByParent?: Map<string, GoalDTO[]>;
   managesViewed?: boolean;
   isAdmin?: boolean;
+  /** Controlled filter state — lifted to the parent so it can filter the
+   *  goal table it renders alongside this dashboard through the SAME
+   *  predicate (`matchesFilters`). Defaults to no filters when omitted. */
+  filters?: DashboardFilters;
+  onFiltersChange?: (f: DashboardFilters) => void;
 }
 
 const EMPTY_ROWS: GoalDTO[] = [];
 const EMPTY_CHILDREN = new Map<string, GoalDTO[]>();
+const EMPTY_ROSTER: RosterMember[] = [];
 
 /* ====================================================================== */
 /* Root                                                                   */
@@ -196,11 +215,17 @@ export function GoalsDashboard(props: GoalsDashboardProps) {
     fyStartYear,
     weekCards = EMPTY_ROWS,
     childrenByParent = EMPTY_CHILDREN,
-    viewedName = "",
-    managesViewed = false,
-    isAdmin = false,
   } = props;
   const reduce = useReducedMotion() ?? false;
+
+  // Filters are controlled by the parent (so it can filter the goal table
+  // through the same predicate) — fall back to local state for any caller
+  // that doesn't wire them up.
+  const [uncontrolledFilters, setUncontrolledFilters] = React.useState<DashboardFilters>(
+    DEFAULT_DASHBOARD_FILTERS,
+  );
+  const filters = props.filters ?? uncontrolledFilters;
+  const setFilters = props.onFiltersChange ?? setUncontrolledFilters;
 
   // Premium reveal even though data is synchronous (props).
   const [mounted, setMounted] = React.useState(false);
@@ -232,31 +257,62 @@ export function GoalsDashboard(props: GoalsDashboardProps) {
     [allGoals, level, now, childCountOf],
   );
 
-  // Controls — lens (all / at-risk) + pillar filter.
-  const [lens, setLens] = React.useState<"all" | "risk">("all");
-  const [pillar, setPillar] = React.useState<string | null>(null);
-  const pillarOptions = React.useMemo(() => {
+  // Filter option lists — derived from the FULL level's rows (not the
+  // already-filtered view), so picking one filter never shrinks another
+  // filter's own option list out from under the user.
+  const areaOptions = React.useMemo(() => {
     const s = new Set<string>();
-    for (const r of allRows) {
-      const p = pillarOf(r.g);
-      if (p) s.add(p);
-    }
+    for (const r of allRows) s.add(r.g.area?.trim() ? r.g.area.trim() : "Unassigned");
     return [...s].sort();
   }, [allRows]);
-  // A pillar that no longer exists (data changed) resets to All.
-  React.useEffect(() => {
-    if (pillar && !pillarOptions.includes(pillar)) setPillar(null);
-  }, [pillar, pillarOptions]);
+  const typeOptions = React.useMemo(() => {
+    const s = new Set<string>();
+    for (const r of allRows) s.add(pillarOf(r.g) ?? "Unspecified");
+    return [...s].sort();
+  }, [allRows]);
+  const delegateOptions = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of allRows) {
+      for (const d of r.g.delegatedTo ?? []) {
+        if (!m.has(d.employeeId)) m.set(d.employeeId, d.name ?? "Unknown");
+      }
+    }
+    return [...m.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [allRows]);
 
-  const viewRows = React.useMemo(() => {
-    let rs = allRows;
-    if (pillar) rs = rs.filter((r) => pillarOf(r.g) === pillar);
-    if (lens === "risk")
-      rs = rs.filter((r) => r.band === "at-risk" || r.band === "overdue" || r.band === "spillover");
-    return rs;
-  }, [allRows, pillar, lens]);
+  // A filter value that no longer exists in this level's data (data changed
+  // underneath it) silently drops out rather than filtering to nothing.
+  React.useEffect(() => {
+    const nextArea = filters.area.filter((a) => areaOptions.includes(a));
+    const nextType = filters.type.filter((t) => typeOptions.includes(t));
+    const nextDelegate = filters.delegate && delegateOptions.some((d) => d.value === filters.delegate) ? filters.delegate : null;
+    if (
+      nextArea.length !== filters.area.length ||
+      nextType.length !== filters.type.length ||
+      nextDelegate !== filters.delegate
+    ) {
+      setFilters({ ...filters, area: nextArea, type: nextType, delegate: nextDelegate });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areaOptions, typeOptions, delegateOptions]);
+
+  const viewRows = React.useMemo(
+    () => allRows.filter((r) => matchesFilters(r.g, r.band, filters)),
+    [allRows, filters],
+  );
 
   const m = React.useMemo(() => buildModel(viewRows, level), [viewRows, level]);
+  const delegation = React.useMemo(
+    () => computeDelegationStats(viewRows, props.roster ?? EMPTY_ROSTER),
+    [viewRows, props.roster],
+  );
+
+  // Goals by quarter + quarterly attainment — quarters of THIS FY, real data
+  // only (year level only; quarters are the Yearly view's own child bucket).
+  const quarters = React.useMemo(
+    () => (level === "year" ? buildQuarterBreakdown(allGoals, fyStartYear, now) : null),
+    [level, allGoals, fyStartYear, now],
+  );
 
   // Drill state.
   const [drill, setDrill] = React.useState<Drill | null>(null);
@@ -267,52 +323,41 @@ export function GoalsDashboard(props: GoalsDashboardProps) {
     () => (drill ? viewRows.filter(drill.test).sort((a, b) => b.eff - a.eff) : []),
     [drill, viewRows],
   );
-  // Drill can go stale when the lens/pillar changes it out of the set.
+  // Drill can go stale when the filters change it out of the set.
   React.useEffect(() => {
     setDrill(null);
-  }, [lens, pillar]);
+  }, [filters]);
 
   if (!mounted) return <DashboardSkeleton />;
   if (allRows.length === 0) return <DashboardEmpty level={level} />;
 
-  const heroTone = m.paceDelta >= 0 ? GREEN : m.paceDelta > -25 ? AMBER : RED;
-  const forecastTone = m.avgConfidence >= 80 ? GREEN : m.avgConfidence >= 60 ? AMBER : RED;
-
-  const viewingNote = (managesViewed || isAdmin) && viewedName ? viewedName : null;
-
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Controls ── */}
-      <Controls
-        lens={lens}
-        onLens={setLens}
-        pillar={pillar}
-        onPillar={setPillar}
-        pillarOptions={pillarOptions}
+      {/* ── Filter bar ── */}
+      <FilterBar
+        filters={filters}
+        onFilters={setFilters}
+        areaOptions={areaOptions}
+        typeOptions={typeOptions}
+        delegateOptions={delegateOptions}
         showing={viewRows.length}
         total={allRows.length}
-        filtered={pillar != null || lens === "risk"}
-      />
-
-      {/* ── 1 · HERO ── */}
-      <Hero
-        level={level}
-        fyStartYear={fyStartYear}
-        model={m}
-        heroTone={heroTone}
-        forecastTone={forecastTone}
-        reduce={reduce}
-        viewingNote={viewingNote}
       />
 
       {/* ── 2 · KPI row ── */}
-      <KpiRow model={m} drill={drill} onDrill={toggleDrill} reduce={reduce} level={level} />
+      <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+        <SectionHeader
+          icon={<LayoutDashboard size={17} strokeWidth={2.2} />}
+          title="Overview"
+          subtitle="Key metrics at a glance"
+        />
+        <KpiRow model={m} drill={drill} onDrill={toggleDrill} reduce={reduce} />
+      </section>
 
-      {/* ── 3 + 4 · Distribution + at-risk action list ── */}
-      <div className="grid grid-cols-[1.05fr_1.35fr] gap-4 max-xl:grid-cols-1">
+      {/* ── 3 · Pace distribution + tracking to plan, side by side ── */}
+      <div className="grid grid-cols-[1.4fr_1fr] gap-4 max-xl:grid-cols-1">
         <Distribution
           model={m}
-          reduce={reduce}
           activeBand={
             drill?.id.startsWith("band:") ? (drill.id.slice(5) as DisplayBand) : null
           }
@@ -325,42 +370,44 @@ export function GoalsDashboard(props: GoalsDashboardProps) {
             })
           }
         />
-        <AtRiskList rows={m.atRiskRows} total={m.total} />
+        <TrackingToPlanPanel model={m} />
       </div>
 
-      {/* ── 5 · Cascade coverage (year / quarter / month) ── */}
-      {m.coverage && (
-        <CoveragePanel coverage={m.coverage} total={m.total} level={level} reduce={reduce} />
+      {/* ── 4 + 5 · At-risk action list + cascade coverage, side by side ── */}
+      {m.coverage ? (
+        <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
+          <AtRiskList rows={m.atRiskRows} total={m.total} />
+          <CoveragePanel coverage={m.coverage} total={m.total} level={level} />
+        </div>
+      ) : (
+        <AtRiskList rows={m.atRiskRows} total={m.total} />
       )}
 
-      {/* ── 6 · By pillar + by area ── */}
-      <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
-        <GroupPanel
-          title="By pillar"
-          subtitle="weighted attainment · goal type"
-          icon={<Boxes size={15} strokeWidth={2.4} />}
-          groups={m.byPillar}
-          reduce={reduce}
-          activeLabel={
-            drill?.id.startsWith("pillar:") ? drill.id.slice(7) : null
-          }
-          onPick={(label) =>
+      {/* ── Goals by quarter + quarterly attainment (year level only —
+          quarters are its own child bucket) ── */}
+      {quarters && (
+        <QuarterPanel
+          quarters={quarters}
+          activeLabel={drill?.id.startsWith("quarter:") ? drill.id.slice(8) : null}
+          onPick={(label, key) =>
             toggleDrill({
-              id: `pillar:${label}`,
-              label: `Pillar · ${label}`,
+              id: `quarter:${label}`,
+              label: `Quarter · ${label}`,
               color: "var(--color-altus-red-deep)",
-              test: (r) => (pillarOf(r.g) ?? "Unspecified") === label,
+              test: (r) => r.g.period === "quarter" && r.g.periodKey === key,
             })
           }
         />
-        <GroupPanel
-          title="By area"
-          subtitle="weighted attainment · focus area"
-          icon={<Network size={15} strokeWidth={2.4} />}
-          groups={m.byArea}
-          reduce={reduce}
-          activeLabel={drill?.id.startsWith("area:") ? drill.id.slice(5) : null}
-          onPick={(label) =>
+      )}
+
+      {/* ── 6 + 7 · Goals by area/type beside Ownership + delegation ── */}
+      <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
+        <GroupedBreakdownPanel
+          byArea={m.byArea}
+          byPillar={m.byPillar}
+          activeArea={drill?.id.startsWith("area:") ? drill.id.slice(5) : null}
+          activePillar={drill?.id.startsWith("pillar:") ? drill.id.slice(7) : null}
+          onPickArea={(label) =>
             toggleDrill({
               id: `area:${label}`,
               label: `Area · ${label}`,
@@ -368,18 +415,38 @@ export function GoalsDashboard(props: GoalsDashboardProps) {
               test: (r) => (r.g.area?.trim() ? r.g.area.trim() : "Unassigned") === label,
             })
           }
+          onPickPillar={(label) =>
+            toggleDrill({
+              id: `pillar:${label}`,
+              label: `Type · ${label}`,
+              color: "var(--color-altus-red-deep)",
+              test: (r) => (pillarOf(r.g) ?? "Unspecified") === label,
+            })
+          }
         />
+
+        <div className="flex flex-col gap-4">
+          <OwnershipPanel model={m} />
+          {delegation.byPerson.length > 0 && (
+            <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+              <DelegatedByPersonPanel delegation={delegation} />
+              <DelegateSharePanel delegation={delegation} />
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── 7 + 8 · Accountability + ₹/qty ── */}
+      {/* ── Weight distribution beside area × type matrix ── */}
       <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
-        <AccountabilityPanel model={m} />
-        {m.rupee || m.qty ? (
-          <MeasurePanel rupee={m.rupee} qty={m.qty} reduce={reduce} />
-        ) : (
-          <AccountabilityCallout model={m} />
-        )}
+        <WeightDistributionPanel rows={viewRows} />
+        <AreaTypeMatrixPanel rows={viewRows} />
       </div>
+
+      {/* ── 8 · Actual vs target ── */}
+      {m.rupee || m.qty ? <ActualVsTargetPanel rows={viewRows} /> : <AccountabilityCallout model={m} />}
+
+      {/* ── Smart insights ── */}
+      <SmartInsightsPanel model={m} rows={viewRows} />
 
       {/* ── 9 · Drill-down ── */}
       {drill && <DrillPanel drill={drill} rows={drilled} onClose={() => setDrill(null)} />}
@@ -388,57 +455,77 @@ export function GoalsDashboard(props: GoalsDashboardProps) {
 }
 
 /* ====================================================================== */
-/* Controls                                                               */
+/* Filter bar — Area / Type / Owner / Delegate / Status, all cascading    */
+/* into every chart AND the goal table below (shared `matchesFilters`).   */
 /* ====================================================================== */
 
-function Controls({
-  lens,
-  onLens,
-  pillar,
-  onPillar,
-  pillarOptions,
+function FilterBar({
+  filters,
+  onFilters,
+  areaOptions,
+  typeOptions,
+  delegateOptions,
   showing,
   total,
-  filtered,
 }: {
-  lens: "all" | "risk";
-  onLens: (l: "all" | "risk") => void;
-  pillar: string | null;
-  onPillar: (p: string | null) => void;
-  pillarOptions: string[];
+  filters: DashboardFilters;
+  onFilters: (f: DashboardFilters) => void;
+  areaOptions: string[];
+  typeOptions: string[];
+  delegateOptions: { value: string; label: string }[];
   showing: number;
   total: number;
-  filtered: boolean;
 }) {
+  const statusOptions = BAND_ORDER.map((b) => BAND_META[b].label);
+  const labelToBand = new Map(BAND_ORDER.map((b) => [BAND_META[b].label, b]));
+  const filtered =
+    filters.area.length > 0 ||
+    filters.type.length > 0 ||
+    filters.owner !== "all" ||
+    !!filters.delegate ||
+    filters.status.length > 0;
+
   return (
     <div className="wg-rise flex flex-wrap items-center gap-2.5">
-      {/* Lens toggle */}
+      <MultiPick
+        label="Area"
+        options={areaOptions}
+        selected={new Set(filters.area)}
+        onChange={(next) => onFilters({ ...filters, area: [...next] })}
+      />
+      <MultiPick
+        label="Type"
+        options={typeOptions}
+        selected={new Set(filters.type)}
+        onChange={(next) => onFilters({ ...filters, type: [...next] })}
+      />
+
+      {/* Owner segmented toggle */}
       <div
         role="tablist"
-        aria-label="Goal lens"
+        aria-label="Owner"
         className="inline-flex items-center gap-1 rounded-full border p-1"
         style={{ borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-soft)" }}
       >
         {(
           [
-            { id: "all", label: "All goals" },
-            { id: "risk", label: "At-risk only" },
+            { id: "all", label: "All owners" },
+            { id: "self", label: "Self" },
+            { id: "assigned", label: "Assigned" },
           ] as const
         ).map((o) => {
-          const active = lens === o.id;
+          const active = filters.owner === o.id;
           return (
             <button
               key={o.id}
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => onLens(o.id)}
-              className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition-all ${FOCUS_RING}`}
+              onClick={() => onFilters({ ...filters, owner: o.id })}
+              className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition-all ${FOCUS_RING}`}
               style={{
                 background: active
-                  ? o.id === "risk"
-                    ? "linear-gradient(135deg, #dc2626, #991b1b)"
-                    : "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))"
+                  ? "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))"
                   : "transparent",
                 color: active ? "#fff" : "var(--color-ink-muted)",
                 boxShadow: active ? "0 6px 16px -8px rgba(168,4,0,0.55)" : "none",
@@ -450,24 +537,23 @@ function Controls({
         })}
       </div>
 
-      {/* Pillar filter */}
-      {pillarOptions.length > 0 && (
-        <div className="inline-flex items-center gap-1.5">
-          <span className="text-[11px] font-black uppercase tracking-[0.1em] text-ink-subtle">Pillar</span>
-          <div className="inline-flex flex-wrap items-center gap-1">
-            <FilterChip active={pillar == null} onClick={() => onPillar(null)}>
-              All
-            </FilterChip>
-            {pillarOptions.map((p) => (
-              <FilterChip key={p} active={pillar === p} onClick={() => onPillar(pillar === p ? null : p)}>
-                {p}
-              </FilterChip>
-            ))}
-          </div>
-        </div>
-      )}
+      <SinglePick
+        label="Delegate"
+        options={delegateOptions}
+        selected={filters.delegate}
+        onChange={(v) => onFilters({ ...filters, delegate: v })}
+      />
 
-      <span className="ml-auto text-[12px] font-semibold text-ink-subtle tabular-nums">
+      <MultiPick
+        label="Status"
+        options={statusOptions}
+        selected={new Set(filters.status.map((b) => BAND_META[b].label))}
+        onChange={(next) =>
+          onFilters({ ...filters, status: [...next].map((label) => labelToBand.get(label)!).filter(Boolean) })
+        }
+      />
+
+      <span className="ml-auto flex items-center gap-2 text-[12px] font-semibold text-ink-subtle tabular-nums">
         {filtered ? (
           <>
             showing <span className="font-black text-ink-soft">{showing}</span> of {total}
@@ -477,8 +563,172 @@ function Controls({
             <span className="font-black text-ink-soft">{total}</span> adopted goal{total === 1 ? "" : "s"}
           </>
         )}
+        {filtered && (
+          <button
+            type="button"
+            onClick={() => onFilters(DEFAULT_DASHBOARD_FILTERS)}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-bold text-ink-subtle transition-colors hover:text-ink-strong ${FOCUS_RING}`}
+            style={{ borderColor: "var(--color-hairline-strong)" }}
+          >
+            <X size={11} strokeWidth={2.6} /> Clear
+          </button>
+        )}
       </span>
     </div>
+  );
+}
+
+/** Multi-select chip popover — Area / Type / Status. */
+function MultiPick({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const active = selected.size > 0;
+  const summary = selected.size === 0 ? `All ${label}` : selected.size === 1 ? [...selected][0] : `${selected.size} ${label}`;
+  const toggle = (v: string) => {
+    const next = new Set(selected);
+    if (next.has(v)) next.delete(v);
+    else next.add(v);
+    onChange(next);
+  };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-bold transition-all cursor-pointer ${FOCUS_RING}`}
+          style={
+            active
+              ? {
+                  borderColor: "color-mix(in srgb, var(--color-altus-red) 45%, transparent)",
+                  background: "color-mix(in srgb, var(--color-altus-red) 7%, transparent)",
+                  color: "var(--color-altus-red-deep)",
+                }
+              : { borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-card)", color: "var(--color-ink-soft)" }
+          }
+        >
+          {summary}
+          <ChevronDown size={14} strokeWidth={2.4} className={`opacity-60 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[220px] p-1.5">
+        <div className="max-h-[280px] overflow-auto">
+          {options.length === 0 && <p className="px-2 py-2 text-[12.5px] text-ink-subtle">No {label.toLowerCase()} yet.</p>}
+          {options.map((o) => {
+            const checked = selected.has(o);
+            return (
+              <button
+                key={o}
+                type="button"
+                onClick={() => toggle(o)}
+                className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
+              >
+                <span
+                  className="inline-flex size-4 shrink-0 items-center justify-center rounded border"
+                  style={checked ? { background: "var(--color-altus-red)", borderColor: "var(--color-altus-red)" } : { borderColor: "var(--color-hairline-strong)" }}
+                >
+                  {checked && <Check size={11} strokeWidth={3} className="text-white" />}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{o}</span>
+              </button>
+            );
+          })}
+        </div>
+        {active && (
+          <button
+            type="button"
+            onClick={() => onChange(new Set())}
+            className={`mt-1 flex w-full cursor-pointer items-center justify-center rounded-md py-1.5 text-[12px] font-bold text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
+          >
+            Clear
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Single-select popover — Delegate. */
+function SinglePick({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  selected: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const active = selected != null;
+  const summary = active ? (options.find((o) => o.value === selected)?.label ?? label) : label;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-bold transition-all cursor-pointer ${FOCUS_RING}`}
+          style={
+            active
+              ? {
+                  borderColor: "color-mix(in srgb, var(--color-altus-red) 45%, transparent)",
+                  background: "color-mix(in srgb, var(--color-altus-red) 7%, transparent)",
+                  color: "var(--color-altus-red-deep)",
+                }
+              : { borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-card)", color: "var(--color-ink-soft)" }
+          }
+        >
+          <Share2 size={13} strokeWidth={2.4} className="opacity-70" />
+          {summary}
+          <ChevronDown size={14} strokeWidth={2.4} className={`opacity-60 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[240px] p-1.5">
+        <div className="max-h-[280px] overflow-auto">
+          {options.length === 0 && <p className="px-2 py-2 text-[12.5px] text-ink-subtle">No delegated goals yet.</p>}
+          {options.map((o) => {
+            const checked = selected === o.value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => {
+                  onChange(checked ? null : o.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
+              >
+                <span
+                  className="inline-flex size-4 shrink-0 items-center justify-center rounded border"
+                  style={checked ? { background: "var(--color-altus-red)", borderColor: "var(--color-altus-red)" } : { borderColor: "var(--color-hairline-strong)" }}
+                >
+                  {checked && <Check size={11} strokeWidth={3} className="text-white" />}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{o.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        {active && (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className={`mt-1 flex w-full cursor-pointer items-center justify-center rounded-md py-1.5 text-[12px] font-bold text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
+          >
+            Clear
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -508,203 +758,38 @@ function FilterChip({
   );
 }
 
-/* ====================================================================== */
-/* 1 · Hero                                                               */
-/* ====================================================================== */
-
-function Hero({
-  level,
-  fyStartYear,
-  model,
-  heroTone,
-  forecastTone,
-  reduce,
-  viewingNote,
+/** Section header — a small colored icon chip + bold title + grey subtitle,
+ *  used consistently above every panel on the dashboard. */
+function SectionHeader({
+  icon,
+  title,
+  subtitle,
+  accent = "var(--color-altus-red-deep)",
+  trailing,
 }: {
-  level: GoalPeriod;
-  fyStartYear: number;
-  model: Model;
-  heroTone: string;
-  forecastTone: string;
-  reduce: boolean;
-  viewingNote: string | null;
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  accent?: string;
+  trailing?: React.ReactNode;
 }) {
-  const behind = model.paceDelta < 0;
-  const onPacePct = model.total ? Math.round((model.onPace / model.total) * 100) : 0;
-
   return (
-    <section
-      className="wg-rise relative isolate overflow-hidden rounded-2xl"
-      style={{
-        background: "linear-gradient(160deg, #FBF7F0 0%, #F4EEE3 56%, #F1E9DB 100%)",
-        border: "1px solid var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
-      }}
-    >
-      <span aria-hidden className="kpi-strip-mesh" />
-      <span aria-hidden className="kpi-strip-grain" />
-
-      <div className="relative z-[2] flex items-center gap-5 p-4 max-md:flex-col max-md:items-stretch max-md:gap-4">
-        {/* Gauge */}
-        <AttainmentGauge value={model.weighted} expected={model.avgExpected} tone={heroTone} reduce={reduce} />
-
-        {/* Read-out — compact 3 rows: title (w/ inline eyebrow) · sub · chips. */}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span
-              className="inline-flex items-center gap-1 text-[9.5px] font-black uppercase tracking-[0.16em]"
-              style={{ color: "var(--color-altus-red-deep)" }}
-            >
-              <Sparkles size={12} strokeWidth={2.6} />
-              Executive Scorecard
-            </span>
-            <h1
-              className="leading-none text-ink-strong"
-              style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 22, letterSpacing: "-0.02em" }}
-            >
-              {LEVEL_NOUN[level]} Objectives &amp; Key Results
-            </h1>
-          </div>
-          <p className="mt-1 text-[12.5px] font-semibold text-ink-subtle tabular-nums">
-            {model.total} adopted goal{model.total === 1 ? "" : "s"} · {fyLabel(fyStartYear)}
-            {viewingNote && (
-              <>
-                {" · "}
-                <span className="font-bold text-ink-soft">viewing {viewingNote}</span>
-              </>
-            )}
-          </p>
-
-          {/* Pace read + forecast/on-pace chips — one line (wraps only if narrow) */}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold tabular-nums"
-              style={{ background: `color-mix(in srgb, ${heroTone} 12%, transparent)`, color: heroTone }}
-            >
-              {behind ? <TrendingDown size={14} strokeWidth={2.8} /> : <TrendingUp size={14} strokeWidth={2.8} />}
-              {Math.abs(model.paceDelta)} pts {behind ? "behind" : "ahead of"} schedule
-            </span>
-            <span className="text-[12px] font-semibold text-ink-subtle tabular-nums">
-              attained <span className="font-black text-ink-soft">{model.weighted}%</span> · expected{" "}
-              <span className="font-black text-ink-soft">{model.avgExpected}%</span> by now
-            </span>
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold tabular-nums"
-              style={{
-                borderColor: `color-mix(in srgb, ${forecastTone} 40%, transparent)`,
-                background: `color-mix(in srgb, ${forecastTone} 8%, transparent)`,
-                color: forecastTone,
-              }}
-            >
-              <Gauge size={13} strokeWidth={2.6} />
-              Forecast finish ~{model.avgConfidence}%
-            </span>
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold tabular-nums text-ink-soft"
-              style={{ borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-card)" }}
-            >
-              <CheckCircle2 size={13} strokeWidth={2.6} style={{ color: GREEN }} />
-              {model.onPace} on pace · {onPacePct}%
-            </span>
-            {model.needsAttention > 0 && (
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold tabular-nums"
-                style={{
-                  borderColor: `color-mix(in srgb, ${RED} 38%, transparent)`,
-                  background: `color-mix(in srgb, ${RED} 8%, transparent)`,
-                  color: RED,
-                }}
-              >
-                <AlertTriangle size={13} strokeWidth={2.6} />
-                {model.needsAttention} need attention
-              </span>
-            )}
-          </div>
+    <div className="mb-3.5 flex items-start justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <span
+          className="grid size-9 shrink-0 place-items-center rounded-lg"
+          style={{ background: `color-mix(in srgb, ${accent} 12%, transparent)`, color: accent }}
+        >
+          {icon}
+        </span>
+        <div>
+          <h3 className="font-black leading-tight text-ink-strong" style={{ fontSize: 15, letterSpacing: "-0.01em" }}>
+            {title}
+          </h3>
+          {subtitle && <p className="text-[12px] font-semibold text-ink-subtle">{subtitle}</p>}
         </div>
       </div>
-    </section>
-  );
-}
-
-function AttainmentGauge({
-  value,
-  expected,
-  tone,
-  reduce,
-}: {
-  value: number;
-  expected: number;
-  tone: string;
-  reduce: boolean;
-}) {
-  const size = 116;
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = 48;
-  const START = 135;
-  const SWEEP = 270;
-  const valEnd = START + SWEEP * (Math.min(100, Math.max(0, value)) / 100);
-  const tickA = START + SWEEP * (Math.min(100, Math.max(0, expected)) / 100);
-  const p1 = polar(cx, cy, r - 9, tickA);
-  const p2 = polar(cx, cy, r + 9, tickA);
-  const shown = Math.round(useCountUp(value, !reduce));
-
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} role="img" aria-label={`Weighted attainment ${value}%, expected ${expected}%`}>
-        <defs>
-          <linearGradient id="gauge-fill" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={tone} />
-            <stop offset="100%" stopColor={`color-mix(in srgb, ${tone} 62%, #fff)`} />
-          </linearGradient>
-        </defs>
-        {/* Track */}
-        <path
-          d={arcPath(cx, cy, r, START, START + SWEEP)}
-          fill="none"
-          stroke="var(--color-surface-soft)"
-          strokeWidth={11}
-          strokeLinecap="round"
-        />
-        {/* Value */}
-        {value > 0 && (
-          <path
-            d={arcPath(cx, cy, r, START, valEnd)}
-            fill="none"
-            stroke="url(#gauge-fill)"
-            strokeWidth={15}
-            strokeLinecap="round"
-            style={reduce ? undefined : { animation: "fadeUp 640ms both" }}
-          />
-        )}
-        {/* Expected-pace tick */}
-        <line
-          x1={p1.x}
-          y1={p1.y}
-          x2={p2.x}
-          y2={p2.y}
-          stroke="var(--color-ink-strong)"
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          opacity={0.55}
-        />
-      </svg>
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <span
-          className="tabular-nums leading-none text-ink-strong"
-          style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 28, letterSpacing: "-0.03em" }}
-        >
-          {shown}
-          <span style={{ fontSize: 14 }}>%</span>
-        </span>
-        <span className="mt-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-ink-subtle">
-          Weighted attn.
-        </span>
-        <span className="mt-1 flex items-center gap-1 text-[9px] font-bold text-ink-subtle tabular-nums">
-          <span className="inline-block h-1.5 w-[2px] rounded" style={{ background: "var(--color-ink-strong)", opacity: 0.55 }} />
-          pace {expected}%
-        </span>
-      </div>
+      {trailing && <div className="pt-1.5">{trailing}</div>}
     </div>
   );
 }
@@ -729,25 +814,30 @@ function KpiRow({
   drill,
   onDrill,
   reduce,
-  level,
 }: {
   model: Model;
   drill: Drill | null;
   onDrill: (d: Drill) => void;
   reduce: boolean;
-  level: GoalPeriod;
 }) {
-  const rupeePct =
-    model.rupee && model.rupee.target > 0
-      ? Math.round((model.rupee.actual / model.rupee.target) * 100)
-      : null;
+  const delegatedWeightPct = model.totalWeight > 0 ? Math.round((model.accountability.delegatedWeight / model.totalWeight) * 100) : 0;
 
   const kpis: Kpi[] = [];
 
   kpis.push({
+    key: "total",
+    icon: <Target size={16} strokeWidth={2.4} />,
+    label: "Total goals",
+    value: String(model.total),
+    numeric: model.total,
+    sub: "adopted this period",
+    accent: BLUE,
+  });
+
+  kpis.push({
     key: "attn",
     icon: <Gauge size={16} strokeWidth={2.4} />,
-    label: "Weighted attainment",
+    label: "Average attainment",
     value: `${model.weighted}%`,
     numeric: model.weighted,
     sub:
@@ -758,120 +848,76 @@ function KpiRow({
           ▼ {Math.abs(model.paceDelta)} pts behind pace
         </span>
       ),
-    accent: "var(--color-altus-red-deep)",
+    accent: GREEN,
   });
 
   kpis.push({
-    key: "onpace",
-    icon: <TrendingUp size={16} strokeWidth={2.4} />,
-    label: "On pace",
-    value: String(model.onPace),
-    numeric: model.onPace,
-    sub: "ahead + on-track",
-    accent: GREEN,
-    drill: {
-      id: "kpi:onpace",
-      label: "On-pace goals",
-      color: GREEN,
-      test: (r) => r.band === "ahead" || r.band === "on-track",
-    },
+    key: "weight",
+    icon: <Boxes size={16} strokeWidth={2.4} />,
+    label: "Total weight",
+    value: String(model.totalWeight),
+    numeric: model.totalWeight,
+    sub: `across ${model.total} goal${model.total === 1 ? "" : "s"}`,
+    accent: PURPLE,
+  });
+
+  kpis.push({
+    key: "delegatedCount",
+    icon: <Share2 size={16} strokeWidth={2.4} />,
+    label: "Delegated goals",
+    value: String(model.accountability.delegated),
+    numeric: model.accountability.delegated,
+    sub: "handed to a team member",
+    accent: ORANGE,
+    drill:
+      model.accountability.delegated > 0
+        ? { id: "kpi:delegated", label: "Delegated goals", color: ORANGE, test: (r) => (r.g.delegatedTo ?? []).length > 0 }
+        : undefined,
+  });
+
+  kpis.push({
+    key: "delegatedWeight",
+    icon: <HandCoins size={16} strokeWidth={2.4} />,
+    label: "Delegated weight",
+    value: `${delegatedWeightPct}%`,
+    numeric: delegatedWeightPct,
+    sub: `${model.accountability.delegatedWeight} of ${model.totalWeight}`,
+    accent: YELLOW,
   });
 
   kpis.push({
     key: "atrisk",
     icon: <AlertTriangle size={16} strokeWidth={2.4} />,
-    label: "At risk",
-    value: String(model.atRisk),
-    numeric: model.atRisk,
-    sub: "behind pace / carried",
+    label: "Goals at risk",
+    value: String(model.needsAttention),
+    numeric: model.needsAttention,
+    sub: "at-risk · overdue · spillover",
     accent: RED,
-    drill: {
-      id: "kpi:atrisk",
-      label: "At-risk goals",
-      color: RED,
-      test: (r) => r.band === "at-risk" || r.band === "spillover",
-    },
-  });
-
-  kpis.push({
-    key: "overdue",
-    icon: <CalendarClock size={16} strokeWidth={2.4} />,
-    label: "Overdue",
-    value: String(model.overdue),
-    numeric: model.overdue,
-    sub: "past target date",
-    accent: RED_DEEP,
     drill:
-      model.overdue > 0
-        ? { id: "kpi:overdue", label: "Overdue goals", color: RED_DEEP, test: (r) => r.band === "overdue" }
+      model.needsAttention > 0
+        ? {
+            id: "kpi:risk",
+            label: "At-risk goals",
+            color: RED,
+            test: (r) => r.band === "at-risk" || r.band === "overdue" || r.band === "spillover",
+          }
         : undefined,
   });
 
-  kpis.push({
-    key: "done",
-    icon: <CheckCircle2 size={16} strokeWidth={2.4} />,
-    label: "Completed",
-    value: String(model.done),
-    numeric: model.done,
-    sub: model.total ? `${Math.round((model.done / model.total) * 100)}% at 100%` : "—",
-    accent: GREEN,
-    drill: { id: "kpi:done", label: "Completed goals", color: GREEN, test: (r) => r.band === "done" },
-  });
-
-  if (model.rupee) {
-    kpis.push({
-      key: "rupee",
-      icon: <IndianRupee size={16} strokeWidth={2.4} />,
-      label: "₹ attainment",
-      value: `₹${fmtNum(model.rupee.actual)}`,
-      numeric: null,
-      sub:
-        rupeePct != null ? (
-          <span style={{ color: rupeePct >= 100 ? GREEN : rupeePct >= 60 ? AMBER : RED }}>
-            {rupeePct}% of ₹{fmtNum(model.rupee.target)}
-          </span>
-        ) : (
-          `of ₹${fmtNum(model.rupee.target)}`
-        ),
-      accent: "var(--color-altus-red-deep)",
-    });
-  }
-
-  if (model.coverage) {
-    kpis.push({
-      key: "coverage",
-      icon: <GitBranch size={16} strokeWidth={2.4} />,
-      label: "Cascade coverage",
-      value: `${model.coverage.pct}%`,
-      numeric: model.coverage.pct,
-      sub: `${model.coverage.orphans.length} need breakdown`,
-      accent: BLUE,
-      drill:
-        model.coverage.orphans.length > 0
-          ? {
-              id: "kpi:coverage",
-              label: `${CHILD_NOUN[level] || "child"}-less goals`,
-              color: BLUE,
-              test: (r) => r.childCount === 0,
-            }
-          : undefined,
-    });
-  }
-
   return (
-    // One line — every KPI card on a single row, equal width, filling the page;
-    // holds a min-width and scrolls horizontally only if the viewport is narrow.
-    <div className="flex items-stretch gap-3 overflow-x-auto pb-1">
+    // One line — a true grid row, so every card gets the exact same column
+    // width and the same row height regardless of label length, with no
+    // content-driven overflow pushing any single card wider than the rest.
+    <div className="grid gap-3.5" style={{ gridTemplateColumns: `repeat(${kpis.length}, minmax(0, 1fr))` }}>
       {kpis.map((k, i) => (
-        <div key={k.key} className="min-w-[150px] flex-1 [&>*]:h-full">
-          <KpiCard
-            kpi={k}
-            index={i}
-            reduce={reduce}
-            active={!!k.drill && drill?.id === k.drill.id}
-            onSelect={k.drill ? () => onDrill(k.drill!) : undefined}
-          />
-        </div>
+        <KpiCard
+          key={k.key}
+          kpi={k}
+          index={i}
+          reduce={reduce}
+          active={!!k.drill && drill?.id === k.drill.id}
+          onSelect={k.drill ? () => onDrill(k.drill!) : undefined}
+        />
       ))}
     </div>
   );
@@ -904,43 +950,39 @@ function KpiCard({
   return (
     <Tag
       {...(clickable ? { type: "button", onClick: onSelect, "aria-pressed": active } : {})}
-      className={`wg-rise wg-sheen group relative overflow-hidden rounded-2xl px-4 py-3.5 text-left transition-all ${
-        clickable ? `cursor-pointer hover:-translate-y-0.5 ${FOCUS_RING}` : ""
+      className={`wg-rise flex h-full min-w-0 flex-col rounded-xl px-5 py-4 text-left transition-all ${
+        clickable ? `cursor-pointer hover:-translate-y-px ${FOCUS_RING}` : ""
       }`}
       style={{
         animationDelay: `${index * 45}ms`,
-        background: active
-          ? `color-mix(in srgb, ${kpi.accent} 9%, var(--color-surface-card))`
-          : "var(--color-surface-card)",
-        border: `1px solid ${
-          active ? `color-mix(in srgb, ${kpi.accent} 45%, transparent)` : "var(--color-hairline-strong)"
-        }`,
+        background: `color-mix(in srgb, ${kpi.accent} 7%, var(--color-surface-card))`,
+        border: `1px solid color-mix(in srgb, ${kpi.accent} 22%, var(--color-hairline-strong))`,
+        borderBottom: `3px solid ${kpi.accent}`,
         boxShadow: active
-          ? `inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 26px -16px ${kpi.accent}`
-          : "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.05)",
+          ? `0 1px 2px rgba(15,23,42,0.04), 0 8px 20px -12px ${kpi.accent}`
+          : "0 1px 2px rgba(15,23,42,0.04)",
       }}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full opacity-60 transition-opacity group-hover:opacity-90"
-        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${kpi.accent} 13%, transparent), transparent 68%)` }}
-      />
-      <div className="relative flex items-center gap-2">
+      <div className="flex items-start justify-between gap-2">
+        <span className="min-w-0 text-[11px] font-black uppercase leading-tight tracking-[0.08em] text-ink-subtle">
+          {kpi.label}
+        </span>
         <span
-          className="grid size-7 shrink-0 place-items-center rounded-lg"
-          style={{ background: `color-mix(in srgb, ${kpi.accent} 12%, transparent)`, color: kpi.accent }}
+          className="grid size-9 shrink-0 place-items-center rounded-lg"
+          style={{ background: `color-mix(in srgb, ${kpi.accent} 18%, transparent)`, color: kpi.accent }}
         >
           {kpi.icon}
         </span>
-        <span className="text-[10.5px] font-black uppercase tracking-[0.09em] text-ink-subtle">{kpi.label}</span>
       </div>
       <div
-        className="relative mt-2 font-black tabular-nums leading-none text-ink-strong"
-        style={{ fontFamily: DISPLAY, fontSize: 29, letterSpacing: "-0.02em" }}
+        className="mt-2.5 font-black tabular-nums leading-none"
+        style={{ fontFamily: DISPLAY, fontSize: 34, letterSpacing: "-0.02em", color: kpi.accent }}
       >
         {shown}
       </div>
-      <div className="relative mt-1.5 text-[12px] font-semibold text-ink-subtle tabular-nums">{kpi.sub}</div>
+      <div className="relative mt-auto pt-2 text-[12.5px] font-semibold text-ink-subtle tabular-nums">
+        {kpi.sub}
+      </div>
     </Tag>
   );
 }
@@ -951,170 +993,229 @@ function KpiCard({
 
 function Distribution({
   model,
-  reduce,
   activeBand,
   onPick,
 }: {
   model: Model;
-  reduce: boolean;
   activeBand: DisplayBand | null;
   onPick: (b: DisplayBand) => void;
 }) {
   const total = model.total;
-  const present = BAND_ORDER.filter((b) => model.counts[b] > 0);
-  const [reveal, setReveal] = React.useState(reduce);
-  React.useEffect(() => {
-    const raf = requestAnimationFrame(() => setReveal(true));
-    return () => cancelAnimationFrame(raf);
-  }, []);
+  const labelToBand = new Map(BAND_ORDER.map((b) => [BAND_META[b].label, b]));
+  const bars: HBarRow[] = BAND_ORDER.map((b) => {
+    const c = model.counts[b];
+    const pct = total ? Math.round((c / total) * 100) : 0;
+    return {
+      label: BAND_META[b].label,
+      value: pct,
+      color: activeBand === b ? BAND_META[b].color : c > 0 ? BAND_META[b].color : "var(--color-hairline-strong)",
+    };
+  });
 
   return (
     <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">Pace distribution</h3>
-        <span className="text-[11px] font-semibold text-ink-subtle">click a band to drill in</span>
-      </div>
+      <SectionHeader
+        icon={<BarChart3 size={17} strokeWidth={2.2} />}
+        title="Pace distribution"
+        subtitle="Goals grouped by how they're tracking"
+        trailing={<span className="text-[11px] font-semibold text-ink-subtle">click a band to drill in</span>}
+      />
 
-      {/* Segmented bar */}
-      <div
-        className="flex h-4 w-full gap-[2px] overflow-hidden rounded-full"
-        style={{ background: "var(--color-surface-soft)", boxShadow: "inset 0 1px 2px rgba(15,23,42,0.06)" }}
-      >
-        {present.map((b) => {
-          const w = total ? (model.counts[b] / total) * 100 : 0;
-          return (
-            <button
-              key={b}
-              type="button"
-              onClick={() => onPick(b)}
-              aria-label={`${BAND_META[b].label}: ${model.counts[b]} goals`}
-              title={`${BAND_META[b].label} · ${model.counts[b]}`}
-              className="h-full cursor-pointer"
-              style={{
-                width: reveal ? `${w}%` : "0%",
-                minWidth: 6,
-                background: BAND_META[b].color,
-                opacity: activeBand && activeBand !== b ? 0.35 : 1,
-                transition: reduce ? "opacity 150ms" : "width 680ms cubic-bezier(0.2,0,0,1), opacity 150ms",
-              }}
-            />
-          );
-        })}
-      </div>
+      <VBars
+        data={bars}
+        height={280}
+        maxValue={100}
+        rightLabel={(row) => `${row.value}% · ${model.counts[labelToBand.get(row.label)!]}`}
+        onBarClick={(row) => {
+          const b = labelToBand.get(row.label);
+          if (b && model.counts[b] > 0) onPick(b);
+        }}
+      />
 
-      {/* Legend */}
-      <div className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-1.5 max-sm:grid-cols-1">
-        {BAND_ORDER.map((b) => {
-          const c = model.counts[b];
-          const active = activeBand === b;
-          const pct = total ? Math.round((c / total) * 100) : 0;
-          return (
-            <button
-              key={b}
-              type="button"
-              onClick={() => c > 0 && onPick(b)}
-              aria-pressed={active}
-              disabled={c === 0}
-              className={`flex items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors ${
-                c > 0 ? `cursor-pointer hover:bg-[color-mix(in_srgb,var(--color-altus-red)_4%,transparent)] ${FOCUS_RING}` : "opacity-45"
-              }`}
-              style={active ? { background: `color-mix(in srgb, ${BAND_META[b].color} 9%, transparent)` } : undefined}
-            >
-              <span className="size-2.5 shrink-0 rounded-full" style={{ background: BAND_META[b].color }} />
-              <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink-soft">
-                {BAND_META[b].label}
-              </span>
-              <span className="text-[13px] font-black tabular-nums text-ink-strong">{c}</span>
-              <span className="w-9 text-right text-[11px] font-bold tabular-nums text-ink-subtle">{pct}%</span>
-            </button>
-          );
-        })}
-      </div>
+    </section>
+  );
+}
 
-      {/* Read-out — turns the empty lower half into the pace story */}
-      {total > 0 && (() => {
-        const tracking = model.done + model.onPace; // done + ahead + on-track
-        const trackingPct = Math.round((tracking / total) * 100);
-        const gap = model.weighted - model.avgExpected;
-        const gapColor = gap >= 0 ? GREEN : RED;
-        const attention = model.atRisk + model.overdue;
-        return (
-          <div className="mt-5 space-y-3 border-t pt-4" style={{ borderColor: "var(--color-hairline)" }}>
-            {/* Tracking-to-plan bar */}
-            <div>
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-[11.5px] font-black uppercase tracking-[0.08em] text-ink-subtle">Tracking to plan</span>
-                <span className="text-[12.5px] font-bold text-ink-soft tabular-nums">
-                  <span className="font-black text-ink-strong">{tracking}</span> of {total} · {trackingPct}%
-                </span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${trackingPct}%`,
-                    background: `linear-gradient(90deg, ${GREEN}, ${GREEN_BRIGHT})`,
-                    transition: reduce ? undefined : "width 680ms cubic-bezier(0.2,0,0,1)",
-                  }}
-                />
-              </div>
+/* ====================================================================== */
+/* 3b · Tracking to plan — separate panel, beside the pace chart          */
+/* ====================================================================== */
+
+function TrackingToPlanPanel({ model }: { model: Model }) {
+  const total = model.total;
+  const tracking = model.done + model.onPace; // done + ahead + on-track
+  const trackingPct = total ? Math.round((tracking / total) * 100) : 0;
+  const gap = model.weighted - model.avgExpected;
+  const gapColor = gap >= 0 ? GREEN : RED;
+  const attention = model.atRisk + model.overdue;
+
+  const slices: DonutSlice[] =
+    total > 0
+      ? [
+          { label: "Tracking", value: tracking, color: GREEN },
+          { label: "Behind", value: total - tracking, color: "var(--color-hairline-strong)" },
+        ]
+      : [];
+
+  return (
+    <section className="wg-rise flex flex-col rounded-2xl px-5 py-4" style={PANEL}>
+      <SectionHeader
+        icon={<Target size={17} strokeWidth={2.2} />}
+        title="Tracking to plan"
+        subtitle={total ? `${tracking} of ${total} goals on schedule` : "No adopted goals yet"}
+      />
+
+      {total > 0 && (
+        <>
+          <div className="flex items-center justify-center py-1">
+            <Donut data={slices} size={144} centerValue={`${trackingPct}%`} centerLabel="Tracking" />
+          </div>
+
+          <div
+            className="mt-3 grid grid-cols-3 divide-x rounded-xl px-1 py-2.5"
+            style={{ background: "var(--color-surface-soft)", borderColor: "var(--color-hairline)" }}
+          >
+            <div className="px-3 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">Attained</p>
+              <p className="text-[18px] font-black tabular-nums text-ink-strong">{model.weighted}%</p>
             </div>
-
-            {/* Attainment vs expected pace */}
-            <div
-              className="grid grid-cols-3 divide-x rounded-xl px-1 py-2.5"
-              style={{ background: "var(--color-surface-soft)", borderColor: "var(--color-hairline)" }}
-            >
-              <div className="px-3 text-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">Attained</p>
-                <p className="text-[18px] font-black tabular-nums text-ink-strong">{model.weighted}%</p>
-              </div>
-              <div className="px-3 text-center" style={{ borderColor: "var(--color-hairline)" }}>
-                <p className="text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">Expected</p>
-                <p className="text-[18px] font-black tabular-nums text-ink-soft">{model.avgExpected}%</p>
-              </div>
-              <div className="px-3 text-center" style={{ borderColor: "var(--color-hairline)" }}>
-                <p className="text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">Gap</p>
-                <p className="text-[18px] font-black tabular-nums" style={{ color: gapColor }}>
-                  {gap >= 0 ? "+" : "−"}{Math.abs(gap)}
-                </p>
-              </div>
+            <div className="px-3 text-center" style={{ borderColor: "var(--color-hairline)" }}>
+              <p className="text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">Expected</p>
+              <p className="text-[18px] font-black tabular-nums text-ink-soft">{model.avgExpected}%</p>
             </div>
-
-            {/* Attention callout */}
-            <div
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
-              style={{
-                background: attention > 0
-                  ? `color-mix(in srgb, ${RED} 7%, transparent)`
-                  : `color-mix(in srgb, ${GREEN} 8%, transparent)`,
-              }}
-            >
-              <span
-                className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg"
-                style={{
-                  background: attention > 0 ? `color-mix(in srgb, ${RED} 14%, transparent)` : `color-mix(in srgb, ${GREEN} 14%, transparent)`,
-                  color: attention > 0 ? RED : GREEN,
-                }}
-              >
-                {attention > 0 ? <AlertTriangle size={15} strokeWidth={2.6} /> : <CheckCircle2 size={16} strokeWidth={2.4} />}
-              </span>
-              <p className="text-[12.5px] font-semibold leading-snug text-ink-soft">
-                {attention > 0 ? (
-                  <>
-                    <span className="font-black text-ink-strong tabular-nums">{attention}</span>{" "}
-                    goal{attention === 1 ? "" : "s"} need attention
-                    {model.overdue > 0 && <> · <span className="font-black tabular-nums" style={{ color: RED_DEEP }}>{model.overdue}</span> overdue</>}
-                  </>
-                ) : (
-                  <>All {total} goals are tracking to schedule — nothing behind pace.</>
-                )}
+            <div className="px-3 text-center" style={{ borderColor: "var(--color-hairline)" }}>
+              <p className="text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">Gap</p>
+              <p className="text-[18px] font-black tabular-nums" style={{ color: gapColor }}>
+                {gap >= 0 ? "+" : "−"}{Math.abs(gap)}
               </p>
             </div>
           </div>
-        );
-      })()}
+
+          <div
+            className="mt-3 flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+            style={{
+              background:
+                attention > 0
+                  ? `color-mix(in srgb, ${RED} 7%, transparent)`
+                  : `color-mix(in srgb, ${GREEN} 8%, transparent)`,
+            }}
+          >
+            <span
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg"
+              style={{
+                background:
+                  attention > 0
+                    ? `color-mix(in srgb, ${RED} 14%, transparent)`
+                    : `color-mix(in srgb, ${GREEN} 14%, transparent)`,
+                color: attention > 0 ? RED : GREEN,
+              }}
+            >
+              {attention > 0 ? <AlertTriangle size={15} strokeWidth={2.6} /> : <CheckCircle2 size={16} strokeWidth={2.4} />}
+            </span>
+            <p className="text-[12.5px] font-semibold leading-snug text-ink-soft">
+              {attention > 0 ? (
+                <>
+                  <span className="font-black text-ink-strong tabular-nums">{attention}</span>{" "}
+                  goal{attention === 1 ? "" : "s"} need attention
+                  {model.overdue > 0 && (
+                    <>
+                      {" "}
+                      · <span className="font-black tabular-nums" style={{ color: RED_DEEP }}>{model.overdue}</span> overdue
+                    </>
+                  )}
+                </>
+              ) : (
+                <>All {total} goals are tracking to schedule — nothing behind pace.</>
+              )}
+            </p>
+          </div>
+        </>
+      )}
     </section>
+  );
+}
+
+/* ====================================================================== */
+/* Yearly performance trend — actual vs expected, one point per quarter   */
+/* ====================================================================== */
+
+function QuarterPanel({
+  quarters,
+  activeLabel,
+  onPick,
+}: {
+  quarters: QuarterPoint[];
+  activeLabel: string | null;
+  onPick: (label: string, key: string) => void;
+}) {
+  const withData = quarters.filter((p) => p.actual != null).length;
+  const hasAny = quarters.some((p) => p.count > 0);
+  const keyByLabel = new Map(quarters.map((q) => [q.label, q.key]));
+
+  const bars: HBarRow[] = quarters.map((q) => ({
+    label: q.label,
+    value: q.count,
+    color: activeLabel === q.label ? "var(--color-altus-red)" : q.count > 0 ? BLUE : "var(--color-hairline-strong)",
+  }));
+
+  return (
+    <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
+      <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+        <SectionHeader
+          icon={<LineChart size={17} strokeWidth={2.2} />}
+          title="Goals by quarter"
+          subtitle="Adopted goal count, quarter by quarter"
+          accent={BLUE}
+        />
+        {!hasAny ? (
+          <p className="py-6 text-center text-[13px] font-semibold text-ink-subtle">
+            No quarter goals cascaded yet this FY.
+          </p>
+        ) : (
+          <VBars
+            data={bars}
+            height={200}
+            onBarClick={(row) => {
+              const key = keyByLabel.get(row.label);
+              if (key && row.value > 0) onPick(row.label, key);
+            }}
+          />
+        )}
+      </section>
+
+      <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+        <SectionHeader
+          icon={<LineChart size={17} strokeWidth={2.2} />}
+          title="Quarterly attainment"
+          subtitle="Actual vs expected pace"
+          trailing={
+            <span className="flex items-center gap-3 text-[11px] font-semibold text-ink-subtle">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-[2.5px] w-3 rounded-full" style={{ background: "var(--color-altus-red)" }} />
+                Actual
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-[2px] w-3 rounded-full"
+                  style={{ background: "var(--color-ink-subtle)", opacity: 0.6 }}
+                />
+                Expected
+              </span>
+            </span>
+          }
+        />
+
+        {withData < 2 ? (
+          <div className="flex flex-col items-center justify-center gap-1 py-10 text-center">
+            <p className="text-[13px] font-bold text-ink-soft">No historical data available</p>
+            <p className="max-w-[36ch] text-[12px] font-semibold text-ink-subtle">
+              Attainment will chart here once goals are cascaded into more than one quarter of this FY.
+            </p>
+          </div>
+        ) : (
+          <TrendLine data={quarters} />
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -1124,19 +1225,29 @@ function Distribution({
 
 function AtRiskList({ rows, total }: { rows: Row[]; total: number }) {
   return (
-    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="inline-flex items-center gap-2 text-[12.5px] font-black uppercase tracking-[0.1em]" style={{ color: RED }}>
-          <AlertTriangle size={15} strokeWidth={2.6} />
-          Needs attention
-        </h3>
-        <span className="rounded-full px-2 py-0.5 text-[11.5px] font-black tabular-nums text-white" style={{ background: RED }}>
-          {rows.length}
-        </span>
+    <section
+      className="wg-rise overflow-hidden rounded-2xl"
+      style={{ ...PANEL, borderBottom: `3px solid ${RED}` }}
+    >
+      <div className="px-5 pt-4 pb-1">
+        <SectionHeader
+          icon={<AlertTriangle size={17} strokeWidth={2.2} />}
+          title="Needs attention"
+          subtitle="Worst pace gap first"
+          accent={RED}
+          trailing={
+            <span
+              className="rounded-full px-2 py-0.5 text-[11.5px] font-black tabular-nums text-white"
+              style={{ background: RED }}
+            >
+              {rows.length}
+            </span>
+          }
+        />
       </div>
 
       {rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 px-5 pb-6 pt-2 text-center">
           <span
             className="inline-flex size-11 items-center justify-center rounded-full"
             style={{ background: `color-mix(in srgb, ${GREEN} 12%, transparent)`, color: GREEN }}
@@ -1149,56 +1260,65 @@ function AtRiskList({ rows, total }: { rows: Row[]; total: number }) {
           </p>
         </div>
       ) : (
-        <ul className="flex max-h-[420px] flex-col divide-y overflow-y-auto" style={{ borderColor: "var(--color-hairline)" }}>
-          {rows.map((r) => (
-            <AtRiskRow key={r.g.id} row={r} />
-          ))}
-        </ul>
+        <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr style={{ background: "var(--color-surface-soft)" }}>
+                <th className="px-5 py-2 text-[11px] font-black uppercase tracking-[0.06em] text-ink-subtle">#</th>
+                <th className="px-2 py-2 text-[11px] font-black uppercase tracking-[0.06em] text-ink-subtle">Goal</th>
+                <th className="px-2 py-2 text-right text-[11px] font-black uppercase tracking-[0.06em] text-ink-subtle">
+                  Status
+                </th>
+                <th className="px-5 py-2 text-right text-[11px] font-black uppercase tracking-[0.06em] text-ink-subtle">
+                  Attainment
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <AtRiskRow key={r.g.id} row={r} rank={i + 1} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
 }
 
-function AtRiskRow({ row }: { row: Row }) {
-  const { g, eff, h, band, daysLate } = row;
+function AtRiskRow({ row, rank }: { row: Row; rank: number }) {
+  const { g, eff, band, daysLate } = row;
   const meta = BAND_META[band];
-  const expected = h.expected;
   return (
-    <li className="flex items-center gap-3 py-2.5">
-      <span className="mt-0.5 size-2.5 shrink-0 rounded-full" style={{ background: meta.color }} aria-hidden />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[13.5px] font-bold text-ink-strong" title={g.title}>
+    <tr className="border-t" style={{ borderColor: "var(--color-hairline)" }}>
+      <td className="px-5 py-3 text-[13px] font-black tabular-nums text-ink-subtle">{rank}</td>
+      <td className="min-w-0 px-2 py-3">
+        <div className="max-w-[260px] truncate text-[13.5px] font-bold text-ink-strong" title={g.title}>
           {g.title}
         </div>
-        <div className="mt-1 flex items-center gap-2">
-          {/* effective vs expected mini bar */}
-          <span className="relative h-1.5 w-28 shrink-0 overflow-hidden rounded-full max-sm:w-20" style={{ background: "var(--color-surface-soft)" }}>
+      </td>
+      <td className="whitespace-nowrap px-2 py-3 text-right">
+        <span className="text-[11.5px] font-black uppercase tracking-[0.04em]" style={{ color: meta.color }}>
+          {daysLate > 0 ? `${daysLate}d late` : meta.short}
+        </span>
+      </td>
+      <td className="px-5 py-3">
+        <div className="flex items-center justify-end gap-2">
+          <span
+            className="relative h-1.5 w-24 shrink-0 overflow-hidden rounded-full max-sm:w-14"
+            style={{ background: "var(--color-surface-soft)" }}
+          >
             <span
               className="absolute inset-y-0 left-0 rounded-full"
               style={{ width: `${Math.min(100, eff)}%`, background: meta.color }}
             />
-            <span
-              className="absolute inset-y-[-2px] w-[2px]"
-              style={{ left: `${Math.min(100, expected)}%`, background: "var(--color-ink-strong)", opacity: 0.5 }}
-              aria-hidden
-            />
           </span>
-          <span className="text-[11.5px] font-bold tabular-nums" style={{ color: meta.color }}>
+          <span className="w-9 shrink-0 text-right text-[12.5px] font-black tabular-nums" style={{ color: meta.color }}>
             {eff}%
           </span>
-          <span className="text-[11px] font-semibold tabular-nums text-ink-subtle">vs {expected}% pace</span>
         </div>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <span
-          className="rounded-full px-2 py-0.5 text-[10.5px] font-black uppercase tracking-[0.04em]"
-          style={{ background: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}
-        >
-          {daysLate > 0 ? `${daysLate}d late` : meta.short}
-        </span>
-        <span className="text-[10.5px] font-semibold tabular-nums text-ink-subtle">~{h.confidence}% forecast</span>
-      </div>
-    </li>
+      </td>
+    </tr>
   );
 }
 
@@ -1210,64 +1330,48 @@ function CoveragePanel({
   coverage,
   total,
   level,
-  reduce,
 }: {
   coverage: NonNullable<Model["coverage"]>;
   total: number;
   level: GoalPeriod;
-  reduce: boolean;
 }) {
   const child = CHILD_NOUN[level] || "child";
-  const [reveal, setReveal] = React.useState(reduce);
-  React.useEffect(() => {
-    const raf = requestAnimationFrame(() => setReveal(true));
-    return () => cancelAnimationFrame(raf);
-  }, []);
   const tone = coverage.pct >= 80 ? GREEN : coverage.pct >= 50 ? AMBER : RED;
+  const orphanColor = coverage.orphans.length > 0 ? RED : "var(--color-hairline-strong)";
+
+  const slices: DonutSlice[] =
+    total > 0
+      ? [
+          { label: "Cascaded", value: coverage.withChildren, color: tone },
+          { label: "Orphaned", value: coverage.orphans.length, color: orphanColor },
+        ]
+      : [];
 
   return (
     <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="inline-flex items-center gap-2 text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">
-          <GitBranch size={15} strokeWidth={2.4} style={{ color: BLUE }} />
-          Cascade coverage
-        </h3>
-        <span className="text-[11px] font-semibold text-ink-subtle">
-          broken down into {child} goals
-        </span>
-      </div>
+      <SectionHeader
+        icon={<GitBranch size={17} strokeWidth={2.2} />}
+        title="Cascade coverage"
+        subtitle={`Which goals are broken down into ${child} goals`}
+        accent={BLUE}
+      />
 
-      <div className="grid grid-cols-[auto_1fr] items-center gap-5 max-sm:grid-cols-1">
-        <div className="flex items-baseline gap-2">
-          <span
-            className="tabular-nums leading-none"
-            style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 42, letterSpacing: "-0.03em", color: tone }}
-          >
-            {coverage.pct}%
-          </span>
-          <div className="text-[11.5px] font-semibold text-ink-subtle">
-            <div className="tabular-nums">
-              <span className="font-black text-ink-soft">{coverage.withChildren}</span> of {total}
-            </div>
-            <div>have a breakdown</div>
-          </div>
-        </div>
+      <div className="grid grid-cols-[auto_1fr] items-center gap-6 max-sm:grid-cols-1 max-sm:justify-items-center">
+        <Donut data={slices} size={132} centerValue={`${coverage.pct}%`} centerLabel="Cascaded" />
 
-        <div>
-          <div className="flex h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
-            <span
-              className="h-full"
-              style={{
-                width: reveal ? `${coverage.pct}%` : "0%",
-                background: `linear-gradient(90deg, ${BLUE}, color-mix(in srgb, ${BLUE} 70%, #fff))`,
-                transition: reduce ? undefined : "width 680ms cubic-bezier(0.2,0,0,1)",
-              }}
-            />
+        <div className="text-[11.5px] font-semibold text-ink-subtle">
+          <div className="tabular-nums">
+            <span className="font-black text-ink-soft">{coverage.withChildren}</span> of {total} goals have a
+            breakdown
           </div>
-          <div className="mt-1.5 flex items-center justify-between text-[11px] font-semibold text-ink-subtle tabular-nums">
-            <span>{coverage.withChildren} cascaded</span>
-            <span style={{ color: coverage.orphans.length > 0 ? RED : GREEN }}>
-              {coverage.orphans.length} orphaned
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <span className="inline-flex items-center gap-1.5 tabular-nums">
+              <span className="size-2 shrink-0 rounded-full" style={{ background: tone }} />
+              <span className="font-black text-ink-soft">{coverage.withChildren}</span> cascaded
+            </span>
+            <span className="inline-flex items-center gap-1.5 tabular-nums" style={{ color: orphanColor }}>
+              <span className="size-2 shrink-0 rounded-full" style={{ background: orphanColor }} />
+              <span className="font-black">{coverage.orphans.length}</span> orphaned
             </span>
           </div>
         </div>
@@ -1306,104 +1410,205 @@ function CoveragePanel({
 }
 
 /* ====================================================================== */
-/* 6 · Group panel (pillar / area)                                       */
+/* 6 · Goals by area / type — one bar per category, two toggles           */
 /* ====================================================================== */
 
-function GroupPanel({
-  title,
-  subtitle,
-  icon,
-  groups,
-  reduce,
-  activeLabel,
-  onPick,
+/** One bar per category — a dimension toggle switches Area ↔ Type, a metric
+ *  toggle switches Count ↔ Attainment, so only one number reads per bar at
+ *  a time instead of two bars stacked per category. */
+function GroupedBreakdownPanel({
+  byArea,
+  byPillar,
+  activeArea,
+  activePillar,
+  onPickArea,
+  onPickPillar,
 }: {
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
-  groups: Group[];
-  reduce: boolean;
-  activeLabel: string | null;
-  onPick: (label: string) => void;
+  byArea: Group[];
+  byPillar: Group[];
+  activeArea: string | null;
+  activePillar: string | null;
+  onPickArea: (label: string) => void;
+  onPickPillar: (label: string) => void;
 }) {
-  const [reveal, setReveal] = React.useState(reduce);
-  React.useEffect(() => {
-    const raf = requestAnimationFrame(() => setReveal(true));
-    return () => cancelAnimationFrame(raf);
-  }, []);
+  const [dim, setDim] = React.useState<"area" | "type">("area");
+  const [metric, setMetric] = React.useState<"count" | "pct">("count");
+  const groups = dim === "area" ? byArea : byPillar;
+  const activeLabel = dim === "area" ? activeArea : activePillar;
+  const onPick = dim === "area" ? onPickArea : onPickPillar;
+
+  const toneOf = (pct: number) => (pct >= 100 ? GREEN : pct >= 60 ? AMBER : "var(--color-altus-red-deep)");
+  const sorted = React.useMemo(() => {
+    const list = groups.slice(0, 8);
+    return metric === "pct" ? [...list].sort((a, b) => b.pct - a.pct) : list; // count = the model's own default order
+  }, [groups, metric]);
+  const totalCount = groups.reduce((s, g) => s + g.count, 0);
+
+  const bars: HBarRow[] = sorted.map((g) => ({
+    label: g.label,
+    value: metric === "pct" ? g.pct : g.count,
+    color: activeLabel === g.label ? "var(--color-altus-red)" : metric === "pct" ? toneOf(g.pct) : TEAL,
+  }));
 
   return (
     <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
-      <div className="mb-3 flex items-center gap-2">
-        <span className="grid size-6 place-items-center rounded-md" style={{ color: "var(--color-altus-red-deep)" }}>
-          {icon}
-        </span>
-        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">{title}</h3>
-        <span className="ml-auto text-[11px] font-semibold text-ink-subtle">{subtitle}</span>
-      </div>
+      <SectionHeader
+        icon={dim === "area" ? <Network size={17} strokeWidth={2.2} /> : <Boxes size={17} strokeWidth={2.2} />}
+        title={dim === "area" ? "Goals by area" : "Goals by type"}
+        subtitle={metric === "count" ? "Goal count" : "Weighted attainment"}
+        trailing={
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-0.5 rounded-full border p-0.5" style={{ borderColor: "var(--color-hairline-strong)" }}>
+              {(["count", "pct"] as const).map((mt) => (
+                <button
+                  key={mt}
+                  type="button"
+                  onClick={() => setMetric(mt)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${FOCUS_RING}`}
+                  style={{
+                    background: metric === mt ? "var(--color-altus-red-deep)" : "transparent",
+                    color: metric === mt ? "#fff" : "var(--color-ink-subtle)",
+                  }}
+                >
+                  {mt === "count" ? "Count" : "Attainment"}
+                </button>
+              ))}
+            </div>
+            <div className="inline-flex items-center gap-0.5 rounded-full border p-0.5" style={{ borderColor: "var(--color-hairline-strong)" }}>
+              {(["area", "type"] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDim(d)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${FOCUS_RING}`}
+                  style={{
+                    background: dim === d ? "var(--color-altus-red-deep)" : "transparent",
+                    color: dim === d ? "#fff" : "var(--color-ink-subtle)",
+                  }}
+                >
+                  {d === "area" ? "By area" : "By type"}
+                </button>
+              ))}
+            </div>
+          </div>
+        }
+      />
 
       {groups.length === 0 ? (
         <p className="py-3 text-[13px] font-semibold text-ink-subtle">No goals to group.</p>
       ) : (
-        <ul className="flex flex-col gap-2.5">
-          {groups.slice(0, 8).map((grp) => {
-            const active = activeLabel === grp.label;
-            const tone = grp.pct >= 100 ? GREEN : grp.pct >= 60 ? AMBER : "var(--color-altus-red-deep)";
-            return (
-              <li key={grp.label}>
-                <button
-                  type="button"
-                  onClick={() => onPick(grp.label)}
-                  aria-pressed={active}
-                  className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-lg px-1.5 py-1 text-left transition-colors cursor-pointer hover:bg-[color-mix(in_srgb,var(--color-altus-red)_4%,transparent)] ${FOCUS_RING}`}
-                  style={active ? { background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)" } : undefined}
-                >
-                  <span className="min-w-0 truncate text-[13px] font-bold text-ink-strong" title={grp.label}>
-                    {grp.label}
-                  </span>
-                  <span className="flex items-baseline gap-2 justify-self-end">
-                    <span className="text-[14px] font-black tabular-nums" style={{ fontFamily: DISPLAY, color: tone }}>
-                      {grp.pct}%
-                    </span>
-                    <span
-                      className="rounded-full px-1.5 py-0.5 text-[10.5px] font-black tabular-nums text-ink-subtle"
-                      style={{ background: "var(--color-surface-soft)" }}
-                    >
-                      {grp.count}
-                    </span>
-                  </span>
-                  <span
-                    className="relative col-span-2 h-2 overflow-hidden rounded-full"
-                    style={{ background: "var(--color-surface-soft)" }}
-                  >
-                    <span
-                      className="absolute inset-y-0 left-0 rounded-full"
-                      style={{
-                        width: reveal ? `${Math.min(100, grp.pct)}%` : "0%",
-                        minWidth: grp.pct > 0 ? 6 : 0,
-                        background: "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))",
-                        transition: reduce ? undefined : "width 640ms cubic-bezier(0.2,0,0,1)",
-                      }}
-                    />
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <HBars
+            data={bars}
+            height={Math.max(60, sorted.length * 40)}
+            maxValue={metric === "pct" ? 100 : undefined}
+            rightLabel={(row) =>
+              metric === "pct"
+                ? `${row.value}%`
+                : `${row.value} · ${totalCount > 0 ? Math.round((row.value / totalCount) * 100) : 0}%`
+            }
+            onBarClick={(row) => onPick(row.label)}
+          />
+          {activeLabel && <p className="mt-2 text-[11px] font-semibold text-ink-subtle">Selected: {activeLabel}</p>}
+        </>
       )}
     </section>
   );
 }
 
 /* ====================================================================== */
-/* 7 · Accountability / delegation                                       */
+/* 6b · Weight distribution — heaviest goals in the rollup                */
 /* ====================================================================== */
 
-function AccountabilityPanel({ model }: { model: Model }) {
+function WeightDistributionPanel({ rows }: { rows: Row[] }) {
+  const weighted = [...rows].filter((r) => r.g.weight > 0).sort((a, b) => b.g.weight - a.g.weight);
+  const top = weighted.slice(0, 8);
+  const totalWeight = weighted.reduce((s, r) => s + r.g.weight, 0);
+  const maxWeight = top[0]?.g.weight ?? 0;
+  const concentration = computeWeightConcentration(rows);
+
+  return (
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <SectionHeader
+        icon={<Boxes size={17} strokeWidth={2.2} />}
+        title="Weight distribution"
+        subtitle="Which goals carry the most weight in the rollup"
+      />
+
+      {top.length === 0 ? (
+        <p className="py-3 text-[13px] font-semibold text-ink-subtle">No weighted goals yet.</p>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-3">
+            {top.map((r) => {
+              const pct = totalWeight > 0 ? Math.round((r.g.weight / totalWeight) * 100) : 0;
+              const barPct = maxWeight > 0 ? Math.round((r.g.weight / maxWeight) * 100) : 0;
+              const type = pillarOf(r.g);
+              const area = r.g.area?.trim() ? r.g.area.trim() : "Unassigned";
+              return (
+                <li key={r.g.id} className="min-w-0">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-[13px] font-bold text-ink-strong" title={r.g.title}>
+                      {r.g.title?.trim() || "Untitled"}
+                    </span>
+                    <span className="shrink-0 text-[12.5px] font-black tabular-nums text-ink-strong">
+                      {r.g.weight} <span className="font-semibold text-ink-subtle">· {pct}%</span>
+                    </span>
+                  </div>
+                  <div className="mt-0.5 truncate text-[11px] font-semibold text-ink-subtle">
+                    {area}
+                    {type ? ` · ${type}` : ""}
+                  </div>
+                  <div
+                    className="relative mt-1.5 h-2 w-full overflow-hidden rounded-full"
+                    style={{ background: "var(--color-surface-soft)" }}
+                  >
+                    <span
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{ width: `${barPct}%`, background: BAND_META[r.band].color }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {weighted.length > top.length && (
+            <p className="mt-3 text-[11px] font-semibold text-ink-subtle tabular-nums">
+              +{weighted.length - top.length} more · {totalWeight} total weight in this view
+            </p>
+          )}
+
+          {concentration && (
+            <div
+              className="mt-3.5 flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+              style={{ background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)" }}
+            >
+              <span
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg"
+                style={{ background: "color-mix(in srgb, var(--color-altus-red) 14%, transparent)", color: "var(--color-altus-red-deep)" }}
+              >
+                <Boxes size={15} strokeWidth={2.6} />
+              </span>
+              <p className="text-[12.5px] font-semibold leading-snug text-ink-soft">
+                <span className="font-black text-ink-strong tabular-nums">{concentration.topN}</span> goal
+                {concentration.topN === 1 ? "" : "s"} carr{concentration.topN === 1 ? "ies" : "y"}{" "}
+                <span className="font-black text-ink-strong tabular-nums">{concentration.topPct}%</span> of total weight.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+/* ====================================================================== */
+/* 7 · Ownership / delegation                                             */
+/* ====================================================================== */
+
+function OwnershipPanel({ model }: { model: Model }) {
   const a = model.accountability;
-  const total = model.total || 1;
-  const reviewedPct = Math.round((a.reviewed / total) * 100);
 
   const splits: Array<{ label: string; value: number; color: string; hint: string }> = [
     { label: "Self", value: a.self, color: SLATE, hint: "created by owner" },
@@ -1413,12 +1618,12 @@ function AccountabilityPanel({ model }: { model: Model }) {
 
   return (
     <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
-      <div className="mb-3 flex items-center gap-2">
-        <span className="grid size-6 place-items-center rounded-md" style={{ color: BLUE }}>
-          <Users size={15} strokeWidth={2.4} />
-        </span>
-        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">Accountability</h3>
-      </div>
+      <SectionHeader
+        icon={<Users size={17} strokeWidth={2.2} />}
+        title="Ownership"
+        subtitle="Who owns, delegates, and reviews these goals"
+        accent={BLUE}
+      />
 
       <div className="grid grid-cols-3 gap-2">
         {splits.map((s) => (
@@ -1435,58 +1640,31 @@ function AccountabilityPanel({ model }: { model: Model }) {
           </div>
         ))}
       </div>
-
-      <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-3" style={{ borderColor: "var(--color-hairline)" }}>
-        <MetricPip
-          icon={<HandCoins size={14} strokeWidth={2.4} />}
-          label="Delegated weight"
-          value={a.delegatedWeight > 0 ? String(a.delegatedWeight) : "—"}
-          hint="handed off"
-          color={BLUE}
-        />
-        <MetricPip
-          icon={<Network size={14} strokeWidth={2.4} />}
-          label="Team dependency"
-          value={a.depCount > 0 ? `${a.avgDep}%` : "—"}
-          hint={a.depCount > 0 ? `max ${a.maxDep}%` : "no exposure"}
-          color={a.avgDep >= 50 ? RED : a.avgDep >= 25 ? AMBER : SLATE}
-        />
-        <MetricPip
-          icon={<ShieldCheck size={14} strokeWidth={2.4} />}
-          label="Reviewed"
-          value={`${a.reviewed}`}
-          hint={`${reviewedPct}% · ${a.selfOnly} self-rated`}
-          color={reviewedPct >= 60 ? GREEN : reviewedPct >= 30 ? AMBER : RED}
-        />
-      </div>
     </section>
   );
 }
 
-function MetricPip({
-  icon,
-  label,
-  value,
-  hint,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  hint: string;
-  color: string;
-}) {
+/** Only people who actually carry delegated goals, never the full roster. */
+function DelegatedByPersonPanel({ delegation }: { delegation: DelegationStats }) {
+  const bars: HBarRow[] = delegation.byPerson.slice(0, 8).map((p) => ({ label: p.name, value: p.goalCount, color: BLUE }));
   return (
-    <div className="min-w-0">
-      <div className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">
-        <span style={{ color }}>{icon}</span>
-        <span className="truncate">{label}</span>
-      </div>
-      <div className="mt-0.5 tabular-nums font-black text-ink-strong" style={{ fontSize: 18, color }}>
-        {value}
-      </div>
-      <div className="truncate text-[10.5px] font-semibold text-ink-subtle">{hint}</div>
-    </div>
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <SectionHeader icon={<Users size={17} strokeWidth={2.2} />} title="Delegated by person" subtitle="Who's carrying delegated goals" accent={BLUE} />
+      <HBars data={bars} height={Math.max(60, bars.length * 36)} rightLabel={(row) => `${row.value} goal${row.value === 1 ? "" : "s"}`} />
+    </section>
+  );
+}
+
+function DelegateSharePanel({ delegation }: { delegation: DelegationStats }) {
+  const bars: HBarRow[] = [...delegation.byPerson]
+    .sort((x, y) => y.avgSharePct - x.avgSharePct)
+    .slice(0, 8)
+    .map((p) => ({ label: p.name, value: p.avgSharePct, color: ORANGE }));
+  return (
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <SectionHeader icon={<Share2 size={17} strokeWidth={2.2} />} title="Delegate share %" subtitle="Average share held per delegate" accent={ORANGE} />
+      <HBars data={bars} height={Math.max(60, bars.length * 36)} maxValue={100} rightLabel={(row) => `${row.value}%`} />
+    </section>
   );
 }
 
@@ -1496,12 +1674,11 @@ function AccountabilityCallout({ model }: { model: Model }) {
   const a = model.accountability;
   return (
     <section className="wg-rise flex flex-col justify-center rounded-2xl px-5 py-4" style={PANEL}>
-      <div className="mb-2 flex items-center gap-2">
-        <span className="grid size-6 place-items-center rounded-md" style={{ color: "var(--color-altus-red-deep)" }}>
-          <Target size={15} strokeWidth={2.4} />
-        </span>
-        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">Measures</h3>
-      </div>
+      <SectionHeader
+        icon={<Target size={17} strokeWidth={2.2} />}
+        title="Measures"
+        subtitle="₹ and quantity targets across these goals"
+      />
       <p className="text-[13px] font-semibold text-ink-subtle">
         No ₹ or quantity targets set on these goals — attainment is tracked by self-rated / reviewed progress
         only.
@@ -1520,80 +1697,189 @@ function AccountabilityCallout({ model }: { model: Model }) {
 }
 
 /* ====================================================================== */
-/* 8 · ₹ / quantitative attainment                                       */
+/* Actual vs target — literal side-by-side comparison bars                */
 /* ====================================================================== */
 
-function MeasurePanel({
-  rupee,
-  qty,
-  reduce,
-}: {
-  rupee: { target: number; actual: number } | null;
-  qty: { target: number; actual: number } | null;
-  reduce: boolean;
-}) {
+type AvTScope = "overall" | "area" | "type";
+
+function ActualVsTargetPanel({ rows }: { rows: Row[] }) {
+  const [scope, setScope] = React.useState<AvTScope>("overall");
+
+  const groups = React.useMemo(() => {
+    if (scope === "overall") return [{ label: "Overall", rows }];
+    const key = scope === "area" ? (r: Row) => (r.g.area?.trim() ? r.g.area.trim() : "Unassigned") : (r: Row) => pillarOf(r.g) ?? "Unspecified";
+    const m = new Map<string, Row[]>();
+    for (const r of rows) {
+      const k = key(r);
+      const list = m.get(k);
+      if (list) list.push(r);
+      else m.set(k, [r]);
+    }
+    return [...m.entries()]
+      .map(([label, rs]) => ({ label, rows: rs }))
+      .sort((a, b) => b.rows.length - a.rows.length)
+      .slice(0, 6);
+  }, [rows, scope]);
+
+  const bars = groups
+    .map((g) => {
+      const { rupee, qty } = aggregateMeasures(g.rows);
+      const measure = rupee ?? qty; // no target=0/no-target goal ever reaches here
+      if (!measure) return null;
+      const pct = measure.target > 0 ? Math.round((measure.actual / measure.target) * 100) : 0;
+      return { label: g.label, actual: measure.actual, target: measure.target, pct, isRupee: !!rupee };
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x);
+
   return (
     <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
-      <div className="mb-3 flex items-center gap-2">
-        <span className="grid size-6 place-items-center rounded-md" style={{ color: "var(--color-altus-red-deep)" }}>
-          <IndianRupee size={15} strokeWidth={2.4} />
-        </span>
-        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">Measured attainment</h3>
-      </div>
-      <div className="flex flex-col gap-3.5">
-        {rupee && (
-          <MeasureBar label="₹ value" actual={rupee.actual} target={rupee.target} format={(n) => `₹${fmtNum(n)}`} reduce={reduce} />
-        )}
-        {qty && (
-          <MeasureBar label="Quantity" actual={qty.actual} target={qty.target} format={(n) => fmtNum(n)} reduce={reduce} />
-        )}
+      <SectionHeader
+        icon={<ArrowLeftRight size={17} strokeWidth={2.2} />}
+        title="Actual vs target"
+        subtitle="Target vs actual, side by side"
+        trailing={
+          <div className="inline-flex items-center gap-0.5 rounded-full border p-0.5" style={{ borderColor: "var(--color-hairline-strong)" }}>
+            {(["overall", "area", "type"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setScope(s)}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${FOCUS_RING}`}
+                style={{
+                  background: scope === s ? "var(--color-altus-red-deep)" : "transparent",
+                  color: scope === s ? "#fff" : "var(--color-ink-subtle)",
+                }}
+              >
+                {s === "overall" ? "Overall" : s === "area" ? "By area" : "By type"}
+              </button>
+            ))}
+          </div>
+        }
+      />
+
+      {bars.length === 0 ? (
+        <p className="py-3 text-[13px] font-semibold text-ink-subtle">No measurable targets in this view.</p>
+      ) : (
+        <ul className="flex flex-col gap-4">
+          {bars.map((b) => {
+            const fmt = (n: number) => (b.isRupee ? `₹${fmtNum(n)}` : fmtNum(n));
+            const tone = b.pct >= 100 ? GREEN : b.pct >= 60 ? AMBER : "var(--color-altus-red-deep)";
+            return (
+              <li key={b.label}>
+                <div className="mb-1 flex items-baseline justify-between">
+                  <span className="text-[12.5px] font-black text-ink-strong">{b.label}</span>
+                  <span className="text-[12px] font-bold tabular-nums" style={{ color: tone }}>
+                    {b.pct}% achieved
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-12 shrink-0 text-[10.5px] font-black uppercase text-ink-subtle">Target</span>
+                    <div className="relative h-2.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
+                      <span className="absolute inset-y-0 left-0 w-full rounded-full" style={{ background: "var(--color-hairline-strong)" }} />
+                    </div>
+                    <span className="w-20 shrink-0 text-right text-[11.5px] font-bold tabular-nums text-ink-soft">{fmt(b.target)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-12 shrink-0 text-[10.5px] font-black uppercase text-ink-subtle">Actual</span>
+                    <div className="relative h-2.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
+                      <span
+                        className="absolute inset-y-0 left-0 rounded-full"
+                        style={{ width: `${Math.min(100, b.pct)}%`, background: tone }}
+                      />
+                    </div>
+                    <span className="w-20 shrink-0 text-right text-[11.5px] font-bold tabular-nums" style={{ color: tone }}>
+                      {fmt(b.actual)}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/* ====================================================================== */
+/* Area × type matrix                                                     */
+/* ====================================================================== */
+
+function AreaTypeMatrixPanel({ rows }: { rows: Row[] }) {
+  const matrix = React.useMemo(() => computeAreaTypeMatrix(rows), [rows]);
+
+  if (matrix.areas.length === 0 || matrix.types.length === 0) return null;
+
+  return (
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <SectionHeader
+        icon={<Grid3x3 size={17} strokeWidth={2.2} />}
+        title="Area × type matrix"
+        subtitle="What kind of goals are concentrated where"
+      />
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr>
+              <th className="px-2 py-1.5 text-[10.5px] font-black uppercase tracking-[0.06em] text-ink-subtle">Area</th>
+              {matrix.types.map((t) => (
+                <th key={t} className="px-2 py-1.5 text-center text-[10.5px] font-black uppercase tracking-[0.06em] text-ink-subtle">
+                  {t}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.areas.map((a) => (
+              <tr key={a} className="border-t" style={{ borderColor: "var(--color-hairline)" }}>
+                <td className="px-2 py-1.5 text-[12.5px] font-bold text-ink-strong">{a}</td>
+                {matrix.types.map((t) => {
+                  const n = matrix.cells.get(`${a}|${t}`) ?? 0;
+                  const intensity = matrix.maxCell > 0 ? n / matrix.maxCell : 0;
+                  return (
+                    <td key={t} className="px-1 py-1">
+                      <div
+                        className="mx-auto flex size-9 items-center justify-center rounded-lg text-[12.5px] font-black tabular-nums"
+                        style={{
+                          background: n > 0 ? `color-mix(in srgb, var(--color-altus-red) ${8 + intensity * 42}%, transparent)` : "var(--color-surface-soft)",
+                          color: n > 0 ? "var(--color-altus-red-deep)" : "var(--color-ink-subtle)",
+                        }}
+                      >
+                        {n > 0 ? n : "—"}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
 }
 
-function MeasureBar({
-  label,
-  actual,
-  target,
-  format,
-  reduce,
-}: {
-  label: string;
-  actual: number;
-  target: number;
-  format: (n: number) => string;
-  reduce: boolean;
-}) {
-  const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
-  const tone = pct >= 100 ? GREEN : pct >= 60 ? AMBER : "var(--color-altus-red-deep)";
-  const [reveal, setReveal] = React.useState(reduce);
-  React.useEffect(() => {
-    const raf = requestAnimationFrame(() => setReveal(true));
-    return () => cancelAnimationFrame(raf);
-  }, []);
+/* ====================================================================== */
+/* Smart insights                                                         */
+/* ====================================================================== */
+
+function SmartInsightsPanel({ model, rows }: { model: Model; rows: Row[] }) {
+  const insights = React.useMemo(() => buildSmartInsights(model, rows), [model, rows]);
+  if (insights.length === 0) return null;
+
   return (
-    <div>
-      <div className="mb-1.5 flex items-baseline justify-between gap-2">
-        <span className="text-[11.5px] font-black uppercase tracking-[0.06em] text-ink-subtle">{label}</span>
-        <span className="text-[12.5px] font-semibold text-ink-subtle tabular-nums">
-          <span className="font-black" style={{ color: tone }}>
-            {format(actual)}
-          </span>{" "}
-          of {format(target)} · <span className="font-black" style={{ color: tone }}>{pct}%</span>
-        </span>
-      </div>
-      <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)", boxShadow: "inset 0 1px 2px rgba(15,23,42,0.06)" }}>
-        <span
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{
-            width: reveal ? `${Math.min(100, pct)}%` : "0%",
-            background: `linear-gradient(90deg, ${tone}, color-mix(in srgb, ${tone} 70%, #fff))`,
-            transition: reduce ? undefined : "width 700ms cubic-bezier(0.2,0,0,1)",
-          }}
-        />
-      </div>
-    </div>
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <SectionHeader icon={<Lightbulb size={17} strokeWidth={2.2} />} title="Smart insights" subtitle="What the data is telling you" />
+      <ul className="flex flex-col gap-2">
+        {insights.map((text, i) => (
+          <li key={i} className="flex items-start gap-2.5 text-[13px] font-semibold text-ink-soft">
+            <span className="mt-1.5 size-1.5 shrink-0 rounded-full" style={{ background: "var(--color-altus-red)" }} />
+            {text}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
