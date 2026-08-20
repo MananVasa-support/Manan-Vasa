@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Play,
   Pause,
+  RotateCcw,
   CheckCircle2,
   Lock,
   Loader2,
@@ -24,12 +25,14 @@ import {
   startWorkAction,
   pauseWorkAction,
   markDoneAction,
+  restartTimerAction,
   decideApprovalAction,
 } from "@/app/(app)/tasks/time-actions";
 import { useElapsedSeconds } from "./use-elapsed";
 import { WorkSessions } from "./work-sessions";
 import { ActivityTimeline } from "./activity-timeline";
 import { RevisionHistory } from "./revision-history";
+import * as Dialog from "@radix-ui/react-dialog";
 import { WorkCamera } from "./work-camera";
 import { SnapshotGallery } from "./snapshot-gallery";
 
@@ -75,8 +78,23 @@ export function TaskTimePanel(props: Props) {
   const r = state.rollup;
   const hasWork = r.totalActiveSeconds > 0 || !!live;
   const awaitingReview = taskStatus === "done" && approvalStatus !== "approved";
-  const firstOfRevision = !state.sessions.some((s) => s.revision === r.currentRevision);
-  const startLabel = firstOfRevision ? (r.currentRevision > 1 ? "Start Revision" : "Start Work") : "Resume";
+  // REWORK MODE keys off the task's CURRENT status, not off currentRevision.
+  // Those are not the same thing: currentRevision is rejectionCount + 1, so once
+  // a task has ever been sent back it stays > 1 forever — the controls would go
+  // on saying "Revision" long after the rework was finished and re-approved.
+  // Status answers the question the buttons are actually asking: are you redoing
+  // this right now?
+  const reworkMode = taskStatus === "not_approved";
+  const startLabel = reworkMode ? "Rework Start Task" : "Start Task";
+  const pauseLabel = reworkMode ? "Rework Pause Task" : "Pause Task";
+  const endLabel = reworkMode ? "Rework End Task" : "End Task";
+  // Restart is offered in the four states the brief names — RUNNING, PAUSED and
+  // their rework equivalents. `live` covers the two running states; `hasWork`
+  // without a live session is paused. `awaitingReview` is excluded: a task
+  // marked done and sitting with a reviewer is neither running nor paused, and
+  // restarting a timer there would silently reopen finished work.
+  const canRestart = !locked && canOperate && (!!live || (hasWork && !awaitingReview));
+  const [confirmRestart, setConfirmRestart] = React.useState(false);
 
   function act(fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) {
     start(async () => {
@@ -96,7 +114,7 @@ export function TaskTimePanel(props: Props) {
         <h2 className="text-[15px] font-black uppercase tracking-[0.1em] text-ink-strong">Time Intelligence</h2>
         {r.rejectionCount > 0 && (
           <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--color-altus-red)_10%,white)] px-2.5 py-1 text-[11px] font-bold text-altus-red-deep">
-            {r.rejectionCount} revision{r.rejectionCount > 1 ? "s" : ""}
+            {r.rejectionCount} rework round{r.rejectionCount > 1 ? "s" : ""}
           </span>
         )}
       </div>
@@ -131,7 +149,7 @@ export function TaskTimePanel(props: Props) {
                   onClick={() => act(() => pauseWorkAction(taskId))}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
                 >
-                  {pending ? <Loader2 size={15} className="animate-spin" /> : <Pause size={15} />} Pause
+                  {pending ? <Loader2 size={15} className="animate-spin" /> : <Pause size={15} />} {pauseLabel}
                 </button>
               ) : (
                 <button
@@ -140,7 +158,25 @@ export function TaskTimePanel(props: Props) {
                   onClick={() => act(() => startWorkAction(taskId))}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[#18181b] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50"
                 >
-                  {pending ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />} {startLabel}
+                  {pending ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : reworkMode ? (
+                    <RotateCcw size={15} />
+                  ) : (
+                    <Play size={15} />
+                  )}{" "}
+                  {startLabel}
+                </button>
+              )}
+              {canRestart && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => setConfirmRestart(true)}
+                  title="Reset this session's elapsed time to 00:00:00"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-[13px] font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+                >
+                  <RotateCcw size={15} /> Restart Task
                 </button>
               )}
               {hasWork && (
@@ -150,7 +186,7 @@ export function TaskTimePanel(props: Props) {
                   onClick={() => act(() => markDoneAction(taskId))}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-[13px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
                 >
-                  <CheckCircle2 size={15} /> Mark Done
+                  <CheckCircle2 size={15} /> {endLabel}
                 </button>
               )}
             </>
@@ -225,10 +261,10 @@ export function TaskTimePanel(props: Props) {
 
       {/* Analytics chips */}
       <div className="mt-4 grid grid-cols-4 gap-2 max-sm:grid-cols-2">
-        <Chip label="Original" value={formatMinutesLabel(r.originalSeconds)} />
-        <Chip label="Revision" value={formatMinutesLabel(r.revisionSeconds)} />
+        <Chip label="Actual Work Time" value={formatMinutesLabel(r.originalSeconds)} />
+        <Chip label="Rework Time" value={formatMinutesLabel(r.revisionSeconds)} />
         <Chip label="Sessions" value={String(r.sessionCount)} />
-        <Chip label="Rejections" value={String(r.rejectionCount)} />
+        <Chip label="Rework Rounds" value={String(r.rejectionCount)} />
         <Chip label="Avg session" value={formatMinutesLabel(r.avgSessionSec)} />
         <Chip label="Longest" value={formatMinutesLabel(r.longestSessionSec)} />
         <Chip label="Shortest" value={r.shortestSessionSec != null ? formatMinutesLabel(r.shortestSessionSec) : "—"} />
@@ -257,6 +293,57 @@ export function TaskTimePanel(props: Props) {
           </Sub>
         )}
       </div>
+
+      {/* Restart confirmation. A real modal rather than window.confirm(): the
+          native dialog blocks the whole page and cannot say which session is
+          about to be reset. Radix traps focus and closes on Esc / outside
+          click, so the destructive path always has a cheap way out. */}
+      <Dialog.Root open={confirmRestart} onOpenChange={setConfirmRestart}>
+        <Dialog.Portal>
+          <Dialog.Overlay
+            className="fixed inset-0 z-[60]"
+            style={{ background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)" }}
+          />
+          <Dialog.Content
+            className="fixed left-1/2 top-1/2 z-[70] w-[min(420px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-section border border-hairline bg-surface-card p-6 shadow-xl"
+          >
+            <Dialog.Title className="flex items-center gap-2 text-[16px] font-black text-ink-strong">
+              <RotateCcw size={17} className="text-amber-600" />
+              Restart this timer session?
+            </Dialog.Title>
+            <Dialog.Description className="mt-2 text-[13.5px] font-medium leading-relaxed text-ink-muted">
+              Are you sure you want to restart the current timer session? This will
+              reset the elapsed time for this session.
+            </Dialog.Description>
+            <p className="mt-2 text-[12.5px] font-medium text-ink-subtle">
+              Sessions you already completed are not affected, and nothing is
+              removed from the activity log.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="rounded-lg border border-hairline bg-white px-4 py-2.5 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+                >
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setConfirmRestart(false);
+                  act(() => restartTimerAction(taskId));
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
+              >
+                {pending ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+                Restart Task
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </section>
   );
 }

@@ -309,7 +309,7 @@ function EmployeePicker({
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search people…"
+              placeholder="Local search — people" title="Local search — filters only the list on this page" aria-label="Local search — people — this page only"
               className="w-full bg-transparent text-[13.5px] font-medium outline-none placeholder:text-ink-soft"
             />
           </div>

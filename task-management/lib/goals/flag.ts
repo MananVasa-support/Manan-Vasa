@@ -1,12 +1,17 @@
 /**
  * Kill-switches for the Goals Cascade program.
  *
- * ⚠️ 2026-07-27 EMERGENCY: ALL daily-flow GATES are FORCE-DISABLED in code
+ * ⚠️ 2026-07-27 EMERGENCY: all daily-flow GATES were FORCE-DISABLED in code
  * (return false regardless of env) because active gates were blocking people
- * from clocking in/out (logging attendance). To restore a gate later, put back
- * its `process.env.X === "true"` check. The punch-path env gates
- * (DCC_GATE_OFF / PUNCH_PLAN_GATE_OFF / MANAGER_GATES_OFF) are likewise
- * force-disabled in app/(app)/attendance/actions.ts and the mobile punch route.
+ * from clocking in/out (logging attendance). Most remain force-off below.
+ *
+ * TWO have since been restored, deliberately, as the attendance daily loop
+ * (Sir): `punchPlanGateOn` (Start My Day + 5 items ⇒ may clock IN) and
+ * `checkoutCloseoutGateOn` (Finish Day ⇒ may clock OUT). Both read a real env
+ * kill-switch and have NO role exemptions, so those switches are the only way
+ * to unblock attendance if it jams again — keep them settable in prod without
+ * a deploy. The DCC punch-path gates stay force-disabled inline in
+ * app/(app)/attendance/actions.ts and the mobile punch route.
  *
  * TWO polarities, by design (design §10, locked decision 1):
  *  - The **cascade module** itself ships ENABLED behind `GOALS_CASCADE_OFF`
@@ -70,11 +75,19 @@ export function goalsWhatsappOn(): boolean {
 }
 
 /**
- * Checkout close-out gate (Sir): at clock-OUT you must first close out today's
- * commitments. FORCE-OFF so it never blocks punch-out.
+ * Checkout close-out gate (Sir): at clock-OUT you must first hit "Finish Day" on
+ * WMS › Plan My Day to close out today's commitments.
+ *
+ * The clock-OUT half of the daily loop, mirroring punchPlanGateOn below: Start
+ * My Day opens the day and lets you punch in, Finish Day closes it and lets you
+ * punch out. ON by default, killable with CHECKOUT_CLOSEOUT_GATE_OFF=true.
+ *
+ * It was force-disabled (`return false`) on 2026-07-27 along with every other
+ * daily gate; it is back on, with NO role exemptions. The env var is the only
+ * recovery path — it must stay settable in production without a deploy.
  */
 export function checkoutCloseoutGateOn(): boolean {
-  return false;
+  return process.env.CHECKOUT_CLOSEOUT_GATE_OFF !== "true";
 }
 
 /** Auto-spillover at month rollover. OFF. NOT a login/attendance gate. */
@@ -105,4 +118,21 @@ export function goalCaptureEnabled(): boolean {
  *  Gated separately so text capture works without any transcription provider. */
 export function voiceCaptureEnabled(): boolean {
   return goalCaptureEnabled() && !!process.env.WHISPER_API_KEY;
+}
+
+/**
+ * Clock-IN planning gate: an employee must have MIN_ATTENDANCE_ITEMS things on
+ * today's plan before they can punch in.
+ *
+ * ON by default, killable with PUNCH_PLAN_GATE_OFF=true — the switch both punch
+ * surfaces already named in their comments but never actually read, because the
+ * gate had been force-disabled with a hardcoded `false` since 2026-07-27.
+ *
+ * ⚠ This is the ONLY way out. The gate has no role exemptions (Sir): a
+ * super-admin who has not planned their day is blocked like anyone else, so
+ * this env var is the recovery path if attendance ever needs unblocking again.
+ * It must stay settable in production without a deploy.
+ */
+export function punchPlanGateOn(): boolean {
+  return process.env.PUNCH_PLAN_GATE_OFF !== "true";
 }

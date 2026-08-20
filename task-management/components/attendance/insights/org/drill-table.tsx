@@ -61,8 +61,7 @@ export function DrillTable({
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search people or departments"
-              aria-label="Search employees"
+              placeholder="Local search — people or departments" title="Local search — filters only the list on this page" aria-label="Local search — people or departments — this page only"
               className="h-9 w-[260px] max-sm:w-[200px] rounded-full border border-hairline bg-surface-soft pl-9 pr-3 text-[13.5px] font-medium text-ink-strong placeholder:text-ink-soft outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/50"
             />
           </label>

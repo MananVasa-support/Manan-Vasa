@@ -78,15 +78,30 @@ export function TransferControl({
   onTransfer,
   variant = "icon",
   currentOffset,
+  portal = false,
 }: {
   onTransfer: (off: number) => void;
   variant?: "icon" | "button";
   /** The day this item is on — omitted from the menu (you can't move it to
    *  where it already is). */
   currentOffset?: number;
+  /**
+   * Render the day menu into `<body>` instead of positioning it against this
+   * component.
+   *
+   * Needed when an ancestor clips overflow — the plan review TABLE is
+   * `overflow-x-auto`, which establishes a clipping context, so the default
+   * `absolute` menu gets cut off at the table's edge. Opt-in so the two
+   * card call-sites keep their existing (working) behaviour.
+   */
+  portal?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
+  const btnRef = React.useRef<HTMLButtonElement>(null);
+  // Where to pin the portalled menu — measured off the trigger when it opens.
+  const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null);
+
   React.useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
@@ -95,6 +110,29 @@ export function TransferControl({
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
+
+  // Measure on open, and follow scroll/resize — the menu is `fixed`, so a page
+  // scroll would otherwise leave it floating where the button used to be.
+  React.useEffect(() => {
+    if (!open || !portal) return;
+    const measure = () => {
+      const r = btnRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const MENU_W = 176; // w-44
+      setPos({
+        top: r.bottom + 4,
+        // Right-align to the trigger, then clamp inside the viewport.
+        left: Math.max(8, Math.min(r.right - MENU_W, window.innerWidth - MENU_W - 8)),
+      });
+    };
+    measure();
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [open, portal]);
 
   const pick = (off: number) => {
     setOpen(false);
@@ -113,9 +151,22 @@ export function TransferControl({
   const [page, setPage] = React.useState(0);
   const shown = days.slice(page * TRANSFER_PAGE, page * TRANSFER_PAGE + TRANSFER_PAGE);
 
+  const menuItems = days.map((d) => (
+    <button
+      key={d.off}
+      type="button"
+      onClick={() => pick(d.off)}
+      className="flex w-full items-baseline justify-between gap-2 rounded px-2 py-1.5 text-left text-[12px] font-semibold text-ink-strong hover:bg-surface-soft"
+    >
+      <span>→ {d.label}</span>
+      <span className="text-[10.5px] font-medium tabular-nums text-ink-subtle">{d.date}</span>
+    </button>
+  ));
+
   return (
     <div ref={ref} className="relative shrink-0">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => {
           setPage(0);
@@ -181,6 +232,24 @@ export function TransferControl({
           </div>
         </div>
       ) : null}
+
+      {open && portal && pos
+        ? createPortal(
+            // `fixed` + measured coords: escapes the table's overflow clip.
+            // `ref` still wraps it via the parent div's contains() check? No —
+            // a portalled node is OUTSIDE ref.current, so the mousedown handler
+            // would close the menu the instant you clicked an option. Stopping
+            // propagation here keeps that handler from ever seeing the click.
+            <div
+              onMouseDown={(e) => e.stopPropagation()}
+              className="z-[80] max-h-64 w-44 overflow-y-auto rounded-lg border border-hairline-strong bg-surface-card p-1 shadow-[0_12px_30px_rgba(15,23,42,0.18)]"
+              style={{ position: "fixed", top: pos.top, left: pos.left }}
+            >
+              {menuItems}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

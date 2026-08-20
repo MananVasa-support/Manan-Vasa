@@ -11,6 +11,9 @@ import { planGateOn, managerTaskGateOn, dccReviewGateOn, goalsCascadeEnabled, lo
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { ChromeShell } from "@/components/layout/chrome-shell";
+import { AppTopBar } from "@/components/layout/app-top-bar";
+import { NewTaskTrigger } from "@/components/header/new-task-trigger";
+import { NotificationBell } from "@/components/header/notification-bell";
 import { ModuleFooter } from "@/components/layout/module-footer";
 import { ModuleShortcuts } from "@/components/layout/module-shortcuts";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
@@ -71,19 +74,26 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     const isManager = await isManagerWithReports(me.id).catch(() => false);
 
     // ── COMPULSORY — PLAN gate. Two implementations, switched by planGateOn():
-    //    • NEW (planGateOn on): the redesigned Plan-Your-Day at /goals/plan with
+    //    • NEW (planGateOn on): the redesigned Plan-Your-Day at /my-day with
     //      a role-based minimum (3 IC / 5 manager, design §4). Under-min → send
-    //      them to /goals/plan; the plan route itself is exempt (else it loops).
+    //      them to /my-day; the plan route itself is exempt (else it loops).
+    //      BOTH the exemption and the target moved with the planner when it
+    //      left /goals/plan for the WMS room — they must always name the SAME
+    //      path as the page, or the exemption stops matching the redirect and
+    //      every gated request bounces forever.
     //    • LEGACY (default, planGateOn off): the daily-checklist plan gate for
     //      non-managers, rendered inline. UNCHANGED — flipping the flag on is the
     //      only thing that swaps behaviour. Counts the same committed-items set
     //      as the client either way, so it can't drift/buffer. ──
     if (planGateOn() && goalsCascadeEnabled()) {
-      const onPlanRoute = pathname.startsWith("/goals/plan");
+      // `/goals/plan` stays exempt too: it is now a redirect stub to /my-day,
+      // and gating it would bounce the request before the stub could forward.
+      const onPlanRoute =
+        pathname.startsWith("/my-day") || pathname.startsWith("/goals/plan");
       if (!onPlanRoute) {
         const minItems = isManager ? 5 : 3;
         const underMin = await needsGoalsPlanCommit(me.id, minItems).catch(() => false);
-        if (underMin) redirect("/goals/plan");
+        if (underMin) redirect("/my-day");
       }
     } else if (loginPlanGateOn() && !isManager) {
       // Legacy "commit your day" wall — now OFF by default (Sir). LOGIN_PLAN_GATE_ON=true restores.
@@ -198,7 +208,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <ModuleShortcuts allowed={MODULE_ORDER.filter((id) => canAccessWorkspace(id, access))} />
       <IdleTimerClient timeoutMinutes={15} />
       <OnboardingNudge />
-      <ChromeShell sidebar={<DashboardSidebar />} footer={<ModuleFooter access={access} />}>
+      {/* The app's ONE New Task dialog, mounted above ChromeShell so it exists
+          on every (app) route — including the hub and the full-screen HR
+          surfaces, neither of which renders a sidebar. It draws nothing; the
+          global header +, the rail button and the "N" shortcut all open it by
+          dispatching NEW_TASK_OPEN_EVENT. It previously lived inside the
+          sidebar, gated to WMS, so those triggers were inert everywhere else. */}
+      <NewTaskTrigger />
+      <ChromeShell
+        sidebar={<DashboardSidebar />}
+        footer={<ModuleFooter access={access} />}
+        topBar={<AppTopBar bell={<NotificationBell />} />}
+      >
         {children}
       </ChromeShell>
     </>

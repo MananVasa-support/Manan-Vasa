@@ -11,3 +11,13 @@
  *  the server wall (layout + hub via needsDailyChecklistPlan) AND the client
  *  gate (daily-plan-gate.tsx `met`) both read THIS, so they can never drift. */
 export const MIN_DAILY_ITEMS = 3;
+
+/**
+ * Minimum items on today's plan before an employee may CLOCK IN.
+ *
+ * Deliberately separate from `MIN_DAILY_ITEMS` above. That one is the
+ * post-login wall's threshold; this one gates attendance, and the two are set
+ * by different decisions. Folding them into a single number would mean every
+ * future change to one silently moved the other.
+ */
+export const MIN_ATTENDANCE_ITEMS = 5;

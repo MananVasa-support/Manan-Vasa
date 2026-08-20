@@ -124,3 +124,8 @@ _reconcile/
 
 # local screenshot/PDF verification artifacts
 .shots/
+__claude-*.mjs
+
+# Local PGlite dev database — a 67 MB Postgres data dir, never source. Must stay
+# ignored or ship.sh's `git add -A` sweeps the whole thing into a commit.
+.pglite/

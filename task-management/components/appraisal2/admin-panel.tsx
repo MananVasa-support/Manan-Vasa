@@ -269,7 +269,7 @@ function Picker({
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search people…"
+          placeholder="Local search — people" title="Local search — filters only the list on this page" aria-label="Local search — people — this page only"
           className="w-full rounded-xl border border-hairline bg-surface-soft py-2 pl-9 pr-3 text-[14px] font-semibold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]"
         />
       </div>

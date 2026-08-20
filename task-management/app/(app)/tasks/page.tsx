@@ -1,3 +1,4 @@
+import { FINE_BUCKET_SLUGS } from "@/lib/transforms/aging-buckets-fine";
 import { Suspense } from "react";
 import { DashboardHeader } from "@/components/layout/header";
 import { FilterBar } from "@/components/layout/filter-bar";
@@ -5,6 +6,7 @@ import { TaskListPage } from "@/components/tasks/task-list-page";
 import { TaskDetailLoader } from "@/components/tasks/task-detail-loader";
 import { BufferingState } from "@/components/ui/spinner";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { canChangeDoerFor } from "@/lib/auth/doer-permission";
 import { markTaskRead } from "@/app/(app)/tasks/read-actions";
 import { listEmployeeOptions } from "@/lib/queries/employees";
 import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
@@ -32,6 +34,10 @@ const TASK_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export default async function TasksPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const me = await requireUser();
+  // Who may reassign a doer: managers, Manan, Om. Resolved on the SERVER and
+  // passed down as a boolean — the table is a client component and has no
+  // business knowing emails or the org chart. The server actions re-check it.
+  const mayChangeDoer = await canChangeDoerFor(me);
   const rawTask = Array.isArray(sp.task) ? sp.task[0] : sp.task;
   const selectedTaskId = rawTask && TASK_ID.test(rawTask) ? rawTask : null;
   // Non-admins default to "assigned to me" when no explicit ?emp= is set.
@@ -139,6 +145,9 @@ export default async function TasksPage({ searchParams }: PageProps) {
           // Reflect the Archived pseudo-chip back into the picker when active.
           status: filters.archived ? [...filters.statuses, "archived"] : filters.statuses,
           client: filters.clients,
+          overdue: filters.overdue,
+          ageRange: filters.ageRange ? FINE_BUCKET_SLUGS[filters.ageRange] : null,
+          team: filters.teams,
         }}
       />
       <TaskListPage
@@ -146,7 +155,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
         rows={rows}
         filters={filters}
         employees={allEmployees}
-        me={{ id: me.id, isAdmin: me.isAdmin }}
+        me={{ id: me.id, isAdmin: me.isAdmin, canChangeDoer: mayChangeDoer }}
         statusLabels={statusLabels}
         statusTones={statusTones}
         subjects={subjects}
@@ -171,6 +180,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
                 taskId={selectedTaskId}
                 me={{
                   id: me.id,
+                  email: me.email,
                   name: me.name,
                   avatarUrl: me.avatarUrl,
                   department: me.department,

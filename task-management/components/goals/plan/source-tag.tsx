@@ -35,6 +35,65 @@ export const KIND_TAG: Record<PlanKind, SourceTagName> = {
   adhoc: "DAILY COMMITMENT",
 };
 
+/* ── Plan-review CATEGORY ──────────────────────────────────────────────────
+   The review table's "Category" column. Deliberately its own vocabulary rather
+   than reusing `SourceTagName`: the tags above are terse all-caps chips sized
+   for a card corner, while this is a readable table cell.
+
+   "Unfinished" CANNOT come from `kind`. When a carried-over item is pulled onto
+   a plan it is re-dated in place, so its kind reverts to weekly/task/adhoc —
+   the surviving signal is `moved_from_date`, which is why `carriedOver` is
+   checked FIRST and wins over everything else.
+
+   Five labels, not four: a cascade goal (Yearly/Quarterly/Monthly) is a real
+   plan row and is none of the other four. Folding it into "Weekly Goal" would
+   put the wrong word on screen. */
+export type PlanCategory =
+  | "Daily Commitment"
+  | "WMS Task"
+  | "Weekly Goal"
+  | "Unfinished"
+  | "Goal";
+
+export function planCategory(
+  kind: PlanKind,
+  carriedOver: boolean | undefined,
+): PlanCategory {
+  if (carriedOver) return "Unfinished";
+  switch (kind) {
+    case "task":
+      return "WMS Task";
+    case "weekly":
+      return "Weekly Goal";
+    case "yearly":
+    case "quarterly":
+    case "monthly":
+      return "Goal";
+    case "unfinished":
+      return "Unfinished";
+    default:
+      return "Daily Commitment";
+  }
+}
+
+/** Category → the same accent family the card tags use, so the two agree. */
+export const CATEGORY_ACCENT: Record<PlanCategory, string> = {
+  "Daily Commitment": "var(--color-green-deep)",
+  "WMS Task": "var(--color-slate)",
+  "Weekly Goal": "#E10600",
+  Unfinished: "var(--color-amber-deep)",
+  Goal: "var(--color-indigo-deep)",
+};
+
+/** The cascade level shown beside a GOAL tag ("Yearly" / "Quarterly" / "Monthly"). */
+export const KIND_PERIOD: Partial<Record<PlanKind, string>> = {
+  yearly: "Yearly",
+  quarterly: "Quarterly",
+  monthly: "Monthly",
+};
+
+const GOALS_ACCENT = "#E10600";
+
 /** Per-tag accent, used only for the thin leading rule — the WORD is the signal. */
 const TAG_ACCENT: Record<SourceTagName, string> = {
   GOAL: "var(--color-indigo-deep)",

@@ -8,6 +8,15 @@ import { accountsVasaBalances } from "@/db/schema";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { parseAmount } from "@/lib/accounts/amounts";
+import { listVasaCells, listVasaSnapshots } from "@/lib/queries/accounts-vasa";
+import { listAccountsLookups } from "@/lib/accounts/lookups";
+import {
+  snapshotFilename,
+  snapshotLabel,
+  quarterOf,
+  quarterKey,
+} from "@/lib/accounts/vasa-report";
+import { sendVasaReportEmail } from "@/lib/email/vasa-report-email";
 
 const PATH = "/accounts/vasa-family-interpersonal";
 
@@ -128,28 +137,64 @@ export async function saveVasaCell(input: unknown): Promise<ActionResult> {
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
 }
 
-/** Start a new snapshot by cloning every cell of the most recent one into a new date. */
+/**
+ * Start a new, EMPTY snapshot on a new date.
+ *
+ * It no longer clones the previous snapshot's balances (Sir): a new snapshot is
+ * a fresh reckoning, and pre-filling it with last month's numbers makes stale
+ * figures look like this month's entered ones.
+ *
+ * THE MARKER ROW. A snapshot is not its own record — the date list is
+ * `SELECT DISTINCT as_on` over this table (see listVasaSnapshots), so a
+ * snapshot with no cells simply does not exist. That is why "New Snapshot"
+ * appeared to do nothing whenever there was nothing to clone: it inserted zero
+ * rows, the date never appeared in the dropdown, and the click was swallowed.
+ *
+ * So an empty snapshot is represented by ONE row carrying only the date, with
+ * party / counterparty / amount all null. It is deliberately shaped to be
+ * invisible everywhere except the date list: `listVasaCells` already drops rows
+ * whose party, counterparty or amount is null, so the marker can never render
+ * as a balance or contribute to a net total. Deleting the snapshot removes it
+ * with everything else (deleteVasaSnapshot keys on `as_on`).
+ *
+ * This avoids a migration for a dedicated snapshots table. The trade-off is
+ * that the marker is a convention rather than a constraint — anything reading
+ * this table raw must tolerate a row with no party.
+ */
 export async function addVasaSnapshot(input: unknown): Promise<ActionResult> {
   const { me } = await requireAccountsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
-  const parsed = z.object({ newAsOn: z.string().trim().min(1).max(40), fromAsOn: z.string().trim().max(40).nullable().optional() }).safeParse(input);
+  const parsed = z
+    .object({ newAsOn: z.string().trim().min(1).max(40) })
+    .safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
-  const { newAsOn, fromAsOn } = parsed.data;
+  const { newAsOn } = parsed.data;
 
   try {
-    const exists = await db.select({ id: accountsVasaBalances.id }).from(accountsVasaBalances).where(eq(accountsVasaBalances.asOn, newAsOn)).limit(1);
-    if (exists.length) return fail(`A snapshot dated "${newAsOn}" already exists.`);
+    const exists = await db
+      .select({ id: accountsVasaBalances.id })
+      .from(accountsVasaBalances)
+      .where(eq(accountsVasaBalances.asOn, newAsOn))
+      .limit(1);
+    if (exists.length) return fail(`A chart dated "${newAsOn}" already exists.`);
 
-    if (fromAsOn) {
-      const src = await db.select().from(accountsVasaBalances).where(and(eq(accountsVasaBalances.asOn, fromAsOn), eq(accountsVasaBalances.archived, false)));
-      if (src.length) {
-        await db.insert(accountsVasaBalances).values(src.map((r) => ({
-          party: r.party, counterparty: r.counterparty, amount: r.amount, direction: r.direction, asOn: newAsOn, sortOrder: r.sortOrder, createdById: me.id,
-        })));
-      }
-    }
+    const [maxRow] = (await db
+      .select({ next: sql<number>`COALESCE(MAX(${accountsVasaBalances.sortOrder}), 0) + 1` })
+      .from(accountsVasaBalances)) as Array<{ next: number }>;
+
+    await db.insert(accountsVasaBalances).values({
+      party: null,
+      counterparty: null,
+      amount: null,
+      direction: null,
+      asOn: newAsOn,
+      notes: "snapshot",
+      sortOrder: maxRow?.next ?? 1,
+      createdById: me.id,
+    });
+
     revalidatePath(PATH);
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
@@ -167,4 +212,66 @@ export async function deleteVasaSnapshot(input: unknown): Promise<ActionResult> 
     revalidatePath(PATH);
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+/**
+ * EMAIL — mail the currently open chart as a PDF.
+ *
+ * Cells already persist as they are edited (each blur writes through
+ * saveVasaCell), so there is nothing left to flush: "save" here means "capture
+ * THIS snapshot as a file and send it". The action re-reads the snapshot from
+ * the database rather than trusting anything the client passes, so the
+ * attachment is what is actually stored — not what a stale tab believes.
+ *
+ * The recipient is fixed by the brief. It is a constant rather than a form
+ * field so a mistyped address can never send a family balance sheet to a
+ * stranger; change it here if it ever needs to move.
+ */
+const VASA_REPORT_RECIPIENT = "manan@unleashed.in";
+
+export async function emailVasaSnapshot(input: unknown): Promise<ActionResult<{ sentTo: string }>> {
+  const { me } = await requireAccountsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = z.object({ asOn: z.string().trim().min(1).max(40) }).safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
+  const { asOn } = parsed.data;
+
+  try {
+    const [cells, snapshots, partyOpts] = await Promise.all([
+      listVasaCells(),
+      listVasaSnapshots(),
+      listAccountsLookups("vasa_party"),
+    ]);
+    if (!snapshots.includes(asOn)) return fail("That chart no longer exists.");
+
+    const parties = partyOpts.map((o) => o.name);
+    const q = quarterOf(asOn);
+
+    // pdfkit is imported LAZILY — it carries a large font payload, and this
+    // module is a "use server" file reachable from the client graph.
+    const { renderVasaPdf } = await import("@/lib/accounts/vasa-pdf");
+    const pdf = await renderVasaPdf({
+      cells,
+      parties,
+      asOn,
+      senderName: me.name ?? null,
+    });
+
+    const res = await sendVasaReportEmail({
+      to: VASA_REPORT_RECIPIENT,
+      snapshotLabel: snapshotLabel(asOn),
+      quarter: q ? quarterKey(q.q, q.year) : "—",
+      filename: snapshotFilename(asOn, "pdf"),
+      pdf,
+      senderName: me.name ?? null,
+      partyCount: parties.length,
+    });
+    if (!res.ok) return fail(res.error ?? "Could not send the email.");
+
+    return { ok: true, sentTo: VASA_REPORT_RECIPIENT };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err));
+  }
 }

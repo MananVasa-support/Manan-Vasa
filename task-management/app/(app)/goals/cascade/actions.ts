@@ -28,7 +28,8 @@ import { cloneForward, moveTo } from "@/lib/goals/carry";
 import { mondayOf } from "@/lib/weekly-goals/week";
 import { quarterKeyOfMonthKey, fyStartYearOfMonthKey, fyStartYearOfKey, quartersOfFy, monthKeysOfQuarter } from "@/lib/goals/types";
 import { GOAL_PERIODS, TASK_STATUSES, GOAL_TYPES } from "@/db/enums";
-import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
+import { toGoalDTO, type GoalDTO, type RosterMember } from "@/components/goals/cascade/util";
+import { listEmployeeOptions } from "@/lib/queries/employees";
 import {
   listMonthlyMasterPickables,
   type MonthlyMasterPickable,
@@ -2223,6 +2224,22 @@ const AddLookupSchema = z.object({
   kind: z.enum(["area", "measure", "type", "goaltype"]),
   value: z.string().trim().min(1, "Enter a value").max(60),
 });
+
+/** Read-only fetch of the Area/Measure/Type/Goal-Type dropdown options (base +
+ *  admin-added) — for client components with no server-rendered board loader
+ *  of their own (e.g. the standalone /goals/[id] detail page). */
+export async function getGoalLookups(): Promise<ActionResult<{ options: GoalLookupOptions }>> {
+  await requireGoalsAccess();
+  return { ok: true, options: await listGoalLookups() };
+}
+
+/** Read-only fetch of the active-employee roster ({id,name}) — same list the
+ *  Team/Delegate pickers use elsewhere, for client components with no
+ *  server-rendered board loader of their own. */
+export async function getGoalsRoster(): Promise<ActionResult<{ roster: RosterMember[] }>> {
+  await requireGoalsAccess();
+  return { ok: true, roster: await listEmployeeOptions() };
+}
 
 export async function addGoalLookup(
   input: z.infer<typeof AddLookupSchema>,

@@ -1,122 +1,105 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import type { Route } from "next";
-import { CalendarCheck2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { goalsCascadeEnabled } from "@/lib/goals/flag";
-import { MyDayBoard } from "@/components/my-day/my-day-board";
-import { getMyDayPayload, getMyDayWeekPayload } from "./payload";
-import { WeekBoard } from "@/components/my-day/week-board";
+import { goalsSpace } from "@/lib/goals/space";
+import { loadPersonalWD } from "@/app/(app)/goals/personal-wd-data";
+import { PersonalWDBoard } from "@/components/goals/board/personal-wd-board";
+import { PlanBoard } from "@/components/goals/plan/plan-board";
+import {
+  getPlanDayPayload,
+  clampWindowStart,
+  clampWindowDays,
+} from "@/app/(app)/goals/plan/payload";
+import { resolvePlanTarget } from "@/lib/goals/plan-target";
 
 export const dynamic = "force-dynamic";
 
-const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "2026-08-11" → "11 Aug". Reads the IST ymd the payload already resolved, so
- *  the header can't disagree with the rows about which day this is. */
-function shortDay(ymd: string): string {
-  const [, m, d] = ymd.split("-");
-  const mi = Number(m) - 1;
-  return mi >= 0 && mi <= 11 ? `${Number(d)} ${MONTH_ABBR[mi]}` : ymd;
-}
-
 /**
- * WMS · My Day — the EXECUTION half of the daily loop.
+ * WMS · Daily Goals & Commitments — the drag-drop day planner.
  *
- * Plan My Day (`/goals/plan`) is where you DECIDE what today looks like; this
- * is where you WORK THROUGH it. Both sit on the SAME `daily_checklist` rows for
- * the same IST day, so a commitment made in Goals shows up here and a tick here
- * is the same write the planner's close-out makes — one daily plan, two views,
- * never two planning systems.
+ * This page MOVED here from `/goals/plan` (2026-08). The planner is the WMS
+ * daily surface now: `/goals/plan` is a redirect stub, and the Goals rail no
+ * longer lists it.
  *
- * Gates match the planner exactly, because the daily loop is one module:
- * `goalsCascadeEnabled()` 404s the route when it's off, and
- * `requireGoalsAccess()` enforces the identical permission scope.
+ * It replaced the separate My Day EXECUTION board that used to live on this
+ * route. They were two halves of one loop — decide, then work through — but the
+ * planner already owns both: once you hit "Start My Day" it switches to its own
+ * post-start review phase (components/goals/plan/day-review.tsx), writing the
+ * same `daily_checklist` rows through the same `setItemProgress` action the old
+ * board used. One surface, one plan.
  *
- * WHY A WMS-OWNED PATH: `workspaceForPath` (lib/workspaces.ts) owns `/goals*`
- * for the GOALS room, so a WMS nav entry pointing there would flip the sidebar
- * to Goals the moment you clicked it. `/my-day` keeps the room you're in.
+ * WHY THIS PATH AND NOT `/goals/plan`: `workspaceForPath` (lib/workspaces.ts)
+ * owns `/goals*` for the GOALS room, so a WMS nav entry pointing there would
+ * flip the sidebar to Goals the moment you clicked it. `/my-day` keeps the room
+ * you're in. PlanBoard navigates its day tabs off the RELATIVE `pathname`, so it
+ * works unchanged on either route.
+ *
+ * Gates are unchanged from the planner's old home — the daily loop is one
+ * module: `goalsCascadeEnabled()` 404s the route when off, and
+ * `requireGoalsAccess()` enforces the identical permission scope. The plan gate
+ * in app/(app)/layout.tsx exempts and redirects to THIS path; if you ever move
+ * the planner again, move that with it or the gate becomes a redirect loop.
  */
 export default async function MyDayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { me } = await requireGoalsAccess();
+  const { me, isAdmin } = await requireGoalsAccess();
   if (!goalsCascadeEnabled()) notFound();
 
-  // `?view=week` is the Overdue + 7-day board (Sir); the default stays the
-  // single-day execution list.
-  const { view } = await searchParams;
-  const weekView = view === "week";
-  const [payload, week] = await Promise.all([
-    getMyDayPayload(me.id),
-    weekView ? getMyDayWeekPayload(me.id) : Promise.resolve(null),
-  ]);
+  const sp = await searchParams;
+  const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  // HOW MANY days at once (?v=1|2|3|4|7) — the view dropdown — and WHICH window
+  // (?d=…), where `d` is the offset of the LEFTMOST column, so the arrows slide
+  // the whole board by a day. The start is clamped against the span, so widening
+  // near the far end can't leave the board beginning past the horizon.
+  const windowDays = clampWindowDays(pick(sp.v));
+  const windowStart = clampWindowStart(pick(sp.d), windowDays);
+
+  // WHOSE day (?emp=<id>) — admins may plan for anyone, managers for their
+  // downline. resolvePlanTarget falls back to the caller when not permitted, so
+  // a hand-crafted ?emp= can never open someone else's plan.
+  const target = await resolvePlanTarget(
+    { id: me.id, name: me.name, isAdmin },
+    pick(sp.emp),
+  );
+
+  // PERSONAL space (admins) → the private day board (goals table, scope=personal).
+  if ((await goalsSpace(isAdmin)) === "personal") {
+    const data = await loadPersonalWD("day", { day: pick(sp.day), emp: pick(sp.emp) });
+    return (
+      <>
+        <DashboardHeader generatedAt={new Date()} />
+        <PersonalWDBoard data={data} />
+      </>
+    );
+  }
+
+  const payload = await getPlanDayPayload(
+    target.employeeId,
+    new Date(),
+    windowStart,
+    { owner: target.name, manager: target.manager, managerManager: target.managerManager },
+    windowDays,
+  );
 
   return (
     <>
+      {/* A WHITE ground for the planner (Sir). The app-wide `body` rule in
+          globals.css washes every page with three radial gradients (purple, red,
+          green) over a grey base — editing that would repaint the WHOLE app, so
+          this lays a plain white sheet behind this route only. Fixed + -z-10 so
+          it covers the viewport without ever intercepting a click or a drag. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white" />
       <DashboardHeader generatedAt={new Date()} />
-      <PageShell width="full" py={false} className="pt-5 pb-12 max-md:pt-4 max-md:pb-10">
-        <header className="mb-4 wg-rise">
-          <div className="flex items-start justify-between gap-3">
-            <span
-              className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ color: "#ffffff", background: "linear-gradient(135deg, #E10600, #A80400)" }}
-            >
-              WMS · Daily Loop
-            </span>
-            <Link
-              href={"/goals/plan" as Route}
-              className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:border-hairline-strong"
-            >
-              <CalendarCheck2 size={13} /> Daily Goals &amp; Commitments
-            </Link>
-          </div>
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(22px, 2.3vw, 30px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.04,
-              marginTop: 4,
-            }}
-          >
-            My Day
-          </h1>
-          <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 13.5, maxWidth: "70ch" }}>
-            Today · {shortDay(payload.ymd)} — the work you committed to. Tick it off, move a task&apos;s
-            status, or open it in full.
-          </p>
-        </header>
-
-        {/* View switch — Today (execution list) vs the Overdue + 7-day board. */}
-        <div className="mb-4 inline-flex items-center gap-1 rounded-pill border border-hairline bg-surface-card p-1">
-          <Link
-            href={"/my-day" as Route}
-            className={`rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
-              weekView ? "text-ink-soft hover:text-ink-strong" : "text-white"
-            }`}
-            style={weekView ? undefined : { background: "linear-gradient(135deg, #E10600, #A80400)" }}
-          >
-            Today
-          </Link>
-          <Link
-            href={"/my-day?view=week" as Route}
-            className={`rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
-              weekView ? "text-white" : "text-ink-soft hover:text-ink-strong"
-            }`}
-            style={weekView ? { background: "linear-gradient(135deg, #E10600, #A80400)" } : undefined}
-          >
-            Overdue + 7 days
-          </Link>
-        </div>
-
-        {weekView && week ? <WeekBoard columns={week.columns} /> : <MyDayBoard payload={payload} />}
+      <PageShell width="full" py={false} className="pt-3 pb-10 max-md:pt-2 max-md:pb-8">
+        {/* No `heading` prop and no separate Recycle Bin row any more: the board
+            carries its own title, the employee picker and the Recycle Bin link
+            in ONE header bar, so a second row above it would just be chrome. */}
+        <PlanBoard target={target} payload={payload} />
       </PageShell>
     </>
   );

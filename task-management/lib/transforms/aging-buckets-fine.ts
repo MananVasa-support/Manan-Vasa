@@ -77,6 +77,51 @@ export function fineBucketIsLate(key: FineBucketKey): boolean {
 }
 
 /**
+ * URL slug per bucket, and the signed day-offset window each one covers.
+ *
+ * Both live HERE, beside `bucketForOffset`, because they are the same
+ * classification read in the other direction: bucketForOffset maps an offset to
+ * a bucket, and FINE_BUCKET_OFFSETS maps a bucket back to the offsets it
+ * accepts. Split across two files they would drift the first time a boundary
+ * moved, and the drill-through would quietly select a different set of tasks
+ * than the bar it was clicked on.
+ *
+ * The offset is `effectiveDue − today` in whole days, matching
+ * pendingOffsetDays: NEGATIVE is overdue, positive is time still remaining.
+ * `null` means unbounded on that side.
+ */
+export const FINE_BUCKET_SLUGS: Record<FineBucketKey, string> = {
+  "22 or more days overdue": "22_plus",
+  "15 to 21 days overdue": "15_21",
+  "8 to 14 days overdue": "8_14",
+  "4 to 7 days overdue": "4_7",
+  "1 to 3 days overdue": "1_3",
+  "On Due Date (0 days)": "on_due",
+  "1 to 3 days before due date": "early_1_3",
+  "4 to 7 days before due date": "early_4_7",
+  "8 or more days before due date": "early_8_plus",
+};
+
+export const FINE_BUCKET_BY_SLUG: Record<string, FineBucketKey> = Object.fromEntries(
+  (Object.entries(FINE_BUCKET_SLUGS) as [FineBucketKey, string][]).map(([k, v]) => [v, k]),
+);
+
+export const FINE_BUCKET_OFFSETS: Record<
+  FineBucketKey,
+  { min: number | null; max: number | null }
+> = {
+  "22 or more days overdue": { min: null, max: -22 },
+  "15 to 21 days overdue": { min: -21, max: -15 },
+  "8 to 14 days overdue": { min: -14, max: -8 },
+  "4 to 7 days overdue": { min: -7, max: -4 },
+  "1 to 3 days overdue": { min: -3, max: -1 },
+  "On Due Date (0 days)": { min: 0, max: 0 },
+  "1 to 3 days before due date": { min: 1, max: 3 },
+  "4 to 7 days before due date": { min: 4, max: 7 },
+  "8 or more days before due date": { min: 8, max: null },
+};
+
+/**
  * Classify a signed day-offset into one of the nine buckets.
  *
  * `days` is the SIGNED offset (positive = early/before due, negative = late).

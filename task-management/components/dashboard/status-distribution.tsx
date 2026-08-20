@@ -46,29 +46,42 @@ interface StatusPaint {
   border?: string;
 }
 
+/**
+ * Every card is now a SOLID block of its status colour with white type, so the
+ * palette had to be rebuilt: the old one was chosen for a 1px accent rail on a
+ * white card, where a pale amber or a near-white "Not Read" read fine. As a
+ * full background those same values fail — #f9fafb with dark ink is a white
+ * card with extra steps, and #fbbf24 / #7dd3fc / #fdba74 cannot carry white
+ * text at all. Each fill below is dark enough for white type.
+ */
 const STATUS_PAINT: Record<TaskStatus, StatusPaint> = {
-  done:         { fill: "#10b981", ink: "#ffffff" },                          // emerald-500
-  not_approved: { fill: "#dc2626", ink: "#ffffff" },                          // red-600
-  approved:     { fill: "#9333ea", ink: "#ffffff" },                          // purple-600
-  need_info:    { fill: "#ec4899", ink: "#ffffff" },                          // pink-500
-  need_help:    { fill: "#ec4899", ink: "#ffffff" },                          // pink-500 (see note)
-  not_started:  { fill: "#fbbf24", ink: "#1f2937" },                          // amber-400
-  dont_know:    { fill: "#f9fafb", ink: "#1f2937", border: "#d1d5db" },       // "Not Read"
-  initiated:    { fill: "#fdba74", ink: "#1f2937" },                          // orange-300
-  on_hold:      { fill: "#f97316", ink: "#ffffff" },                          // orange-500
-  follow_up:    { fill: "#7dd3fc", ink: "#1f2937" },                          // sky-300
-  follow_up_1:  { fill: "#7dd3fc", ink: "#1f2937" },
-  follow_up_2:  { fill: "#7dd3fc", ink: "#1f2937" },
-  follow_up_3:  { fill: "#7dd3fc", ink: "#1f2937" },
-  cancelled:    { fill: "#9ca3af", ink: "#ffffff" },                          // gray-400
-  transferred:  { fill: "#9ca3af", ink: "#ffffff" },                          // gray-400
+  done:         { fill: "#059669", ink: "#ffffff" },  // emerald-600
+  not_approved: { fill: "#dc2626", ink: "#ffffff" },  // red-600 — bright red
+  need_info:    { fill: "#881337", ink: "#ffffff" },  // rose-900 — dark crimson
+  need_help:    { fill: "#881337", ink: "#ffffff" },  // retired alias of need_info
+  not_started:  { fill: "#334155", ink: "#ffffff" },  // slate-700
+  // "Not Read". One step darker than not_started rather than the same
+  // slate-700: they are different statuses and sit adjacent in the grid, where
+  // two identical fills read as a rendering fault rather than a shared family.
+  dont_know:    { fill: "#1e293b", ink: "#ffffff" },  // slate-800
+  initiated:    { fill: "#1d4ed8", ink: "#ffffff" },  // blue-700 — pending family,
+                                                      // a step off the Pending tile
+  approved:     { fill: "#7c3aed", ink: "#ffffff" },  // violet-600
+  on_hold:      { fill: "#d97706", ink: "#ffffff" },  // amber-600
+  follow_up:    { fill: "#0891b2", ink: "#ffffff" },  // cyan-600
+  follow_up_1:  { fill: "#0891b2", ink: "#ffffff" },
+  follow_up_2:  { fill: "#0891b2", ink: "#ffffff" },
+  follow_up_3:  { fill: "#0891b2", ink: "#ffffff" },
+  cancelled:    { fill: "#64748b", ink: "#ffffff" },  // slate-500 (retired)
+  transferred:  { fill: "#64748b", ink: "#ffffff" },  // slate-500 (retired)
 };
 
 /** The summary tiles are not statuses, so they carry their own paint. */
 const SUMMARY_PAINT = {
-  pending: { fill: "#2563eb", ink: "#ffffff" },                               // blue-600
-  notApproved: { fill: "#dc2626", ink: "#ffffff" },                           // red-600
-  archived: { fill: "#9ca3af", ink: "#ffffff" },                              // gray-400
+  pending: { fill: "#2563eb", ink: "#ffffff" },      // blue-600
+  notApproved: { fill: "#dc2626", ink: "#ffffff" },  // red-600
+  archived: { fill: "#475569", ink: "#ffffff" },     // slate-600 (was gray-400,
+                                                     // too pale for white type)
 } as const;
 
 export function StatusDistributionChart({
@@ -124,7 +137,9 @@ export function StatusDistributionChart({
   return (
     <section
       className="w-full max-w-none"
-      style={{ opacity: 0, animation: "fadeUp 500ms ease-out 500ms forwards" }}
+      /* Delay cut from 500ms: it staggered against this section's position in
+         one long scroll, but it now mounts when its tab is clicked. */
+      style={{ opacity: 0, animation: "fadeUp 400ms ease-out 100ms forwards" }}
     >
       <Header
         isAdmin={isAdmin}
@@ -175,8 +190,10 @@ export function StatusDistributionChart({
                 width: `${widthPct}%`,
                 minWidth: 6,
                 background: paint.fill,
-                // The white "Not Read" tier needs an outline or it reads as a
-                // gap in the ribbon rather than a segment.
+                // The outline that used to rescue the near-white "Not Read"
+                // tier is gone with it — every fill is now dark enough to read
+                // as a segment on its own. `border` stays optional on the
+                // interface but no entry sets it.
                 boxShadow: [
                   paint.border ? `inset 0 0 0 1px ${paint.border}` : "",
                   i < rows.length - 1 ? "inset -1px 0 0 rgba(255,255,255,0.6)" : "",
@@ -200,7 +217,12 @@ export function StatusDistributionChart({
           cards flow without odd mid-grid gaps. 3 cols desktop, 2 tablet, 1 mobile. */}
       {/* Six across at full width — the section no longer shares a row, so the
           eleven-odd cards fit two rows instead of four cramped ones. */}
-      <ul className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      {/* Five across from lg, so ten cards land as two clean rows of five.
+          The count is DATA-DEPENDENT though — computeStatusDistribution drops
+          any status with a zero count — so a filter that empties a status
+          leaves the last row short. Five columns is the shape; symmetry
+          depends on what the data actually contains. */}
+      <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {rows.map((r, i) => (
           <StatTile
             key={r.status}
@@ -273,22 +295,15 @@ function SummaryTile({
     <li>
       <Link
         href={href}
-        className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md"
+        // Matches StatTile exactly — solid fill, white type, no rail, no chip —
+        // so the summary tiles keep blending into the same grid rather than
+        // reading as a second, paler species of card beside them.
+        className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl p-4 text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
+        style={{ background: paint.fill, color: paint.ink }}
       >
-        <span
-          aria-hidden
-          className="-mx-4 -mt-4 mb-3 block h-1"
-          style={{ background: paint.fill }}
-        />
-
         <div className="flex items-center gap-2">
           <span
-            aria-hidden
-            className="size-2.5 shrink-0 rounded-full"
-            style={{ background: paint.fill }}
-          />
-          <span
-            className="truncate font-bold uppercase tracking-[0.06em] text-gray-500"
+            className="truncate font-bold uppercase tracking-[0.06em] text-white"
             style={{ fontSize: 12 }}
           >
             {label}
@@ -297,7 +312,7 @@ function SummaryTile({
 
         <div className="mt-3 flex items-baseline gap-2">
           <span
-            className="font-black leading-none tabular-nums text-gray-900"
+            className="font-black leading-none tabular-nums text-white"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontSize: 34,
@@ -306,19 +321,21 @@ function SummaryTile({
             {animated}
           </span>
           <span
-            className="ml-auto font-semibold tabular-nums text-gray-500"
+            className="ml-auto font-semibold tabular-nums text-white"
             style={{ fontSize: 14 }}
           >
             {denom > 0 ? `${pct.toFixed(1)}%` : "—"}
           </span>
         </div>
 
-        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/40">
           <span
-            className="block h-full rounded-full transition-[filter] duration-150 group-hover:brightness-110"
+            className="block h-full rounded-full bg-white"
             style={{
+              // NO `background` here: an inline value beats the bg-white
+              // class, and painting the bar in the card's own colour makes it
+              // invisible against the card.
               width: `${Math.max(Math.min(pct, 100), pct > 0 ? 3 : 0)}%`,
-              background: paint.fill,
               animation: `barGrow 900ms cubic-bezier(.2,.8,.2,1) ${400 + index * 70}ms backwards`,
               transformOrigin: "left",
             }}
@@ -404,33 +421,18 @@ function StatTile({
         href={`/tasks?status=${row.status}` as Route}
         onMouseEnter={() => onHover(true)}
         onMouseLeave={() => onHover(false)}
-        className={`group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-white p-4 shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md ${
-          highlighted ? "-translate-y-0.5 border-gray-300 shadow-md" : "border-gray-200"
+        // Solid block of the status colour. The accent rail and the colour chip
+        // are BOTH gone: they existed to carry the status hue onto a white
+        // card, and a card that IS the hue has no use for either.
+        className={`group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl p-4 text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${
+          highlighted ? "-translate-y-0.5 shadow-md ring-2 ring-white/60 ring-inset" : ""
         }`}
-        style={
-          // The status colour lives on a top accent rail rather than the whole
-          // card, so eleven cards side by side stay readable.
-          { boxShadow: highlighted ? `inset 0 3px 0 ${paint.fill}` : undefined }
-        }
+        style={{ background: paint.fill, color: paint.ink }}
       >
-        <span
-          aria-hidden
-          className="-mx-4 -mt-4 mb-3 block h-1"
-          style={{ background: paint.fill }}
-        />
-
-        {/* Label row — colour chip + status name */}
+        {/* Label row */}
         <div className="flex items-center gap-2">
           <span
-            aria-hidden
-            className="size-2.5 shrink-0 rounded-full"
-            style={{
-              background: paint.fill,
-              boxShadow: paint.border ? `inset 0 0 0 1px ${paint.border}` : undefined,
-            }}
-          />
-          <span
-            className="truncate font-bold uppercase tracking-[0.06em] text-gray-500"
+            className="truncate font-bold uppercase tracking-[0.06em] text-white"
             style={{ fontSize: 12 }}
           >
             {label}
@@ -440,7 +442,7 @@ function StatTile({
         {/* Count + share — single baseline row, % pinned right */}
         <div className="mt-3 flex items-baseline gap-2">
           <span
-            className="font-black leading-none tabular-nums text-gray-900"
+            className="font-black leading-none tabular-nums text-white"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontSize: 34,
@@ -449,7 +451,7 @@ function StatTile({
             {animated}
           </span>
           <span
-            className="ml-auto font-semibold tabular-nums text-gray-500"
+            className="ml-auto font-semibold tabular-nums text-white"
             style={{ fontSize: 14 }}
           >
             {denom > 0 ? `${pct.toFixed(1)}%` : "—"}
@@ -458,13 +460,16 @@ function StatTile({
 
         {/* Share bar — the fill grows on hover, so the card confirms the
             pointer without moving any layout. */}
-        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        {/* Track and fill are WHITE rather than the status colour: one recipe
+            that keeps its contrast on all fifteen fills, and a bar painted in
+            the card's own colour would be invisible. The track sits at 40%
+            (was 25%) so the bar's full extent reads against the dark card, not
+            just the filled part; the fill is solid white for maximum step. */}
+        <div aria-hidden className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/40">
           <span
-            className="block h-full rounded-full transition-[filter,transform] duration-150 group-hover:brightness-110"
+            className="block h-full rounded-full bg-white transition-transform duration-150"
             style={{
               width: `${Math.max(Math.min(pct, 100), pct > 0 ? 3 : 0)}%`,
-              background: paint.fill,
-              boxShadow: paint.border ? `inset 0 0 0 1px ${paint.border}` : undefined,
               animation: `barGrow 900ms cubic-bezier(.2,.8,.2,1) ${400 + index * 70}ms backwards`,
               transformOrigin: "left",
             }}

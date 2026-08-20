@@ -69,13 +69,16 @@ vi.mock("@/lib/db", () => {
   };
 });
 
+// NOTE the email: changing a task's DOER is restricted to Manan (canChangeDoer),
+// so the acting user in these reassign tests must be him or every reassign
+// path returns "Only Manan can change a task's doer." before touching the db.
 vi.mock("@/lib/auth/current", () => ({
   requireUser: vi.fn(async () => ({
     id: "me-id",
     isAdmin: false,
     isActive: true,
     name: "Me",
-    email: "me@vp.com",
+    email: "manan@unleashed.in",
   })),
 }));
 

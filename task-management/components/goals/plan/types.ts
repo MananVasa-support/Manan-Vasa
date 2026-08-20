@@ -62,6 +62,30 @@ export interface PlanItem {
   assignee?: string | null;
   /** True only for the live drag placeholder. */
   ghost?: boolean;
+
+  /* ── Added for the post-"Start My Day" review TABLE ───────────────────────
+     All OPTIONAL, because two other paths build a PlanItem with only the core
+     fields: the optimistic rows in plan/actions.ts, and the drag ghost. A table
+     cell renders an em-dash when a value is absent, which is also the honest
+     rendering for rows that genuinely have no such value — an ad-hoc
+     commitment has no client, and a weekly goal has no priority. */
+
+  /** Split back out of `subtitle`, which merges them lossily. */
+  client?: string | null;
+  subject?: string | null;
+  /** The linked WMS task's number, when this row came from one. (`taskId`,
+   *  `priority` and `dueYmd` are declared once, above — the table reads the
+   *  same fields the cards do rather than keeping a second copy.) */
+  taskNo?: number | null;
+  description?: string | null;
+  /** When the row was committed to a plan. */
+  createdYmd?: string | null;
+  /** Whole IST days since `createdYmd`. */
+  ageDays?: number | null;
+  /** Rolled forward from an earlier, unfinished day (`moved_from_date`). This
+   *  is what makes the "Unfinished" category knowable — `kind` reverts to
+   *  weekly/task/adhoc once an item is carried over. */
+  carriedOver?: boolean;
 }
 
 /**

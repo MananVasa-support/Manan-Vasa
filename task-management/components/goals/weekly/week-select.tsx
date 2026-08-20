@@ -95,9 +95,9 @@ export function WeekSelect({ value, thisWeek, onPick }: WeekSelectProps) {
         type="button"
         aria-label="Previous week"
         onClick={() => onPick(prevWeekStart(value))}
-        className={`cursor-pointer px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
+        className={`cursor-pointer px-1 py-0.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
       >
-        <ChevronLeft size={15} strokeWidth={2.4} />
+        <ChevronLeft size={11} strokeWidth={2.4} />
       </button>
 
       <Popover open={open} onOpenChange={setOpen}>
@@ -105,16 +105,16 @@ export function WeekSelect({ value, thisWeek, onPick }: WeekSelectProps) {
           <button
             type="button"
             aria-label={`Week ${weekNo}, ${range} — pick a week`}
-            className={`flex cursor-pointer items-center gap-1.5 border-x border-hairline-strong px-2.5 py-1.5 transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
+            className={`flex cursor-pointer items-center gap-1 border-x border-hairline-strong px-1.5 py-0.5 transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
           >
-            <CalendarDays size={13} className="text-ink-subtle" />
-            <span className="text-[12.5px] font-bold tabular-nums text-altus-red">W{weekNo}</span>
-            <span className="text-[12.5px] font-bold text-ink-subtle">·</span>
-            <span className="whitespace-nowrap text-[12.5px] font-bold tabular-nums text-ink-strong">
+            <CalendarDays size={11} className="text-ink-subtle" />
+            <span className="text-[10.5px] font-bold tabular-nums text-altus-red">W{weekNo}</span>
+            <span className="text-[10.5px] font-bold text-ink-subtle">·</span>
+            <span className="whitespace-nowrap text-[10.5px] font-bold tabular-nums text-ink-strong">
               {range}
             </span>
             <ChevronDown
-              size={13}
+              size={11}
               strokeWidth={2.6}
               className={`text-ink-subtle transition-transform ${open ? "rotate-180" : ""}`}
             />
@@ -138,9 +138,9 @@ export function WeekSelect({ value, thisWeek, onPick }: WeekSelectProps) {
         type="button"
         aria-label="Next week"
         onClick={() => onPick(nextWeekStart(value))}
-        className={`cursor-pointer px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
+        className={`cursor-pointer px-1 py-0.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
       >
-        <ChevronRight size={15} strokeWidth={2.4} />
+        <ChevronRight size={11} strokeWidth={2.4} />
       </button>
     </div>
   );

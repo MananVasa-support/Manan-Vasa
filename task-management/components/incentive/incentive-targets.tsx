@@ -191,8 +191,7 @@ export function IncentiveTargets({
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search person…"
-              aria-label="Search people"
+              placeholder="Local search — person" title="Local search — filters only the list on this page" aria-label="Local search — person — this page only"
               className="w-full bg-transparent text-[14px] font-semibold text-ink-strong outline-none placeholder:text-ink-subtle"
             />
           </label>

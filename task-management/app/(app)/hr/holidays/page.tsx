@@ -34,7 +34,7 @@ export default async function HolidaysPage() {
       <style>{HOL_CSS}</style>
 
       {/* ── Chrome header ─────────────────────────────────────────── */}
-      <header className="hol-chrome no-print sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 py-3 max-md:px-4">
+      <header className="hol-chrome no-print sticky sticky-below-topbar z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 py-3 max-md:px-4">
         <div className="justify-self-start">
           <Link
             href={"/hr" as Route}

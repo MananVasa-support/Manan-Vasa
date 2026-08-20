@@ -196,8 +196,7 @@ function PersonTable({ report }: { report: IncentiveStatusReport }) {
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search person…"
-          aria-label="Search people"
+          placeholder="Local search — person" title="Local search — filters only the list on this page" aria-label="Local search — person — this page only"
           className="h-10 w-full max-w-[240px] rounded-xl bg-surface-card px-3.5 text-[14px] font-semibold text-ink-strong outline-none placeholder:text-ink-subtle"
           style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
         />

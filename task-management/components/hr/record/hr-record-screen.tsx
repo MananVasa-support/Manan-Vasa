@@ -1367,7 +1367,7 @@ function Roster({
             type="text"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
-            placeholder="Search name, role or department…"
+            placeholder="Local search — name, role or department" title="Local search — filters only the list on this page" aria-label="Local search — name, role or department — this page only"
             className="w-full rounded-xl border border-hairline-strong bg-white py-2.5 pl-9 pr-3 text-[13.5px] font-medium text-ink-strong outline-none transition-colors focus:border-altus-red"
           />
         </div>
@@ -1529,7 +1529,7 @@ function PersonPicker({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onKeyDown}
-                placeholder="Search name, role or department…"
+                placeholder="Local search — name, role or department" title="Local search — filters only the list on this page" aria-label="Local search — name, role or department — this page only"
                 className="w-full rounded-lg border border-hairline-strong bg-surface-soft py-2.5 pl-9 pr-8 text-[13.5px] font-medium text-ink-strong outline-none transition-colors focus:border-altus-red focus:bg-white"
               />
               {query && (

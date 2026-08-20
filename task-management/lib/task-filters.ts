@@ -1,4 +1,8 @@
 import {
+  FINE_BUCKET_BY_SLUG,
+  FINE_BUCKET_SLUGS,
+} from "@/lib/transforms/aging-buckets-fine";
+import {
   TASK_STATUSES,
   TASK_PRIORITIES,
   DEPARTMENTS,
@@ -65,9 +69,12 @@ export function parseTaskFilters(
     DEPT_SET.has(d as Department),
   );
 
-  // Team scope. Kept as a raw string here — "mine" needs the org chart to
+  // Team scope. Kept as raw strings here — "mine" needs the org chart to
   // expand, which is a DB read this pure parser must not do.
-  const team = (get("team") ?? "").trim() || null;
+  // `my_team` is accepted as an alias for `mine`: the canonical value stays
+  // `mine` because links using it are already in the wild, but the newer
+  // spelling should not 404 into an unfiltered list.
+  const teams = split(get("team")).map((t) => (t === "my_team" ? "mine" : t));
 
   const id = get("id");
 
@@ -102,13 +109,19 @@ export function parseTaskFilters(
     doerIds,
     initiatorIds: split(get("initiator")),
     departments,
-    team,
+    teams,
     viewerId: opts.defaultDoerId ?? null,
     priorities,
     subjects: split(get("subj")),
     clients: split(get("client")),
     taskId: typeof id === "string" && id.length > 0 ? id : null,
     archived: archived || wantsArchived,
+    // Accepts true/1/yes so a hand-typed or shared link is forgiving; anything
+    // else (including the param being absent) is false.
+    overdue: ["true", "1", "yes"].includes((get("overdue") ?? "").toLowerCase()),
+    // Unknown slugs resolve to null rather than throwing: a stale bookmark
+    // should show an unfiltered list, not an error page.
+    ageRange: FINE_BUCKET_BY_SLUG[(get("age_range") ?? "").trim()] ?? null,
     assigneeMode,
   };
 }
@@ -128,10 +141,12 @@ export function taskFiltersToSearchString(f: TaskListFilters): string {
   }
   if (f.initiatorIds.length > 0) sp.set("initiator", f.initiatorIds.join(","));
   if (f.departments.length > 0)  sp.set("dept", f.departments.join(","));
-  if (f.team)                    sp.set("team", f.team);
+  if (f.teams.length > 0)        sp.set("team", f.teams.join(","));
   if (f.priorities.length > 0)   sp.set("prio", f.priorities.join(","));
   if (f.subjects.length > 0)     sp.set("subj", f.subjects.join(","));
   if (f.clients.length > 0)      sp.set("client", f.clients.join(","));
   if (f.taskId) sp.set("id", f.taskId);
+  if (f.overdue) sp.set("overdue", "true");
+  if (f.ageRange) sp.set("age_range", FINE_BUCKET_SLUGS[f.ageRange]);
   return sp.toString();
 }

@@ -59,7 +59,7 @@ export function ViewingSelect({
 
   return (
     <div className={cn("inline-flex shrink-0 items-center gap-2 max-md:w-full", className)}>
-      <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-subtle max-lg:hidden">
+      <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-subtle max-lg:hidden">
         {label}
       </span>
       <Select
@@ -70,8 +70,8 @@ export function ViewingSelect({
         ariaLabel={ariaLabel}
         unstyled
         className={cn(
-          "h-9 w-[188px] cursor-pointer rounded-lg border border-hairline-strong bg-surface-card px-3",
-          "text-[13px] font-semibold text-ink-strong transition-colors",
+          "h-9 w-[188px] cursor-pointer rounded-pill border border-hairline-strong bg-surface-card px-3",
+          "text-[13.5px] font-semibold text-ink-strong transition-colors",
           "hover:border-[color-mix(in_srgb,var(--color-altus-red)_35%,var(--color-hairline-strong))]",
           "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/40",
           "max-md:w-full",

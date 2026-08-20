@@ -129,3 +129,90 @@ export const STATUS_TONES_FALLBACK: Record<TaskStatus, StatusColorToken> = {
   cancelled:    "slate",
   transferred:  "brown",
 };
+
+/** The four colours one status badge needs: fill, text, hairline and dot. */
+export interface StatusBadgeStyle {
+  /** Pill background. */
+  bg: string;
+  /** Pill text. */
+  ink: string;
+  /** 1px pill border. */
+  border: string;
+  /** The leading dot — the most saturated of the four. */
+  dot: string;
+}
+
+/**
+ * HIGH-CONTRAST status badges (2026-08).
+ *
+ * Badges used to be derived from a single `--color-<token>` via
+ * `color-mix(… 12%, transparent)` for the fill and `… 30%` for the border. At
+ * 12% of an already-pale token the fill was within a couple of percent of white,
+ * so on a white table every badge read as "faint grey rectangle with coloured
+ * text" and the statuses were hard to tell apart at a glance.
+ *
+ * These are LITERAL values, not derived ones, because the spec is literal:
+ * Tailwind's -100 fill / -950 (or -900) ink / -300 hairline / -600 dot. Deriving
+ * them from the CSS variables would have meant redefining those variables, and
+ * they are shared with a dozen non-status surfaces (reimbursements, incentive,
+ * projects…) that were never asked to change.
+ *
+ * Token → family, and why:
+ *   yellow → AMBER    Initiated. Pale yellow on white was the worst offender.
+ *   blue   → INDIGO   Not Started. Washed-out light blue → vivid indigo.
+ *   green  → EMERALD  Done.
+ *   red    → RED      Need Info / Need Help — the "critical" family.
+ *   rose   → RED      Not Approved. Deliberately the SAME red: "washed pink"
+ *                     was the complaint, and a declined task is a red event,
+ *                     not a pink one.
+ *   orange → ORANGE   Follow Up.
+ *   amber  → ORANGE   On Hold. Grouped with Follow Up in the spec. On Hold
+ *                     carries the `amber` token in status_settings (not the
+ *                     `slate` the fallback map guesses), so it gets its own
+ *                     entry here and Cancelled — which really is slate — is
+ *                     left alone.
+ *
+ * purple / slate / stone / brown were not named in the spec. They get the SAME
+ * -100/-950/-300/-600 treatment in their own hue so one column of badges reads
+ * as one system rather than five loud chips beside four faint ones. In
+ * particular Approved stays PURPLE: the spec's "Done / Approved (Green)"
+ * heading would make an approved task indistinguishable from a merely-done one,
+ * which is the distinction the approval column exists to draw.
+ */
+export const STATUS_BADGE_STYLES: Record<StatusColorToken, StatusBadgeStyle> = {
+  // ── Named in the spec ────────────────────────────────────────────────────
+  yellow: { bg: "#FEF3C7", ink: "#78350F", border: "#FCD34D", dot: "#D97706" }, // amber
+  blue:   { bg: "#E0E7FF", ink: "#1E1B4B", border: "#C7D2FE", dot: "#4F46E5" }, // indigo
+  green:  { bg: "#D1FAE5", ink: "#022C22", border: "#6EE7B7", dot: "#059669" }, // emerald
+  red:    { bg: "#FEE2E2", ink: "#450A0A", border: "#FCA5A5", dot: "#DC2626" },
+  rose:   { bg: "#FEE2E2", ink: "#450A0A", border: "#FCA5A5", dot: "#DC2626" }, // → red
+  orange: { bg: "#FFEDD5", ink: "#431407", border: "#FDBA74", dot: "#EA580C" },
+  amber:  { bg: "#FFEDD5", ink: "#431407", border: "#FDBA74", dot: "#EA580C" }, // → orange
+  // ── Same treatment, own hue ──────────────────────────────────────────────
+  purple: { bg: "#F3E8FF", ink: "#3B0764", border: "#D8B4FE", dot: "#9333EA" },
+  slate:  { bg: "#E2E8F0", ink: "#0F172A", border: "#CBD5E1", dot: "#475569" },
+  stone:  { bg: "#E7E5E4", ink: "#292524", border: "#D6D3D1", dot: "#78716C" },
+  brown:  { bg: "#EDE0CF", ink: "#3F2A15", border: "#D3B892", dot: "#8A6234" },
+};
+
+/**
+ * Resolve a `status_settings.color_token` to its badge colours.
+ *
+ * The column accepts a raw hex as well as one of the named tokens (see
+ * lib/validators/color-token.ts), so an admin-set custom colour has no entry
+ * above. Those fall back to the old derive-from-one-colour behaviour, which is
+ * the only thing possible with a single input — but with the fill pushed from
+ * 12% to 22% so a custom badge is not left conspicuously fainter than the
+ * eleven built-ins beside it.
+ */
+export function statusBadgeStyle(token: string | null | undefined): StatusBadgeStyle {
+  const known = token && (STATUS_BADGE_STYLES as Record<string, StatusBadgeStyle>)[token];
+  if (known) return known;
+  const c = token && token.startsWith("#") ? token : "var(--color-stone)";
+  return {
+    bg: `color-mix(in srgb, ${c} 22%, white)`,
+    ink: `color-mix(in srgb, ${c} 78%, black)`,
+    border: `color-mix(in srgb, ${c} 45%, white)`,
+    dot: c,
+  };
+}

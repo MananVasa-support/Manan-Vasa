@@ -521,7 +521,7 @@ export function TaskListTable({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search area, description, links, notes…"
+            placeholder="Local search — area, description, links, notes" title="Local search — filters only the list on this page" aria-label="Local search — area, description, links, notes — this page only"
             className="w-full bg-transparent py-2.5 text-[15px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle"
           />
         </div>
@@ -861,7 +861,7 @@ export function ScreenshotsTable({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search project, details, notes…"
+            placeholder="Local search — project, details, notes" title="Local search — filters only the list on this page" aria-label="Local search — project, details, notes — this page only"
             className="w-full bg-transparent py-2.5 text-[15px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle"
           />
         </div>

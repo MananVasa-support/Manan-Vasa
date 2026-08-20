@@ -46,7 +46,12 @@ export function HrShellSidebar() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <aside className="hr-rail sticky top-0 z-30 flex h-dvh w-[248px] shrink-0 flex-col border-r border-hairline bg-white max-lg:hidden">
+    // Height is the viewport MINUS the app top bar, or the rail overflows the
+    // page by exactly the bar's height and its footer sits below the fold.
+    <aside
+      className="hr-rail sticky sticky-below-topbar z-30 flex w-[248px] shrink-0 flex-col border-r border-hairline bg-white max-lg:hidden"
+      style={{ height: "calc(100dvh - var(--app-topbar-h))" }}
+    >
       {/* Brand — links to the hub */}
       <Link
         href={"/hub" as Route}

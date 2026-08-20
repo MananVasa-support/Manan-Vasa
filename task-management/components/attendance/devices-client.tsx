@@ -86,7 +86,7 @@ export function DevicesClient({ devices, maxPerEmployee }: { devices: DeviceRow[
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search person or device…"
+            placeholder="Local search — person or device" title="Local search — filters only the list on this page" aria-label="Local search — person or device — this page only"
             className="w-full rounded-xl border border-hairline-strong bg-white py-2.5 pl-9 pr-3 text-[13.5px] font-medium text-ink-strong outline-none focus:border-altus-red"
           />
         </div>

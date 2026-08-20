@@ -26,6 +26,8 @@ import {
   EMPLOYEE_ROLES,
   TASK_PRIORITIES,
   APPROVAL_STATUSES,
+  APPROVAL_LEVELS,
+  type TaskStatus,
   type AccountType,
   type ReligionCode,
   type EventStatus,
@@ -62,6 +64,7 @@ export const taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
 export const employeeRoleEnum = pgEnum("employee_role", EMPLOYEE_ROLES);
 export const taskPriorityEnum = pgEnum("task_priority", TASK_PRIORITIES);
 export const approvalStatusEnum = pgEnum("approval_status", APPROVAL_STATUSES);
+export const approvalLevelEnum = pgEnum("approval_level", APPROVAL_LEVELS);
 
 // Salary module (migration 0062) — admin-managed rosters referenced by the
 // employees FKs below. Declared first so the FK callbacks resolve cleanly.
@@ -978,6 +981,17 @@ export const tasks = pgTable(
     //                       `due_at` so the original commitment isn't lost.
     tags: text("tags").array(),
     approvalStatus: approvalStatusEnum("approval_status"),
+    // Two-stage approval (migration 0185). 'none' → not signed off; 'manager' →
+    // accepted by the doer's manager; 'admin' → final sign-off, which ONLY the
+    // founder can give. The Kanban's two approved columns are derived from this,
+    // not from new task_status values, so existing consumers are untouched.
+    approvalLevel: approvalLevelEnum("approval_level").notNull().default("none"),
+    managerApprovedById: uuid("manager_approved_by_id").references(() => employees.id, { onDelete: "set null" }),
+    managerApprovedAt: timestamp("manager_approved_at", { withTimezone: true }),
+    managerApprovalNote: text("manager_approval_note"),
+    adminApprovedById: uuid("admin_approved_by_id").references(() => employees.id, { onDelete: "set null" }),
+    adminApprovedAt: timestamp("admin_approved_at", { withTimezone: true }),
+    adminApprovalNote: text("admin_approval_note"),
     revisedTargetDate: timestamp("revised_target_date", { withTimezone: true }),
     // Read-receipt (migration 0045): set when any user first opens the task
     // detail. NULL = never opened. Powers the "Not Read" stat card.
@@ -1037,6 +1051,10 @@ export const tasks = pgTable(
   },
   (t) => [
     index("tasks_doer_created_idx").on(t.doerId, t.createdAt),
+    // (doer, status) — Status-by-Doer and every "this person's open work"
+    // filter. The doer/created and status/created pairs above cannot serve it:
+    // neither leads with doer AND narrows by status. Migration 0186.
+    index("tasks_doer_status_idx").on(t.doerId, t.status),
     index("tasks_origin_goal_idx").on(t.originGoalId),
     index("tasks_initiator_created_idx").on(t.initiatorId, t.createdAt),
     index("tasks_status_created_idx").on(t.status, t.createdAt),
@@ -1051,6 +1069,11 @@ export const tasks = pgTable(
     // Added 2026-05-25 (migration 0029) to back the queries flagged by
     // the hardening audit — see the migration file for context.
     index("tasks_due_at_idx").on(t.dueAt),
+    // End Time sorts/filters. Partial: a null completed_at means "still open",
+    // which is most of the table and never what these queries want. Mig 0186.
+    index("tasks_completed_at_idx")
+      .on(t.completedAt)
+      .where(sql`${t.completedAt} is not null`),
     index("tasks_approved_by_idx").on(t.approvedById),
     index("tasks_transferred_from_idx").on(t.transferredFromId),
     index("tasks_project_node_idx").on(t.projectNodeId),
@@ -1182,7 +1205,19 @@ export const taskTimeRollup = pgTable("task_time_rollup", {
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   openSessionCount: integer("open_session_count").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+},
+(t) => [
+  // This projection had NOTHING but its primary key. Both columns are read
+  // constantly but so far only by PK lookup or full aggregate scan; these exist
+  // so a server-side Start Time sort or a rework filter does not seq-scan when
+  // one is added. Partial, so they stay small. Migration 0186.
+  index("task_time_rollup_first_started_idx")
+    .on(t.firstStartedAt)
+    .where(sql`${t.firstStartedAt} is not null`),
+  index("task_time_rollup_rejections_idx")
+    .on(t.rejectionCount)
+    .where(sql`${t.rejectionCount} > 0`),
+]);
 export type TaskTimeRollup = typeof taskTimeRollup.$inferSelect;
 
 /** Camera captures taken during a live session (private, super-admin-only). */
@@ -6590,3 +6625,55 @@ export const kpiAssignmentHistory = pgTable(
 );
 export type KpiAssignmentHistoryRow = typeof kpiAssignmentHistory.$inferSelect;
 export type NewKpiAssignmentHistoryRow = typeof kpiAssignmentHistory.$inferInsert;
+
+/* ------------------------------------------------------------------ */
+/* Task Reminder Settings (migration 0185)                             */
+/* ------------------------------------------------------------------ */
+
+/** Whose tasks a reminder rule collects. */
+export type TaskReminderScope = "all" | "selected";
+
+/**
+ * A rule's status filter holds real `task_status` values PLUS the pseudo-token
+ * `"overdue"`, which is not a status but a derived condition (due_at < now).
+ * They share one array because that is how an admin reads the setting: a single
+ * checklist of "what should be chased".
+ */
+export type TaskReminderStatusToken = TaskStatus | "overdue";
+
+/**
+ * Admin-authored daily task reminders. Each rule owns its recipients, its
+ * employee scope, its statuses and its own send time; the dispatcher
+ * (app/api/cron/task-reminders) sends ONE consolidated email per recipient,
+ * grouped by employee. See db/migrations/0185_task_reminder_rules.sql for why
+ * the list columns are jsonb and the time is an IST "HH:MM" string.
+ */
+export const taskReminderRules = pgTable(
+  "task_reminder_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    isEnabled: boolean("is_enabled").notNull().default(true),
+    recipientIds: jsonb("recipient_ids").notNull().default([]).$type<string[]>(),
+    scope: text("scope").notNull().default("all").$type<TaskReminderScope>(),
+    employeeIds: jsonb("employee_ids").notNull().default([]).$type<string[]>(),
+    statuses: jsonb("statuses")
+      .notNull()
+      .default(["dont_know", "not_started", "initiated", "overdue"])
+      .$type<TaskReminderStatusToken[]>(),
+    /** "HH:MM", IST. */
+    sendTimeIst: text("send_time_ist").notNull().default("09:30"),
+    /** "YYYY-MM-DD" IST — the idempotency guard for the 15-minute dispatcher. */
+    lastSentOn: text("last_sent_on"),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("task_reminder_rules_enabled_idx").on(t.isEnabled, t.sendTimeIst)],
+);
+export type TaskReminderRule = typeof taskReminderRules.$inferSelect;
+export type NewTaskReminderRule = typeof taskReminderRules.$inferInsert;

@@ -6,7 +6,9 @@ import { NavHistoryButtons } from "./nav-history-buttons";
 import { MobileMenuServer } from "./mobile-menu-server";
 import { MobileModuleLabel, SidebarNewTask, SidebarSearch, SidebarGoalsSpace } from "./sidebar-route-chrome";
 import { UserMenuServer } from "@/components/header/user-menu-server";
-import { NewTaskTrigger } from "@/components/header/new-task-trigger";
+import { NewTaskRailButton } from "@/components/tasks/new-task-rail-button";
+import { NotificationBell } from "@/components/header/notification-bell";
+import { NewTaskQuickAction } from "@/components/header/new-task-quick-action";
 import { getCurrentEmployee } from "@/lib/auth/current";
 
 /**
@@ -52,6 +54,16 @@ export async function DashboardSidebar() {
         <img src="/logo.png" alt="Altus Corp" className="h-8 w-auto" />
       </a>
       <MobileModuleLabel />
+      {/* Far right on phones too. The desktop AppTopBar is `max-md:hidden` — a
+          second 56px strip would eat a third of a small screen — so the bell
+          rides in this bar instead. */}
+      {/* Same create-then-notify pair as the desktop AppTopBar. That bar is
+          `max-md:hidden`, so without this the global + would simply not exist
+          on a phone. */}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <NewTaskQuickAction />
+        <NotificationBell />
+      </div>
     </div>
 
     {/* Desktop (md+): the left rail — an IN-FLOW flex child (sticky, full height),
@@ -89,10 +101,12 @@ export async function DashboardSidebar() {
       {/* ── Primary nav — vertical pills (MainNav drawer variant), scrollable ── */}
       <nav aria-label="Primary" className="sidebar-nav nav-scroll min-h-0 flex-1 overflow-y-auto px-3 py-2">
         <MainNavServer variant="drawer" />
-        {/* New Task is a WMS-only action — the server trigger is always rendered
-            as children; the client wrapper shows it only on WMS routes. */}
+        {/* The rail's New Task button is WMS-only furniture; the client wrapper
+            shows it only on WMS routes. The DIALOG it opens no longer lives
+            here — it is mounted once at the (app) layout root, so the global
+            header + can reach it from every module. */}
         <SidebarNewTask>
-          <NewTaskTrigger />
+          <NewTaskRailButton />
         </SidebarNewTask>
       </nav>
 

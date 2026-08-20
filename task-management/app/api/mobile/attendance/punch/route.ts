@@ -8,11 +8,20 @@ import { attendanceIntegrityMode } from "@/lib/attendance/integrity-mode";
 import { consumePunchNonce } from "@/lib/attendance/punch-nonce";
 import { verifyPlayIntegrity } from "@/lib/attendance/play-integrity";
 import { isDccFilledFor } from "@/lib/dcc/gate";
-import { needsDailyPlan } from "@/lib/daily-checklist/gate";
+import {
+  needsDailyPlan,
+  dailyPlanShortfall,
+  MIN_ATTENDANCE_ITEMS,
+} from "@/lib/daily-checklist/gate";
 import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
 import { isManagerWithReports, isMondayIST, managerMondayGoalState } from "@/lib/manager-gates";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { satCommitGateOn, monApproveGateOn, checkoutCloseoutGateOn } from "@/lib/goals/flag";
+import {
+  satCommitGateOn,
+  monApproveGateOn,
+  checkoutCloseoutGateOn,
+  punchPlanGateOn,
+} from "@/lib/goals/flag";
 import { isDayClosedOut } from "@/lib/queries/daily-checklist";
 import { weekCommitSatisfied, managerApproveSatisfied } from "@/lib/goals/gates-predicates";
 import { isSaturdayIST, isWeekdayIST } from "@/lib/goals/gate-day";
@@ -184,18 +193,34 @@ export async function POST(req: Request) {
     }
   }
 
-  // ── Clock-IN planning gate (employees only; fail-open; PUNCH_PLAN_GATE_OFF) ──
-  // Mirrors the web punch + layout "Plan Your Day" gate. Managers/admins/super-
-  // admins exempt. Returns needsPlan so the app can route the user to the plan.
-  if (body.kind === "in" && false /* plan gate force-off 2026-07-27 (attendance unblock) */) {
-    const exempt =
-      isSuperAdmin(me.email) || me.isAdmin || (await isManagerWithReports(me.id).catch(() => true));
-    if (!exempt) {
+  // ── Clock-IN planning gate (fail-open; PUNCH_PLAN_GATE_OFF) ──
+  // Mirrors the web punch: Start My Day clicked + MIN_ATTENDANCE_ITEMS planned.
+  // NO ROLE EXEMPTIONS — managers, admins and super-admins are gated too, same
+  // as the web. Returns needsPlan so the app can route the user to the plan.
+  if (body.kind === "in" && punchPlanGateOn()) {
+    {
       const planned = !(await needsDailyPlan(me.id).catch(() => false));
       const actuals = !(await needsGoalActuals(me.id).catch(() => false));
       if (!planned || !actuals) {
+        // Same shortfall wording as the web punch — the app shows this string
+        // verbatim, so a vaguer message here would make the two surfaces
+        // disagree about what is being asked.
+        let error = "Plan your day first, then clock in.";
+        if (!planned) {
+          const { have, need, started } = await dailyPlanShortfall(me.id).catch(() => ({
+            have: 0,
+            need: MIN_ATTENDANCE_ITEMS,
+            started: false,
+          }));
+          if (have < need) {
+            const short = Math.max(1, need - have);
+            error = `You have ${have} of ${need} things planned for today. Add ${short} more on Plan My Day, then clock in.`;
+          } else if (!started) {
+            error = `Hit “Start My Day” on Plan My Day to begin your day, then clock in.`;
+          }
+        }
         return NextResponse.json(
-          { ok: false, error: "Plan your day (5 commitments + goal progress) before you clock in.", needsPlan: true },
+          { ok: false, error, needsPlan: true },
           { status: 409, headers: MOBILE_CORS },
         );
       }

@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar } from "@/components/ui/avatar";
 import Link from "next/link";
 import type { Route } from "next";
 import { signOut } from "firebase/auth";
@@ -34,13 +35,6 @@ export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref, canSee
     // HARD nav so the next user on this browser can't be served cached pages.
     window.location.replace("/login");
   }
-
-  const initials = adminName
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 
   return (
     <header className="sticky top-0 z-50 header-light max-md:hidden">
@@ -116,21 +110,7 @@ export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref, canSee
                   padding: 1.5,
                 }}
               >
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatarUrl}
-                    alt={adminName}
-                    className="h-8 w-8 rounded-full object-cover block"
-                  />
-                ) : (
-                  <span
-                    className="h-8 w-8 rounded-full flex items-center justify-center text-[12px] font-semibold text-white"
-                    style={{ background: "linear-gradient(135deg, #475569, #1f2937)" }}
-                  >
-                    {initials}
-                  </span>
-                )}
+                <Avatar name={adminName} avatarUrl={avatarUrl} size={32} />
               </span>
               <span className="min-w-0 leading-tight">
                 <span className="block text-[13px] font-semibold text-ink-strong truncate max-w-[160px]">

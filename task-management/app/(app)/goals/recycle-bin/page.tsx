@@ -4,11 +4,14 @@ import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
+import {
+  PageCommandBar,
+  COMMAND_PAGE_CLASS,
+} from "@/components/layout/page-command-bar";
 import { requireUser } from "@/lib/auth/current";
 import { db } from "@/lib/db";
 import { tasks, employees, goals, dailyChecklist } from "@/db/schema";
 import { isManagerWithReports } from "@/lib/manager-gates";
-import { MODULE_THEME } from "@/lib/module-theme";
 import { RecycleBinList } from "@/components/goals/recycle-bin-list";
 import { restoreCommitment, purgeCommitment } from "./actions";
 import { formatDate } from "@/lib/format";
@@ -19,8 +22,6 @@ import type { GoalPeriod } from "@/lib/goals/types";
 
 export const dynamic = "force-dynamic";
 
-const THEME = MODULE_THEME.goals;
-
 /**
  * Recycle Bin — where "abandoned" tasks land (Sir). A MANAGER reviews their
  * team's abandoned tasks and either restores one to the daily loop or permanently
@@ -29,7 +30,7 @@ const THEME = MODULE_THEME.goals;
 export default async function RecycleBinPage() {
   const me = await requireUser();
   const isManager = me.isAdmin || (await isManagerWithReports(me.id));
-  if (!isManager) redirect("/goals/plan" as Route);
+  if (!isManager) redirect("/my-day" as Route);
 
   const doer = alias(employees, "doer");
   const abandonedBy = alias(employees, "abandoned_by");
@@ -145,37 +146,18 @@ export default async function RecycleBinPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <PageShell width="full">
-        <header className="mb-6 wg-rise">
-          <span
-            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
-            style={{ background: `linear-gradient(135deg, ${"#E10600"}, ${"#A80400"})` }}
-          >
-            Goals · Recycle Bin
-          </span>
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(26px, 3.2vw, 38px)",
-              letterSpacing: "-0.025em",
-              marginTop: 6,
-            }}
-          >
-            Recycle Bin
-          </h1>
-          <p className="mt-2 font-medium text-ink-muted" style={{ fontSize: 15 }}>
-            Deleted goals and abandoned tasks. Restore them, or permanently delete.
-          </p>
-        </header>
+      <PageShell width="full" py={false} className={COMMAND_PAGE_CLASS}>
+        <PageCommandBar
+          title="Recycle Bin"
+          hint="Deleted goals and abandoned tasks — restore, or delete for good."
+        />
 
         {/* Deleted GOALS — restore or permanently delete (select-all + confirm). */}
         <RecycleBinGoals items={binGoals} />
 
         {/* Abandoned daily-loop TASKS (existing). */}
-        <section className="mt-10">
-          <h2 className="mb-3 text-[13px] font-black uppercase tracking-[0.08em] text-ink-muted">
+        <section className="mt-7">
+          <h2 className="mb-2.5 text-[12px] font-black uppercase tracking-[0.08em] text-ink-muted">
             Abandoned tasks
           </h2>
           <RecycleBinList items={items} />

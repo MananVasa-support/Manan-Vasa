@@ -90,6 +90,10 @@ export function GoalDetails({ goal, ownerName, onClose }: GoalDetailsProps) {
   // here exactly as it does on the board, rather than as its original category.
   const cat = categoryStyle(goal.category, Boolean(goal.clonedFromId));
   const team = goal.teamInvolved?.filter((m) => m?.name) ?? [];
+  const delegated = (goal.delegatedTo ?? [])
+    .map((d) => `${d.name ?? ""}${d.pct != null ? ` (${d.pct}%)` : ""}`)
+    .filter(Boolean)
+    .join(", ");
 
   const target = goal.targetQty ?? goal.targetAmount;
   const actual = goal.actualQty ?? goal.actualAmount;
@@ -174,6 +178,7 @@ export function GoalDetails({ goal, ownerName, onClose }: GoalDetailsProps) {
                 ? team.map((m) => `${m.name}${m.weight != null ? ` (${m.weight}%)` : ""}`).join(", ")
                 : null}
             </Row>
+            <Row label="Delegated">{delegated || null}</Row>
             <Row label="Accepted %">{goal.acceptPct != null ? `${goal.acceptPct}%` : null}</Row>
             <Row label="Review notes">{goal.reviewNotes || null}</Row>
             <Row label="Assigned by">{goal.createdByName || null}</Row>

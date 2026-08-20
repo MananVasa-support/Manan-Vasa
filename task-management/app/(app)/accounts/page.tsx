@@ -4,7 +4,7 @@ import { Wallet, CalendarCheck2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { ACCOUNTS_SECTIONS } from "@/lib/accounts/sections";
 import { AccountsIndex } from "@/components/accounts/accounts-index";
-import { MODULE_THEME } from "@/lib/module-theme";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 
 export const dynamic = "force-dynamic";
@@ -25,52 +25,32 @@ export default async function AccountsIndexPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-8 wg-rise">
-          <span
-            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
-            style={{ color: "#ffffff", background: `linear-gradient(135deg, ${"#E10600"}, ${ACCENT})` }}
-          >
-            Admin · Accounts
-          </span>
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(30px, 3.6vw, 46px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.04,
-              marginTop: 6,
-              maxWidth: "22ch",
-            }}
-          >
-            Accounts Totality, Compliance, Checklist &amp; Trackers
-          </h1>
-          <p className="mt-2 font-medium text-ink-muted" style={{ fontSize: 15.5, maxWidth: "62ch" }}>
-            One front door to every accounts checklist, compliance tracker and
-            master register. {built} of {sections.length} sections are live —
-            the rest are scaffolded and ready to wire.
-          </p>
-
-          {/* Payroll + attendance — the Accounts team can read (not edit) these
-              Employees-module surfaces to reconcile pay & attendance. */}
-          <div className="mt-4 flex flex-wrap items-center gap-2.5">
-            <Link
-              href={"/salary" as Route}
-              className="inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90"
-              style={{ background: `linear-gradient(135deg, ${"#E10600"}, ${ACCENT})` }}
-            >
-              <Wallet size={15} strokeWidth={2.4} /> Salary Module
-            </Link>
-            <Link
-              href={"/attendance/dashboard" as Route}
-              className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3.5 py-1.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-hairline-strong"
-            >
-              <CalendarCheck2 size={15} strokeWidth={2.4} /> Attendance Report
-            </Link>
-          </div>
-        </header>
+      <main className="w-full px-8 pt-6 pb-8 max-md:px-4 max-md:pt-5 max-md:pb-6">
+        {/* The two cross-module links used to sit under a 46px title and a
+            two-line paragraph. They are the only ACTIONS here, so they belong in
+            the bar's action slot; the paragraph shrinks to the live-count hint,
+            which is the only part of it that told you anything. */}
+        <PageCommandBar
+          title="Accounts"
+          hint={`${built} of ${sections.length} sections live — checklists, trackers and master registers.`}
+          actions={
+            <>
+              <Link
+                href={"/salary" as Route}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white transition-opacity hover:opacity-90"
+                style={{ background: `linear-gradient(135deg, ${"#E10600"}, ${ACCENT})` }}
+              >
+                <Wallet size={14} strokeWidth={2.4} /> Salary
+              </Link>
+              <Link
+                href={"/attendance/dashboard" as Route}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+              >
+                <CalendarCheck2 size={14} strokeWidth={2.4} /> Attendance
+              </Link>
+            </>
+          }
+        />
 
         <AccountsIndex sections={sections} />
       </main>

@@ -243,6 +243,96 @@ async function authorizeWrite(
 }
 
 /* ------------------------------------------------------------------ */
+/* Attachments-only — lighter than the full bundle (§3.3) for surfaces  */
+/* that just need the file gallery (e.g. an inline Notes-column preview) */
+/* and would otherwise pull links/comments/deps/activity/reviews for    */
+/* nothing. Same query + same signed-URL batching as goalDetailBundle.  */
+/* ------------------------------------------------------------------ */
+
+export async function listGoalAttachments(
+  input: NodeRef,
+): Promise<ActionResult<{ attachments: DetailAttachment[] }>> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "read");
+  if (limited) return limited;
+  const parsed = NodeRefSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const ref = parsed.data;
+
+  const node = await loadNodeCore(ref);
+  if (!node) return { ok: false, error: "Goal not found" };
+  if (!(await authorizeRead(node, { id: me.id, isAdmin }))) {
+    return { ok: false, error: "You can't view that goal." };
+  }
+
+  let attRows: {
+    id: string;
+    title: string;
+    mimeType: string | null;
+    sizeBytes: number | null;
+    storagePath: string;
+    uploadedById: string | null;
+    uploadedByName: string | null;
+    createdAt: Date;
+  }[];
+  try {
+    attRows = await withRetry(
+      () =>
+        db
+          .select({
+            id: documents.id,
+            title: documents.title,
+            mimeType: documents.mimeType,
+            sizeBytes: documents.sizeBytes,
+            storagePath: documents.storagePath,
+            uploadedById: documents.uploadedById,
+            uploadedByName: employees.name,
+            createdAt: documents.createdAt,
+          })
+          .from(documents)
+          .leftJoin(employees, eq(employees.id, documents.uploadedById))
+          .where(ref.kind === "cascade" ? eq(documents.goalId, ref.id) : eq(documents.weeklyGoalId, ref.id))
+          .orderBy(desc(documents.createdAt))
+          .limit(60),
+      { timeoutMs: [...READ_BUDGET], label: "goals.detail.attachments-only" },
+    );
+  } catch {
+    return { ok: true, attachments: [] }; // 0142 unapplied — same graceful fallback as the bundle
+  }
+
+  const signedByPath = new Map<string, string>();
+  if (attRows.length > 0) {
+    try {
+      const { data } = await getSupabaseAdmin()
+        .storage.from(DOCUMENTS_BUCKET)
+        .createSignedUrls(
+          attRows.map((a) => a.storagePath),
+          60 * 30,
+        );
+      for (const entry of data ?? []) {
+        if (entry.signedUrl && entry.path) signedByPath.set(entry.path, entry.signedUrl);
+      }
+    } catch {
+      // Unsigned entries render with a "couldn't sign" state.
+    }
+  }
+
+  return {
+    ok: true,
+    attachments: attRows.map((a) => ({
+      id: a.id,
+      title: a.title,
+      mimeType: a.mimeType,
+      sizeBytes: a.sizeBytes,
+      url: signedByPath.get(a.storagePath) ?? null,
+      uploadedById: a.uploadedById,
+      uploadedByName: a.uploadedByName,
+      createdAt: a.createdAt.toISOString(),
+    })),
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* THE batched lazy bundle (design §3.3)                               */
 /* ------------------------------------------------------------------ */
 

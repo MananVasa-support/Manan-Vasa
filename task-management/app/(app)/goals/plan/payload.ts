@@ -4,6 +4,7 @@ import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dailyChecklist, dailyPlanDay, employees, tasks, weeklyGoals } from "@/db/schema";
 import { getPeriodGoals } from "@/lib/goals/queries";
+import { MIN_ATTENDANCE_ITEMS } from "@/lib/daily-checklist/constants";
 import {
   ymdForOffset,
   clampDayOffset,
@@ -636,7 +637,11 @@ export async function getPlanDayPayload(
     minWindowStart: MIN_WINDOW_START,
     stripDays: PLAN_STRIP_DAYS,
     sources,
-    minItems: isManager ? 5 : 3,
+    // 5 for EVERYONE, not 5-for-managers / 3-for-ICs (Sir). This is the same
+    // constant the attendance gate and the startMyDay guard read: if the button
+    // enabled at 3 for an IC, they would start their day and then be refused at
+    // the clock — the worst of both. One number, one source of truth.
+    minItems: MIN_ATTENDANCE_ITEMS,
     isManager,
     initialPhase,
     todayYmd: today,

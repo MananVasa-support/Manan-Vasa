@@ -37,7 +37,7 @@ export default async function LetterPage({
 
   return (
     <div className="min-h-dvh bg-[#faf9fb]">
-      <header className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4 print:hidden">
+      <header className="sticky sticky-below-topbar z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4 print:hidden">
         <div className="justify-self-start flex items-center gap-2">
           <LetterBackButton />
           <Link

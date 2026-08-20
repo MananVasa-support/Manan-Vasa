@@ -47,10 +47,14 @@ import {
   classify,
   pillarOf,
   buildModel,
+  matchesFilters,
+  computeWeightConcentration,
+  buildSmartInsights,
   type DisplayBand,
   type Group,
   type Model,
   type Row,
+  type DashboardFilters,
 } from "@/components/goals/board/dashboard-model";
 import { formatWeekRangeShort } from "./week-select";
 
@@ -110,10 +114,19 @@ export function WeeklyDashboard({
     [goals, now],
   );
 
-  // ── Filters: the same lens + pillar the executive view has, kept because
-  //    they are real functionality — just rendered as a quiet strip. ──────
+  // ── Filters: the same Area/Type/Owner/Delegate/Status the executive view
+  //    has (through the SAME `matchesFilters` predicate, so the two views
+  //    can never disagree on what "matches") — kept because they are real
+  //    functionality, just rendered as a quiet strip instead of a big
+  //    popover-based filter bar. Lens (quick all/at-risk) stays a separate,
+  //    additional pass on top, unchanged from before. ─────────────────────
   const [lens, setLens] = React.useState<"all" | "risk">("all");
   const [pillarPick, setPillarPick] = React.useState<string | null>(null);
+  const [areaPick, setAreaPick] = React.useState<string | null>(null);
+  const [ownerPick, setOwnerPick] = React.useState<"all" | "self" | "assigned">("all");
+  const [delegatePick, setDelegatePick] = React.useState<string | null>(null);
+  const [statusPick, setStatusPick] = React.useState<DisplayBand | null>(null);
+
   const pillarOptions = React.useMemo(() => {
     const s = new Set<string>();
     for (const r of allRows) {
@@ -122,18 +135,45 @@ export function WeeklyDashboard({
     }
     return [...s].sort();
   }, [allRows]);
-  // A pillar can vanish under the selection when the week's data changes.
+  const areaOptions = React.useMemo(() => {
+    const s = new Set<string>();
+    for (const r of allRows) s.add(r.g.area?.trim() ? r.g.area.trim() : "Unassigned");
+    return [...s].sort();
+  }, [allRows]);
+  const delegateOptions = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of allRows) {
+      for (const d of r.g.delegatedTo ?? []) {
+        if (!m.has(d.employeeId)) m.set(d.employeeId, d.name ?? "Unknown");
+      }
+    }
+    return [...m.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [allRows]);
+
+  // A pick can vanish under the selection when the week's data changes.
   // Resolved DURING RENDER rather than corrected afterwards in an effect —
-  // an effect would render one frame filtered to a pillar that no longer exists.
+  // an effect would render one frame filtered to a value that no longer exists.
   const pillar = pillarPick && pillarOptions.includes(pillarPick) ? pillarPick : null;
+  const area = areaPick && areaOptions.includes(areaPick) ? areaPick : null;
+  const delegate = delegatePick && delegateOptions.some((d) => d.value === delegatePick) ? delegatePick : null;
+
+  const dashboardFilters: DashboardFilters = React.useMemo(
+    () => ({
+      area: area ? [area] : [],
+      type: pillar ? [pillar] : [],
+      owner: ownerPick,
+      delegate,
+      status: statusPick ? [statusPick] : [],
+    }),
+    [area, pillar, ownerPick, delegate, statusPick],
+  );
 
   const viewRows = React.useMemo(() => {
-    let rs = allRows;
-    if (pillar) rs = rs.filter((r) => pillarOf(r.g) === pillar);
+    let rs = allRows.filter((r) => matchesFilters(r.g, r.band, dashboardFilters));
     if (lens === "risk")
       rs = rs.filter((r) => r.band === "at-risk" || r.band === "overdue" || r.band === "spillover");
     return rs;
-  }, [allRows, pillar, lens]);
+  }, [allRows, dashboardFilters, lens]);
 
   const m = React.useMemo(() => buildModel(viewRows, "week"), [viewRows]);
 
@@ -163,6 +203,22 @@ export function WeeklyDashboard({
     setPillarPick(p);
     setFocus(null);
   }, []);
+  const changeArea = React.useCallback((a: string | null) => {
+    setAreaPick(a);
+    setFocus(null);
+  }, []);
+  const changeOwner = React.useCallback((o: "all" | "self" | "assigned") => {
+    setOwnerPick(o);
+    setFocus(null);
+  }, []);
+  const changeDelegate = React.useCallback((d: string | null) => {
+    setDelegatePick(d);
+    setFocus(null);
+  }, []);
+  const changeStatus = React.useCallback((s: DisplayBand | null) => {
+    setStatusPick(s);
+    setFocus(null);
+  }, []);
 
   if (allRows.length === 0) {
     return <WeeklyDashboardEmpty weekNo={weekNo} weekStart={weekStart} />;
@@ -176,6 +232,16 @@ export function WeeklyDashboard({
         pillar={pillar}
         onPillar={changePillar}
         pillarOptions={pillarOptions}
+        area={area}
+        onArea={changeArea}
+        areaOptions={areaOptions}
+        owner={ownerPick}
+        onOwner={changeOwner}
+        delegate={delegate}
+        onDelegate={changeDelegate}
+        delegateOptions={delegateOptions}
+        status={statusPick}
+        onStatus={changeStatus}
         showing={viewRows.length}
         total={allRows.length}
       />
@@ -198,7 +264,7 @@ export function WeeklyDashboard({
         onOpenGoal={onOpenGoal}
       />
 
-      <Breakdown model={m} focusId={focus?.id ?? null} onFocus={pickFocus} />
+      <Breakdown model={m} rows={viewRows} focusId={focus?.id ?? null} onFocus={pickFocus} />
     </div>
   );
 }
@@ -243,6 +309,16 @@ function FilterStrip({
   pillar,
   onPillar,
   pillarOptions,
+  area,
+  onArea,
+  areaOptions,
+  owner,
+  onOwner,
+  delegate,
+  onDelegate,
+  delegateOptions,
+  status,
+  onStatus,
   showing,
   total,
 }: {
@@ -251,10 +327,21 @@ function FilterStrip({
   pillar: string | null;
   onPillar: (p: string | null) => void;
   pillarOptions: string[];
+  area: string | null;
+  onArea: (a: string | null) => void;
+  areaOptions: string[];
+  owner: "all" | "self" | "assigned";
+  onOwner: (o: "all" | "self" | "assigned") => void;
+  delegate: string | null;
+  onDelegate: (d: string | null) => void;
+  delegateOptions: { value: string; label: string }[];
+  status: DisplayBand | null;
+  onStatus: (s: DisplayBand | null) => void;
   showing: number;
   total: number;
 }) {
-  const filtered = pillar != null || lens === "risk";
+  const filtered =
+    pillar != null || area != null || owner !== "all" || delegate != null || status != null || lens === "risk";
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <div
@@ -294,9 +381,23 @@ function FilterStrip({
         })}
       </div>
 
+      {areaOptions.length > 0 && (
+        <div className="inline-flex flex-wrap items-center gap-1">
+          <span className="mr-0.5 text-[11px] font-semibold text-ink-subtle">Area</span>
+          <QuietChip active={area == null} onClick={() => onArea(null)}>
+            All
+          </QuietChip>
+          {areaOptions.map((a) => (
+            <QuietChip key={a} active={area === a} onClick={() => onArea(area === a ? null : a)}>
+              {a}
+            </QuietChip>
+          ))}
+        </div>
+      )}
+
       {pillarOptions.length > 0 && (
         <div className="inline-flex flex-wrap items-center gap-1">
-          <span className="mr-0.5 text-[11px] font-semibold text-ink-subtle">Pillar</span>
+          <span className="mr-0.5 text-[11px] font-semibold text-ink-subtle">Type</span>
           <QuietChip active={pillar == null} onClick={() => onPillar(null)}>
             All
           </QuietChip>
@@ -311,6 +412,51 @@ function FilterStrip({
           ))}
         </div>
       )}
+
+      <div className="inline-flex flex-wrap items-center gap-1">
+        <span className="mr-0.5 text-[11px] font-semibold text-ink-subtle">Owner</span>
+        {(
+          [
+            { id: "all", label: "All" },
+            { id: "self", label: "Self" },
+            { id: "assigned", label: "Assigned" },
+          ] as const
+        ).map((o) => (
+          <QuietChip key={o.id} active={owner === o.id} onClick={() => onOwner(o.id)}>
+            {o.label}
+          </QuietChip>
+        ))}
+      </div>
+
+      {delegateOptions.length > 0 && (
+        <div className="inline-flex flex-wrap items-center gap-1">
+          <span className="mr-0.5 text-[11px] font-semibold text-ink-subtle">Delegate</span>
+          <QuietChip active={delegate == null} onClick={() => onDelegate(null)}>
+            All
+          </QuietChip>
+          {delegateOptions.map((d) => (
+            <QuietChip
+              key={d.value}
+              active={delegate === d.value}
+              onClick={() => onDelegate(delegate === d.value ? null : d.value)}
+            >
+              {d.label}
+            </QuietChip>
+          ))}
+        </div>
+      )}
+
+      <div className="inline-flex flex-wrap items-center gap-1">
+        <span className="mr-0.5 text-[11px] font-semibold text-ink-subtle">Status</span>
+        <QuietChip active={status == null} onClick={() => onStatus(null)}>
+          All
+        </QuietChip>
+        {BAND_ORDER.map((b) => (
+          <QuietChip key={b} active={status === b} onClick={() => onStatus(status === b ? null : b)}>
+            {BAND_META[b].short}
+          </QuietChip>
+        ))}
+      </div>
 
       <span className="ml-auto text-[11.5px] font-medium tabular-nums text-ink-subtle">
         {filtered ? `${showing} of ${total} goals` : `${total} goal${total === 1 ? "" : "s"}`}
@@ -781,15 +927,19 @@ function formatDue(iso: string | null | undefined): string {
 
 function Breakdown({
   model,
+  rows,
   focusId,
   onFocus,
 }: {
   model: Model;
+  rows: Row[];
   focusId: string | null;
   onFocus: (id: string, label: string) => void;
 }) {
   const a = model.accountability;
   const bands = BAND_ORDER.filter((b) => model.counts[b] > 0);
+  const concentration = computeWeightConcentration(rows);
+  const insights = buildSmartInsights(model, rows);
 
   return (
     <details className="group" style={SURFACE}>
@@ -803,7 +953,7 @@ function Breakdown({
         />
         <SectionLabel>Breakdown</SectionLabel>
         <span className="text-[11.5px] font-medium text-ink-subtle">
-          Pace · pillar · area · accountability · measures
+          Pace · pillar · area · accountability · measures · weight · insights
         </span>
       </summary>
 
@@ -921,6 +1071,34 @@ function Breakdown({
             </p>
           )}
         </div>
+
+        <div>
+          <SectionLabel>Weight</SectionLabel>
+          {concentration ? (
+            <p className="mt-2 text-[12px] leading-relaxed text-ink-muted">
+              <span className="font-bold tabular-nums text-ink-strong">{concentration.topN}</span> goal
+              {concentration.topN === 1 ? "" : "s"} carr{concentration.topN === 1 ? "ies" : "y"}{" "}
+              <span className="font-bold tabular-nums text-ink-strong">{concentration.topPct}%</span> of this
+              week&apos;s total weight.
+            </p>
+          ) : (
+            <p className="mt-2 text-[12px] leading-relaxed text-ink-muted">Not enough weighted goals to say.</p>
+          )}
+        </div>
+
+        {insights.length > 0 && (
+          <div className="col-span-2 max-lg:col-span-1">
+            <SectionLabel>Smart insights</SectionLabel>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {insights.map((text, i) => (
+                <li key={i} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-muted">
+                  <span className="mt-1.5 size-1 shrink-0 rounded-full" style={{ background: "var(--color-altus-red)" }} />
+                  {text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </details>
   );

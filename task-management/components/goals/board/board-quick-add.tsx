@@ -268,7 +268,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         }}
         className={
           compact
-            ? `wg-btn cursor-pointer group flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-[13px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`
+            ? `wg-btn cursor-pointer group inline-flex w-auto shrink-0 items-center justify-center gap-1.5 self-start rounded-xl border px-3 py-2 text-[13px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`
             : `wg-btn cursor-pointer group inline-flex w-auto items-center justify-center gap-2 self-start rounded-full border px-4 py-2.5 text-[13.5px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`
         }
         style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)", background: "var(--color-surface-soft)" }}

@@ -47,10 +47,10 @@ type BulkResult =
   | { ok: false; error: string };
 
 /**
- * The MANAGER's five rulings, in the order they appear under "Mark Status".
+ * The MANAGER's five rulings, in the order they appear under "Manager Status".
  *
  * They write two different columns, which is precisely why they are grouped
- * here and not in the Status dropdown above:
+ * here and not in the Doer Status dropdown above:
  *
  *   • `kind: "status"`   → `tasks.status`.  Hold On and Done are still points on
  *     the work's own lifecycle; a manager is just moving it there directly.
@@ -120,8 +120,8 @@ export function BulkActionBar({
 
   // The batch twin of the row's inline status chip, and offering the SAME six
   // options for the same reason: this control reports the doer's progress. The
-  // manager's rulings (hold / approve / decline / cancel) are the "Mark Status"
-  // dropdown further along the bar.
+  // manager's rulings (hold / approve / decline / cancel) are the "Manager
+  // Status" dropdown further along the bar.
   const statuses: readonly TaskStatus[] = DOER_TASK_STATUSES;
 
   return (
@@ -140,8 +140,9 @@ export function BulkActionBar({
       aria-label="Bulk actions"
     >
       {/* CONTROL ORDER IS A CONTRACT — left to right:
-            [N] selected · Status · Priority · Reassign · Subject · Client ·
-            Mark Status · Archive · Delete        (then Clear, pinned right)
+            [N] selected · Doer Status · Priority · Reassign · Subject ·
+            Client · Manager Status · Archive · Delete
+            (then Clear, pinned right)
           It runs doer-facing edits first, then the manager's ruling, then the
           two destructive actions. Subject and Client are conditional on having
           any values to offer; when they're absent the rest keeps this order.
@@ -172,17 +173,17 @@ export function BulkActionBar({
 
       <span className="mx-1 h-5 w-px bg-hairline" aria-hidden />
 
-      {/* Status */}
+      {/* Doer Status */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" disabled={pending} className={chipBtn}>
             <CheckCircle2 size={14} strokeWidth={2.2} />
-            Status
+            Doer Status
             <ChevronDown size={13} className="opacity-60" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
-          <DropdownMenuLabel>Set status to…</DropdownMenuLabel>
+          <DropdownMenuLabel>Set doer status to…</DropdownMenuLabel>
           {statuses.map((s) => (
             <DropdownMenuItem
               key={s}
@@ -288,17 +289,17 @@ export function BulkActionBar({
         </DropdownMenu>
       )}
 
-      {/* Mark Status — the terminal verdicts, batched. Admin-only because
+      {/* Manager Status — the terminal rulings, batched. Admin-only because
           `approval_status` is an admin column (the server re-checks), and
-          grouped apart from the Status dropdown above because these write a
-          different column: Status drives the doer's lifecycle, these record
-          the ruling on it. */}
+          grouped apart from the Doer Status dropdown above because these write
+          a different column: Doer Status drives the worker's lifecycle, these
+          record the ruling on it. */}
       {isAdmin && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" disabled={pending} className={chipBtn}>
               <BadgeCheck size={14} strokeWidth={2.2} />
-              Mark Status
+              Manager Status
               <ChevronDown size={13} className="opacity-60" />
             </button>
           </DropdownMenuTrigger>

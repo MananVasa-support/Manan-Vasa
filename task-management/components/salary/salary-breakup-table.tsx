@@ -1143,8 +1143,7 @@ export function SalaryBreakupTable({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, designation or entity…"
-            aria-label="Search name, designation or entity"
+            placeholder="Local search — name, designation or entity" title="Local search — filters only the list on this page" aria-label="Local search — name, designation or entity — this page only"
             className="admin-search"
           />
         </div>

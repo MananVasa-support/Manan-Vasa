@@ -200,28 +200,58 @@ export function AgingTaskDrawer({
                   });
                   const prioTone = PRIORITY_TONE[t.priority];
                   const prioLabel = PRIORITY_LABELS[t.priority];
+                  // `description` is nullable, so fall back to the client name
+                  // rather than rendering an empty row.
+                  const taskText = t.description?.trim() || t.title;
+                  // The hover carries what truncation ate: the FULL task text,
+                  // plus the client on its own line so the tooltip still
+                  // answers "whose?" even when the row is clipped short.
+                  const taskHover = [
+                    t.description?.trim(),
+                    t.taskNo != null ? `Task #${t.taskNo}` : null,
+                    `Client: ${t.title}`,
+                  ]
+                    .filter(Boolean)
+                    .join("\n\n");
                   return (
                     <tr
                       key={t.id}
                       className="aging-drawer-row group h-11 border-b border-gray-100 transition-colors hover:bg-gray-50/80"
                     >
-                      {/* Task ID + title/description */}
-                      <td className="max-w-[38ch] px-3 py-1.5">
+                      {/* What the task IS, and nothing else.
+                          HEADS UP on the field names: in this schema `title` is
+                          the CLIENT NAME — the New Task form's "Client Name"
+                          field writes straight to tasks.title — and the work
+                          itself lives in `description`. So leading with `title`
+                          meant every row in a triage list read "Altus Corp",
+                          which is the same for whole runs of rows and tells you
+                          nothing about what is aging. `description` is the whole
+                          label now; the client and the task number live in the
+                          hover, so knowing whose work is stuck is still one
+                          pointer away without costing the row a line. */}
+                      {/* `title` on the <td> as well as the link so the hover
+                          target is the whole cell, including the empty space
+                          to the right of a short description. */}
+                      <td className="max-w-[280px] px-3 py-1.5" title={taskHover}>
                         <Link
                           href={`/tasks/${t.id}` as Route}
-                          className="flex items-baseline gap-2 hover:underline"
+                          // Native title, not a rich tooltip: this sits inside a
+                          // horizontally-scrolling table with a sticky actions
+                          // column, where a portalled popover has to be
+                          // re-anchored on every scroll. The full text is the
+                          // whole point of the hover, and the browser already
+                          // wraps and positions it for free.
+                          title={taskHover}
+                          // One line, description only. The #id gutter and
+                          // the trailing client both moved into the hover:
+                          // they spent the row's scarce width on an
+                          // identifier nobody quotes and a client the
+                          // tooltip still reports. `block truncate` replaces
+                          // the old flex row now that there is one child, so
+                          // the min-w-0 dance is gone with it.
+                          className="block truncate text-[13px] font-semibold text-gray-900 hover:underline"
                         >
-                          <span className="shrink-0 text-[11px] font-black tabular-nums text-gray-400">
-                            {t.taskNo != null ? `#${t.taskNo}` : "—"}
-                          </span>
-                          <span className="truncate text-[13px] font-semibold text-gray-900">
-                            {t.title}
-                          </span>
-                          {t.description && (
-                            <span className="truncate text-[12px] font-normal text-gray-500">
-                              — {t.description}
-                            </span>
-                          )}
+                          {taskText}
                         </Link>
                       </td>
 

@@ -41,8 +41,7 @@ export function TaskSearchBar({ initial }: { initial: string }) {
               submit("");
             }
           }}
-          placeholder="Search tasks by title, number, client or subject…"
-          aria-label="Search tasks"
+          placeholder="Local search — tasks by title, number, client or subject" title="Local search — filters only the list on this page" aria-label="Local search — tasks by title, number, client or subject — this page only"
           className="w-full bg-transparent outline-none text-ink-strong"
           style={{ fontSize: 14, fontWeight: 600 }}
         />
