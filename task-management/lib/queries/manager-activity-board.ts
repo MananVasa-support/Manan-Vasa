@@ -52,6 +52,9 @@ export {
   type MemberActivityRow,
   type ManagerActivityRow,
   type ManagerActivityBoard,
+  ACTIVITY_PERIODS,
+  DEFAULT_ACTIVITY_PERIOD,
+  type ActivityPeriod,
 } from "@/lib/dashboard/manager-activity-contract";
 
 import type {
@@ -60,7 +63,12 @@ import type {
   ManagerActivityRow,
   ManagerActivityBoard,
 } from "@/lib/dashboard/manager-activity-contract";
-import { ACTIVITY_TARGETS } from "@/lib/dashboard/manager-activity-contract";
+import {
+  ACTIVITY_TARGETS,
+  activityWindow,
+  daysBefore,
+  type ActivityPeriod,
+} from "@/lib/dashboard/manager-activity-contract";
 
 const emptySplit = (): ActivitySplit => ({ delegate: 0, counterpart: 0, total: 0 });
 
@@ -71,19 +79,13 @@ function credit(split: ActivitySplit, originatorId: string | null, managerId: st
   split.total += 1;
 }
 
-/** `n` whole days back from `ymd`, inclusive of both ends. */
-function windowStart(ymd: string, days: number): string {
-  const d = new Date(`${ymd}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - (days - 1));
-  return d.toISOString().slice(0, 10);
-}
-
 export async function managerActivityBoard(
-  windowDays: number,
+  period: ActivityPeriod,
   now: Date = new Date(),
 ): Promise<ManagerActivityBoard> {
-  const to = istYmd(now);
-  const from = windowStart(to, windowDays);
+  // The window is computed from today's date, not subtracted from it: "This
+  // Month" and "This Year" are calendar-anchored and have no day count.
+  const { from, to } = activityWindow(period, istYmd(now));
 
   const people = await withRetry(
     () =>
@@ -113,7 +115,7 @@ export async function managerActivityBoard(
     .sort((a, b) => a.name.localeCompare(b.name));
 
   if (managers.length === 0) {
-    return { windowDays, from, to, rows: [] };
+    return { period, from, to, rows: [] };
   }
 
   // Everyone who can appear on the board: every manager plus every direct
@@ -142,7 +144,7 @@ export async function managerActivityBoard(
             and(
               inArray(weeklyGoals.employeeId, scopeIds),
               eq(weeklyGoals.archived, false),
-              gte(weeklyGoals.weekStart, windowStart(from, 7)),
+              gte(weeklyGoals.weekStart, daysBefore(from, 6)),
               lte(weeklyGoals.weekStart, to),
             ),
           ),
@@ -254,5 +256,5 @@ export async function managerActivityBoard(
     };
   });
 
-  return { windowDays, from, to, rows };
+  return { period, from, to, rows };
 }

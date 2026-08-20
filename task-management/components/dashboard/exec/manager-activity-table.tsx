@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import type { Route } from "next";
 import { ChevronDown, Loader2, Maximize2, Minimize2, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { getManagerActivityBoard } from "@/app/(app)/dashboard/manager-activity-actions";
@@ -16,7 +15,12 @@ import {
   type ManagerActivityBoard,
   type ManagerActivityRow,
   type MemberActivityRow,
+  type ActivitySplitKey,
+  type ActivityPeriod,
+  ACTIVITY_PERIODS,
+  DEFAULT_ACTIVITY_PERIOD,
 } from "@/lib/dashboard/manager-activity-contract";
+import { ActivityCellPopover, activityHref } from "./activity-cell-popover";
 
 /* ────────────────────────────────────────────────────────────────────────
    ManagerActivityTable — one row per manager across the three activity
@@ -61,12 +65,6 @@ const FAMILIES = [
 
 type FamilyKey = (typeof FAMILIES)[number]["key"];
 
-/** Periods the board can be read over. */
-const PERIODS = [
-  { id: 3, label: "Last 3 Days" },
-  { id: 7, label: "Last 7 Days" },
-] as const;
-
 /** Numeric cell — tabular so the columns align down the whole table. */
 function Num({ value, hero = false }: { value: number; hero?: boolean }) {
   return (
@@ -98,29 +96,47 @@ function Num({ value, hero = false }: { value: number; hero?: boolean }) {
 function CountLink({
   value,
   managerId,
-  doerId,
-  type,
-  label,
+  memberId,
+  memberName,
+  category,
+  categoryLabel,
+  split,
+  period,
   hero = false,
 }: {
   value: number;
   managerId: string;
-  doerId: string;
-  type: FamilyKey;
-  label: string;
+  memberId: string;
+  memberName: string;
+  category: FamilyKey;
+  categoryLabel: string;
+  split: ActivitySplitKey;
+  period: ActivityPeriod;
   hero?: boolean;
 }) {
+  // A zero renders inert, with NO popover and no link. Offering a hover that
+  // resolves to "Nothing to show" and a click that lands on an empty list is
+  // worse than offering neither.
   if (value === 0) return <Num value={0} hero={hero} />;
-  const href = `/tasks?manager=${managerId}&doer=${doerId}&type=${type}` as Route;
   return (
-    <Link
-      href={href}
-      onClick={(e) => e.stopPropagation()}
-      title={label}
-      className="inline-block rounded-md px-1.5 py-0.5 transition-colors hover:bg-gray-100"
+    <ActivityCellPopover
+      managerId={managerId}
+      memberId={memberId}
+      memberName={memberName}
+      category={category}
+      categoryLabel={categoryLabel}
+      split={split}
+      period={period}
+      count={value}
     >
-      <Num value={value} hero={hero} />
-    </Link>
+      <Link
+        href={activityHref(managerId, memberId, category, split)}
+        onClick={(e) => e.stopPropagation()}
+        className="inline-block cursor-pointer rounded-md px-1.5 py-0.5 transition-all hover:text-blue-600 hover:underline"
+      >
+        <Num value={value} hero={hero} />
+      </Link>
+    </ActivityCellPopover>
   );
 }
 
@@ -143,9 +159,14 @@ function ManagerRow({
   resolveAvatar,
   open,
   onToggle,
+  period,
 }: {
   row: ManagerActivityRow;
   resolveAvatar: (id: string) => string | null;
+  /** Threaded down so a cell's popover fetches the same window the board is
+   *  showing — a preview over a different period than its own count would be
+   *  worse than no preview. */
+  period: ActivityPeriod;
   /** CONTROLLED. The row used to own this as local state, but Maximize has to
    *  open every breakdown at once — and a parent cannot reach into children's
    *  useState. The open set lives in the table now; the row just renders it. */
@@ -180,9 +201,12 @@ function ManagerRow({
               <CountLink
                 value={actual}
                 managerId={row.managerId}
-                doerId={row.managerId}
-                type={f.key}
-                label={`Open ${f.label} for ${row.managerName}'s team`}
+                memberId={row.managerId}
+                memberName={row.managerName}
+                category={f.key}
+                categoryLabel={f.label}
+                split="gt"
+                period={period}
               />
               {/* Target is a flat baseline, not a computed figure -- the colour
                   is the only thing carrying attainment, so it has to be on the
@@ -230,6 +254,7 @@ function ManagerRow({
               members={row.members}
               managerId={row.managerId}
               resolveAvatar={resolveAvatar}
+              period={period}
             />
           </td>
         </tr>
@@ -243,10 +268,12 @@ function MemberBreakdown({
   members,
   managerId,
   resolveAvatar,
+  period,
 }: {
   members: MemberActivityRow[];
   managerId: string;
   resolveAvatar: (id: string) => string | null;
+  period: ActivityPeriod;
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -314,18 +341,24 @@ function MemberBreakdown({
                       <CountLink
                         value={split.delegate}
                         managerId={managerId}
-                        doerId={mem.employeeId}
-                        type={f.key}
-                        label={`${f.label} delegated to ${mem.employeeName}`}
+                        memberId={mem.employeeId}
+                        memberName={mem.employeeName}
+                        category={f.key}
+                        categoryLabel={`${f.label} · Delegated`}
+                        split="delegate"
+                        period={period}
                       />
                     </td>
                     <td className="px-2 py-1.5 text-center">
                       <CountLink
                         value={split.counterpart}
                         managerId={managerId}
-                        doerId={mem.employeeId}
-                        type={f.key}
-                        label={`${f.label} for ${mem.employeeName} from anyone else`}
+                        memberId={mem.employeeId}
+                        memberName={mem.employeeName}
+                        category={f.key}
+                        categoryLabel={`${f.label} · Counterpart`}
+                        split="counterpart"
+                        period={period}
                       />
                     </td>
                     <td className="px-2 py-1.5 text-center">
@@ -351,34 +384,34 @@ export function ManagerActivityTable({
 }: {
   avatarById?: Record<string, string | null>;
 }) {
-  const [windowDays, setWindowDays] = React.useState<3 | 7>(7);
+  const [period, setPeriod] = React.useState<ActivityPeriod>(DEFAULT_ACTIVITY_PERIOD);
   const [expanded, setExpanded] = React.useState(false);
   // Which manager breakdowns are open. Lifted out of the rows so Maximize can
   // open all of them at once.
   const [openIds, setOpenIds] = React.useState<ReadonlySet<string>>(new Set());
   const [state, setState] = React.useState<
-    | { kind: "loading"; forWindow?: number }
-    | { kind: "error"; message: string; forWindow: number }
-    | { kind: "ok"; board: ManagerActivityBoard; forWindow: number }
+    | { kind: "loading"; forWindow?: ActivityPeriod }
+    | { kind: "error"; message: string; forWindow: ActivityPeriod }
+    | { kind: "ok"; board: ManagerActivityBoard; forWindow: ActivityPeriod }
   >({ kind: "loading" });
 
   // The loading reset is DERIVED, not set in the effect. Stamping each result
   // with the window it was fetched for means a stale response for the previous
   // window is ignored during render — so switching the toggle shows "loading"
   // immediately without a setState-in-effect and its extra render pass.
-  const showLoading = state.kind === "loading" || state.forWindow !== windowDays;
+  const showLoading = state.kind === "loading" || state.forWindow !== period;
 
   React.useEffect(() => {
     let cancelled = false;
-    void getManagerActivityBoard(windowDays).then((res) => {
+    void getManagerActivityBoard(period).then((res) => {
       if (cancelled) return;
-      if ("error" in res) setState({ kind: "error", message: res.error, forWindow: windowDays });
-      else setState({ kind: "ok", board: res, forWindow: windowDays });
+      if ("error" in res) setState({ kind: "error", message: res.error, forWindow: period });
+      else setState({ kind: "ok", board: res, forWindow: period });
     });
     return () => {
       cancelled = true;
     };
-  }, [windowDays]);
+  }, [period]);
 
   // NO body scroll lock and no Esc trap any more. Maximize expands the widget
   // IN PLACE inside the page rather than throwing a viewport overlay over it,
@@ -390,7 +423,13 @@ export function ManagerActivityTable({
     [avatarById],
   );
 
-  const rows = state.kind === "ok" ? state.board.rows : [];
+  // useMemo, not a bare conditional: `toggleExpanded` closes over this to build
+  // the "open everything" set, and a fresh [] on every render would rebuild that
+  // callback every time.
+  const rows = React.useMemo(
+    () => (state.kind === "ok" ? state.board.rows : []),
+    [state],
+  );
 
   const toggleRow = React.useCallback((id: string) => {
     setOpenIds((cur) => {
@@ -416,11 +455,11 @@ export function ManagerActivityTable({
       </label>
       <select
         id="activity-period"
-        value={windowDays}
-        onChange={(e) => setWindowDays(Number(e.target.value) as 3 | 7)}
+        value={period}
+        onChange={(e) => setPeriod(e.target.value as ActivityPeriod)}
         className="h-9 cursor-pointer rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] font-bold text-gray-700 outline-none transition-colors hover:border-gray-300 focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
       >
-        {PERIODS.map((p) => (
+        {ACTIVITY_PERIODS.map((p) => (
           <option key={p.id} value={p.id}>
             {p.label}
           </option>
@@ -499,6 +538,7 @@ export function ManagerActivityTable({
                   resolveAvatar={resolveAvatar}
                   open={openIds.has(row.managerId)}
                   onToggle={() => toggleRow(row.managerId)}
+                  period={period}
                 />
               ))}
             </tbody>
@@ -522,7 +562,7 @@ export function ManagerActivityTable({
             fontFamily: "var(--font-display), system-ui, sans-serif",
           }}
         >
-          What each team is carrying
+          Who is delegating, and how much
         </h3>
         <p className="mt-0.5 text-[12.5px] font-semibold text-ink-subtle">
           Targets: {ACTIVITY_TARGETS.goals} goals · {ACTIVITY_TARGETS.tasks} tasks ·{" "}

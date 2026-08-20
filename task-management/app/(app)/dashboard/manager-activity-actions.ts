@@ -7,10 +7,17 @@ import {
   managerActivityBoard,
   type ManagerActivityBoard,
 } from "@/lib/queries/manager-activity-board";
+import { managerActivityPreview } from "@/lib/queries/manager-activity-preview";
+import type {
+  ActivityPreview,
+  ActivityPeriod,
+} from "@/lib/dashboard/manager-activity-contract";
 
 /** The periods the board can be read over. Kept in sync with the dropdown. */
+const PERIODS = ["3d", "7d", "month", "year"] as const;
+
 const InputSchema = z.object({
-  windowDays: z.union([z.literal(3), z.literal(7)]),
+  period: z.enum(PERIODS),
 });
 
 /**
@@ -26,7 +33,7 @@ const InputSchema = z.object({
  * the titles live behind the per-cell links, which enforce their own scoping.
  */
 export async function getManagerActivityBoard(
-  windowDays: 3 | 7,
+  period: ActivityPeriod,
 ): Promise<ManagerActivityBoard | { error: string }> {
   try {
     const me = await requireUser();
@@ -34,13 +41,50 @@ export async function getManagerActivityBoard(
     const limited = rateLimitOrError(me.id, "read");
     if (limited) return { error: limited.error };
 
-    const parsed = InputSchema.safeParse({ windowDays });
+    const parsed = InputSchema.safeParse({ period });
     if (!parsed.success) return { error: "Invalid input" };
 
-    return await managerActivityBoard(parsed.data.windowDays);
+    return await managerActivityBoard(parsed.data.period);
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Failed to load the activity board",
     };
+  }
+}
+
+const PreviewSchema = z.object({
+  managerId: z.string().uuid(),
+  memberId: z.string().uuid(),
+  category: z.enum(["goals", "tasks", "commitments"]),
+  split: z.enum(["delegate", "counterpart", "gt"]),
+  period: z.enum(PERIODS),
+});
+
+/**
+ * The item list behind ONE activity cell, fetched when the pointer lands on it.
+ *
+ * Deliberately not part of the board payload: the board renders hundreds of
+ * cells and a reader hovers a handful, so pre-loading every list would be a
+ * few hundred wasted queries per page view.
+ */
+export async function getActivityPreview(input: {
+  managerId: string;
+  memberId: string;
+  category: "goals" | "tasks" | "commitments";
+  split: "delegate" | "counterpart" | "gt";
+  period: ActivityPeriod;
+}): Promise<ActivityPreview | { error: string }> {
+  try {
+    const me = await requireUser();
+
+    const limited = rateLimitOrError(me.id, "read");
+    if (limited) return { error: limited.error };
+
+    const parsed = PreviewSchema.safeParse(input);
+    if (!parsed.success) return { error: "Invalid input" };
+
+    return await managerActivityPreview(parsed.data);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to load the preview" };
   }
 }
