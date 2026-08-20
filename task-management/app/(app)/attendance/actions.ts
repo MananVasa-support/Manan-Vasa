@@ -201,9 +201,9 @@ export async function punchAttendance(input: {
         // never hit Start My Day.
         if (have < need) {
           const short = Math.max(1, need - have);
-          error = `You have ${have} of ${need} things planned for today. Add ${short} more on Plan My Day, then clock in.`;
+          error = `You have ${have} of ${need} things planned for today. Add ${short} more on Daily Goals, then clock in.`;
         } else if (!started) {
-          error = `Hit “Start My Day” on WMS › Plan My Day to begin your day, then clock in.`;
+          error = `Hit “Start My Day” on WMS › Daily Goals to begin your day, then clock in.`;
         }
       } else {
         // Goals are the blocker: name the exact ones still unlogged + point at

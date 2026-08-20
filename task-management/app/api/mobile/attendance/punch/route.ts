@@ -214,9 +214,9 @@ export async function POST(req: Request) {
           }));
           if (have < need) {
             const short = Math.max(1, need - have);
-            error = `You have ${have} of ${need} things planned for today. Add ${short} more on Plan My Day, then clock in.`;
+            error = `You have ${have} of ${need} things planned for today. Add ${short} more on Daily Goals, then clock in.`;
           } else if (!started) {
-            error = `Hit “Start My Day” on Plan My Day to begin your day, then clock in.`;
+            error = `Hit “Start My Day” on Daily Goals to begin your day, then clock in.`;
           }
         }
         return NextResponse.json(

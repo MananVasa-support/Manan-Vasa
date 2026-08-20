@@ -167,8 +167,14 @@ function buildTabs(now: Date, from: number): PlanDayTab[] {
 
 /** The most descriptive label for a task card: its real description first, then
  *  the title — many WMS tasks store the CLIENT in `title`, so the description is
- *  what the user actually wants to read. Falls back to the client / "Untitled". */
-function displayTitle(title: string | null, description: string | null, client: string | null): string {
+ *  what the user actually wants to read. Falls back to the client / "Untitled".
+ *
+ *  EXPORTED because `addTaskToPlan` must label a pulled task with the SAME
+ *  string the source card showed. It did not, and that was the bug: the card in
+ *  the pull list read the description while the row it inserted carried the raw
+ *  `tasks.title` — which for most WMS tasks is just the client name. So "+"
+ *  appeared to drop half the task. One helper, both paths, no drift. */
+export function displayTitle(title: string | null, description: string | null, client: string | null): string {
   const desc = description?.trim();
   if (desc) return desc;
   const t = title?.trim();

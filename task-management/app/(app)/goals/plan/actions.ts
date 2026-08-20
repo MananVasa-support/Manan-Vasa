@@ -10,7 +10,7 @@ import { applyTaskStatusChange } from "@/lib/tasks/set-status";
 import { todayYmd, ymdForOffset, clampDayOffset, countPlannedItems } from "@/lib/queries/daily-checklist";
 import { MIN_ATTENDANCE_ITEMS } from "@/lib/daily-checklist/constants";
 import { goalsCanvasOn } from "@/lib/goals/flag";
-import { getPlanDayPayload } from "./payload";
+import { getPlanDayPayload, displayTitle } from "./payload";
 import { resolvePlanTarget } from "@/lib/goals/plan-target";
 import { goalScopeFor, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
 import type { PlanDayPayload, PlanItem, PlanKind } from "@/components/goals/plan/types";
@@ -333,6 +333,9 @@ export async function addTaskToPlan(
       id: tasks.id,
       doerId: tasks.doerId,
       title: tasks.title,
+      // The DESCRIPTION was missing here, which is what broke the "+" button:
+      // without it the row could only ever be labelled with the raw title.
+      description: tasks.description,
       client: tasks.client,
       subject: tasks.subject,
     })
@@ -372,7 +375,10 @@ export async function addTaskToPlan(
         planDate: ymd,
         taskId: task.id,
         origin: "standalone",
-        title: task.title,
+        // Same label the source card showed, via the same helper the server
+        // render uses (payload.displayTitle). Storing `task.title` here is what
+        // made a pulled task come across as just its client name.
+        title: displayTitle(task.title, task.description, task.client),
         client: task.client,
         subject: task.subject,
         position: nextPosition,
