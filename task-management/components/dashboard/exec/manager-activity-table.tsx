@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { ChevronDown, Loader2, Maximize2, Minimize2, Users } from "lucide-react";
-import { createPortal } from "react-dom";
 import { Avatar } from "@/components/ui/avatar";
 import { getManagerActivityBoard } from "@/app/(app)/dashboard/manager-activity-actions";
 // From the CONTRACT module, not the query module. The query module is
@@ -25,7 +24,8 @@ import {
    per-member breakdown of DELEGATE (A) / COUNTERPART (B) / G.T.
 
    Sits beside the initiation scorecards and deliberately borrows their frame:
-   the same white card, the same 600px scroll box, the same fullscreen control.
+   the same white card and the same 600px scroll box, with a maximize control
+   that expands it in place.
    The two answer different questions off the same hierarchy — "who is
    delegating tasks" vs "what is everyone actually carrying" — so reading them
    as one surface matters more than either one's own styling.
@@ -49,7 +49,7 @@ function attainColor(actual: number, target: number): string {
 
 /** The three families, in the column order the header declares them. */
 const FAMILIES = [
-  { key: "goals", label: "WKM Goals", target: ACTIVITY_TARGETS.goals, type: "goals" },
+  { key: "goals", label: "WMS Goals", target: ACTIVITY_TARGETS.goals, type: "goals" },
   { key: "tasks", label: "WMS Tasks", target: ACTIVITY_TARGETS.tasks, type: "tasks" },
   {
     key: "commitments",
@@ -124,19 +124,34 @@ function CountLink({
   );
 }
 
+/* Column headers. `text-slate-900` rather than the old `text-gray-500`: these
+   label a dense numeric grid, and a mid-grey header on a grey header strip left
+   the reader hunting for which column they were in.
+
+   NO `dark:text-slate-100` here. The app has NO dark theme -- zero `dark:`
+   variants anywhere in components/, and no dark variant configured -- so every
+   surface behind this is hardcoded light. Tailwind's default `dark:` is
+   `@media (prefers-color-scheme: dark)`, so adding it would turn these headers
+   near-WHITE on a #f9fafb strip for anyone whose OS is in dark mode. That is
+   invisible text, not dark-mode support. */
 const HEAD_CELL =
-  "px-2 py-3 text-[11px] font-bold uppercase leading-tight tracking-wider text-gray-500";
+  "px-2 py-3 text-[11px] font-bold uppercase leading-tight tracking-wider text-slate-900";
 
 /** One manager's row plus its expandable member breakdown. */
 function ManagerRow({
   row,
   resolveAvatar,
+  open,
+  onToggle,
 }: {
   row: ManagerActivityRow;
   resolveAvatar: (id: string) => string | null;
+  /** CONTROLLED. The row used to own this as local state, but Maximize has to
+   *  open every breakdown at once — and a parent cannot reach into children's
+   *  useState. The open set lives in the table now; the row just renders it. */
+  open: boolean;
+  onToggle: () => void;
 }) {
-  const [open, setOpen] = React.useState(false);
-
   return (
     <>
       <tr className="border-b border-gray-100 transition-colors hover:bg-gray-50/80">
@@ -189,7 +204,7 @@ function ManagerRow({
         <td className="px-2 py-2.5 text-center">
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
+            onClick={onToggle}
             aria-expanded={open}
             aria-label={`${open ? "Hide" : "Show"} the breakdown for ${row.managerName}`}
             title={open ? "Hide breakdown" : "Show breakdown"}
@@ -337,7 +352,10 @@ export function ManagerActivityTable({
   avatarById?: Record<string, string | null>;
 }) {
   const [windowDays, setWindowDays] = React.useState<3 | 7>(7);
-  const [full, setFull] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(false);
+  // Which manager breakdowns are open. Lifted out of the rows so Maximize can
+  // open all of them at once.
+  const [openIds, setOpenIds] = React.useState<ReadonlySet<string>>(new Set());
   const [state, setState] = React.useState<
     | { kind: "loading"; forWindow?: number }
     | { kind: "error"; message: string; forWindow: number }
@@ -362,25 +380,34 @@ export function ManagerActivityTable({
     };
   }, [windowDays]);
 
-  // Esc exits fullscreen, and the page behind must not scroll while it is up.
-  React.useEffect(() => {
-    if (!full) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFull(false);
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [full]);
+  // NO body scroll lock and no Esc trap any more. Maximize expands the widget
+  // IN PLACE inside the page rather than throwing a viewport overlay over it,
+  // so the page behind is not "behind" anything — locking its scroll would just
+  // freeze the document the reader is still sitting in.
 
   const resolveAvatar = React.useCallback(
     (id: string) => avatarById[id] ?? null,
     [avatarById],
   );
+
+  const rows = state.kind === "ok" ? state.board.rows : [];
+
+  const toggleRow = React.useCallback((id: string) => {
+    setOpenIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  /** Maximize opens every breakdown; minimize returns to the compact default. */
+  const toggleExpanded = React.useCallback(() => {
+    setExpanded((wasExpanded) => {
+      setOpenIds(wasExpanded ? new Set() : new Set(rows.map((r) => r.managerId)));
+      return !wasExpanded;
+    });
+  }, [rows]);
 
   const controls = (
     <div className="flex items-center gap-2">
@@ -401,12 +428,17 @@ export function ManagerActivityTable({
       </select>
       <button
         type="button"
-        onClick={() => setFull((v) => !v)}
-        aria-label={full ? "Exit fullscreen" : "Open fullscreen"}
-        title={full ? "Exit fullscreen (Esc)" : "Fullscreen"}
+        onClick={toggleExpanded}
+        aria-expanded={expanded}
+        aria-label={expanded ? "Minimize view" : "Maximize view"}
+        title={expanded ? "Minimize View" : "Maximize View"}
         className="grid size-9 cursor-pointer place-items-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
       >
-        {full ? <Minimize2 size={15} strokeWidth={2.4} /> : <Maximize2 size={15} strokeWidth={2.4} />}
+        {expanded ? (
+          <Minimize2 size={15} strokeWidth={2.4} />
+        ) : (
+          <Maximize2 size={15} strokeWidth={2.4} />
+        )}
       </button>
     </div>
   );
@@ -440,10 +472,12 @@ export function ManagerActivityTable({
       )}
 
       {!showLoading && state.kind === "ok" && state.board.rows.length > 0 && (
-        /* The 600px scroll box, matching the scorecard widget beside it. In
-           fullscreen the cap is lifted -- a 600px window inside a viewport-sized
-           overlay is the one place it stops helping. */
-        <div className={full ? "overflow-y-auto" : "max-h-[600px] overflow-y-auto"}>
+        /* The 600px scroll box, matching the scorecard widget beside it. When
+           maximized the cap is lifted so the table renders at its full height:
+           holding a 600px window while every breakdown is force-open would put
+           an inner scrollbar inside an expanded view, which is the opposite of
+           what expanding it was for. */
+        <div className={expanded ? "overflow-y-auto" : "max-h-[600px] overflow-y-auto"}>
           <table className="min-w-full border-collapse">
             <thead className="sticky top-0 z-10" style={{ background: "#f9fafb" }}>
               <tr>
@@ -459,7 +493,13 @@ export function ManagerActivityTable({
             </thead>
             <tbody>
               {state.board.rows.map((row) => (
-                <ManagerRow key={row.managerId} row={row} resolveAvatar={resolveAvatar} />
+                <ManagerRow
+                  key={row.managerId}
+                  row={row}
+                  resolveAvatar={resolveAvatar}
+                  open={openIds.has(row.managerId)}
+                  onToggle={() => toggleRow(row.managerId)}
+                />
               ))}
             </tbody>
           </table>
@@ -493,21 +533,16 @@ export function ManagerActivityTable({
     </div>
   );
 
-  if (full && typeof document !== "undefined") {
-    return createPortal(
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Manager activity board"
-        className="fixed inset-0 z-[80] overflow-y-auto bg-white p-8 max-md:p-4"
-      >
-        {header}
-        {body}
-      </div>,
-      document.body,
-    );
-  }
+  /* ONE render path. Maximize used to portal a `fixed inset-0` overlay to
+     <body> — a modal in everything but name: it covered the page, trapped Esc
+     and locked body scroll. It now expands IN PLACE, so the widget stays in the
+     document flow where the reader left it and the rest of the dashboard stays
+     reachable by scrolling.
 
+     The card is already `w-full max-w-none`, i.e. 100% of its parent content
+     container, in both states — what Maximize actually changes is the 600px
+     scroll cap (lifted, so every row renders at full height) and the open set
+     (every breakdown expanded). */
   return (
     <section className="relative min-w-0" aria-label="Manager activity board">
       {header}
