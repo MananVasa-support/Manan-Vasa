@@ -7,13 +7,17 @@ import { ChevronDown, Loader2, Maximize2, Minimize2, Users } from "lucide-react"
 import { createPortal } from "react-dom";
 import { Avatar } from "@/components/ui/avatar";
 import { getManagerActivityBoard } from "@/app/(app)/dashboard/manager-activity-actions";
+// From the CONTRACT module, not the query module. The query module is
+// `server-only`, and `ACTIVITY_TARGETS` is a value — importing it from there
+// puts a real module edge into the client graph and fails the production build.
+// The types alone would have been fine; the constant is what broke it.
 import {
   ACTIVITY_TARGETS,
   type ActivitySplit,
   type ManagerActivityBoard,
   type ManagerActivityRow,
   type MemberActivityRow,
-} from "@/lib/queries/manager-activity-board";
+} from "@/lib/dashboard/manager-activity-contract";
 
 /* ────────────────────────────────────────────────────────────────────────
    ManagerActivityTable — one row per manager across the three activity
