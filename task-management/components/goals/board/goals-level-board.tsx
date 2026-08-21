@@ -94,7 +94,7 @@ const VIEW_STORE_KEY = "goals-board-view";
  *  save predates them and reconcileColOrder's position-aware merge only
  *  fires on THIS key going forward — a fresh key sidesteps needing it for
  *  that one-time gap too. */
-const COL_ORDER_STORE_KEY = "goals-board-col-order-v2";
+const COL_ORDER_STORE_KEY = "goals-board-col-order-v3";
 
 /** Loads/persists the table's column drag-order. A stored order missing a
  *  since-added column (or naming one that no longer exists) is reconciled
@@ -1188,6 +1188,18 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               </button>
             </div>
 
+            {canWrite && (
+              <button
+                type="button"
+                onClick={openComposer}
+                title="New Goal — press G"
+                aria-keyshortcuts="G"
+                className={`pastel-cta wg-btn inline-flex shrink-0 items-center gap-1.5 h-9 rounded-pill px-3.5 text-[13px] font-bold transition-all hover:-translate-y-px cursor-pointer ${FOCUS_RING}`}
+              >
+                <Plus size={14} strokeWidth={2.8} /> New Goal
+              </button>
+            )}
+
             {props.roster.length > 1 && (
               <ViewingSelect
                 people={props.roster}
@@ -1200,11 +1212,12 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
           </div>
         </div>
 
-        {/* ── Feature toolbar — New goal · Sort · Export · Bulk upload ·
-            filters · Columns · Full screen · view toggle, all in one
-            glass instrument strip (matches the Tasks table's own toolbar).
-            Search sits on its own row, directly above the table. Shown on
-            ALL levels (Yearly included). ── */}
+        {/* ── Feature toolbar — Sort · Export · Bulk upload · filters ·
+            Columns · Full screen · view toggle, all in one glass instrument
+            strip (matches the Tasks table's own toolbar). New Goal now lives
+            in the row above, right after the FY stepper. Search sits on its
+            own row, directly above the table. Shown on ALL levels (Yearly
+            included). ── */}
         <div
           className="wg-rise mb-3 flex flex-wrap items-center gap-1.5 rounded-section border border-hairline px-3 py-2 max-md:px-3"
           style={{
@@ -1217,18 +1230,6 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
           }}
         >
-          {canWrite && (
-            <button
-              type="button"
-              onClick={openComposer}
-              title="New goal — press G"
-              aria-keyshortcuts="G"
-              className={`pastel-cta wg-btn inline-flex shrink-0 items-center gap-1.5 h-9 rounded-pill px-3.5 text-[13px] font-bold transition-all hover:-translate-y-px cursor-pointer ${FOCUS_RING}`}
-            >
-              <Plus size={14} strokeWidth={2.8} /> New goal
-            </button>
-          )}
-
           {/* View toggle — List | Kanban. Now on EVERY level: the Yearly board
               gets a Year→Quarter hierarchical Kanban too. */}
           <div

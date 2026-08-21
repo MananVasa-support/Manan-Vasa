@@ -51,6 +51,7 @@ import { ACCENT, ACCENT_DEEP, DUR, EASE_OUT, SPRING, accentMix, SEM_RISK } from 
 import { POLICY_REASONS } from "@/lib/goals/policy";
 import { asNum, deriveHealth, isUnmeasured, type DerivedHealth } from "@/lib/goals/derive";
 import { fireToast } from "@/lib/toast";
+import { DateInput } from "@/components/ui/date-input";
 import {
   editGoal,
   moveGoalAcross,
@@ -701,12 +702,11 @@ function MoveGoalControl(props: { g: GoalDTO }): React.JSX.Element {
       {level === "day" ? (
         // Day — a full year of buckets doesn't fit a select; a date input is
         // the keyboard-first answer (defaults to today).
-        <input
-          type="date"
+        <DateInput
           value={key}
           disabled={busy}
-          onChange={(e) => setKey(e.target.value)}
-          aria-label="Target day"
+          onChange={setKey}
+          ariaLabel="Target day"
           className={selectCls}
           style={{ borderColor: "var(--color-hairline-strong)" }}
         />

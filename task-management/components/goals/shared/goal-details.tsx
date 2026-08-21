@@ -7,6 +7,7 @@ import {
   effectiveGoalPct,
   periodKeyLabel,
   categoryStyle,
+  MONTHS,
   type GoalDTO,
 } from "@/components/goals/cascade/util";
 import type { GoalPeriod } from "@/lib/goals/types";
@@ -43,12 +44,13 @@ function statusOf(pct: number): { label: string; tone: string } {
   return { label: "Not started", tone: "var(--color-ink-subtle)" };
 }
 
+/** "09-Aug-2026" — kept consistent with fmtTargetDate across the goals feature. */
 function fmtDate(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? null
-    : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  if (Number.isNaN(d.getTime())) return null;
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${da}-${MONTHS[d.getMonth()]}-${d.getFullYear()}`;
 }
 
 /** One label/value line. Renders nothing when the value is empty, which is what

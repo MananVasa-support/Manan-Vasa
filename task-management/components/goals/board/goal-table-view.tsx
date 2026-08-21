@@ -14,6 +14,7 @@
  */
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -55,6 +56,7 @@ import { GoalPreview } from "@/components/goals/shared/goal-preview";
 import { GoalDetailPopup } from "@/components/goals/shared/goal-detail-popup";
 import { useGoalGridEngine, type GridColumn } from "@/components/goals/board/goal-grid";
 import { Select } from "@/components/ui/select";
+import { DateInput } from "@/components/ui/date-input";
 import { ADMIN_TASK_STATUSES, USER_TASK_STATUSES, GOAL_TYPES, GOAL_TYPE_LABELS, type TaskStatus, type GoalType } from "@/db/enums";
 import { pctTone, fmtNum, num, periodKeyLabel, periodKeyShort, goalCode, trimDecimal, targetDateStatus, fmtTargetDate, assignmentInfo } from "@/components/goals/cascade/util";
 import { CalendarClock } from "lucide-react";
@@ -945,6 +947,30 @@ function DelegatesCell({
   const list = delegates ?? [];
   const picked = React.useMemo(() => new Set(list.map((d) => d.employeeId)), [list]);
 
+  // Hover preview — same pattern as AttachmentsCell: hovering the cell shows
+  // every delegate (or "No delegate assigned"), independent of the click-to-
+  // pick Popover below.
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const [previewPos, setPreviewPos] = React.useState<{ left: number; top: number } | null>(null);
+  const hideTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelHide = () => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  };
+  const showPreview = () => {
+    cancelHide();
+    const r = wrapRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
+    setPreviewPos({ left: Math.min(Math.max(12, r.left), vw - 300), top: r.bottom + 6 });
+  };
+  const scheduleHidePreview = () => {
+    cancelHide();
+    hideTimer.current = setTimeout(() => setPreviewPos(null), 150);
+  };
+
   // Type-a-name-to-filter: the search box always holds focus while open, the
   // first match is auto-highlighted, ↑/↓ + Home/End move it, Enter toggles the
   // highlighted person, Esc closes. When the grid opens us via type-to-edit it
@@ -1001,68 +1027,27 @@ function DelegatesCell({
     onCommit(list.map((d) => (d.employeeId === member.id ? { ...d, pct: p } : d)));
   }
 
-  const shown = list.slice(0, 2);
-  const extra = list.length - shown.length;
-
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      {shown.map((d) => (
-        <span
-          key={d.employeeId}
-          title={`${d.name ?? "—"} · delegated ${d.pct}%`}
-          className="inline-flex max-w-[132px] items-center gap-1 rounded-full border pl-1.5 pr-1 py-0.5 text-[11px] font-semibold text-ink-strong"
-          style={{ borderColor: "var(--color-hairline)", background: "var(--color-surface-soft)" }}
-        >
-          <span
-            aria-hidden
-            className="grid size-3.5 shrink-0 place-items-center rounded-full text-[8px] font-bold text-white"
-            style={{ background: "var(--color-altus-red-deep)" }}
-          >
-            {(d.name ?? "?").trim().charAt(0).toUpperCase()}
-          </span>
-          <span className="truncate">{d.name ?? "—"}</span>
-          <span className="shrink-0 tabular-nums font-bold text-altus-red-deep">·{d.pct}%</span>
-          {!disabled && (
-            <button
-              type="button"
-              onClick={() => {
-                const next = list.filter((x) => x.employeeId !== d.employeeId);
-                onCommit(next.length ? next : null);
-              }}
-              aria-label={`Remove ${d.name ?? "delegate"}`}
-              title="Remove delegate"
-              className="grid size-3.5 shrink-0 place-items-center rounded-full text-ink-subtle transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_15%,transparent)] hover:text-altus-red"
-            >
-              <X size={10} strokeWidth={3} />
-            </button>
-          )}
-        </span>
-      ))}
-      {extra > 0 && (
-        <span
-          className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-altus-red-deep"
-          style={{ background: redTint(10) }}
-          title={list.slice(2).map((d) => `${d.name ?? "—"} (${d.pct}%)`).join(", ")}
-        >
-          +{extra}
-        </span>
-      )}
-
+    <div
+      ref={wrapRef}
+      className="flex flex-wrap items-center gap-1"
+      onMouseEnter={showPreview}
+      onMouseLeave={scheduleHidePreview}
+    >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
             ref={triggerRef}
             type="button"
             disabled={disabled}
-            aria-label="Delegate to team"
+            aria-label={list.length > 0 ? `${list.length} delegate${list.length === 1 ? "" : "s"} — click to edit` : "Delegate to team"}
             className={cn(
-              "inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
+              "inline-flex items-center justify-center rounded-md p-0.5 transition-colors hover:text-altus-red",
               "disabled:cursor-not-allowed disabled:opacity-60",
               FOCUS_RING,
             )}
-            style={{ borderColor: "var(--color-hairline-strong)" }}
           >
-            <UserPlus size={11} strokeWidth={3} /> Delegate
+            <UserPlus size={14} strokeWidth={2.4} className={list.length > 0 ? "text-altus-red-deep" : "text-ink-subtle"} />
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -1151,6 +1136,74 @@ function DelegatesCell({
           </div>
         </PopoverContent>
       </Popover>
+
+      {previewPos &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-label="Delegated staff"
+            onMouseEnter={cancelHide}
+            onMouseLeave={scheduleHidePreview}
+            style={{
+              position: "fixed",
+              left: previewPos.left,
+              top: previewPos.top,
+              zIndex: 10000,
+              width: 240,
+              background: "var(--color-surface-card)",
+              border: "1px solid var(--color-hairline-strong)",
+              borderRadius: 12,
+              boxShadow: "0 14px 34px -10px rgba(15,23,42,0.35)",
+              padding: 6,
+            }}
+          >
+            {list.length > 0 ? (
+              <ul className="flex flex-col gap-1">
+                {list.map((d) => (
+                  <li
+                    key={d.employeeId}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5"
+                  >
+                    <span
+                      aria-hidden
+                      className="grid size-5 shrink-0 place-items-center rounded-full text-[9px] font-bold text-white"
+                      style={{ background: "var(--color-altus-red-deep)" }}
+                    >
+                      {(d.name ?? "?").trim().charAt(0).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink-strong">
+                      {d.name ?? "—"}
+                    </span>
+                    <span className="shrink-0 text-[11.5px] font-bold tabular-nums text-altus-red-deep">{d.pct}%</span>
+                    {!disabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = list.filter((x) => x.employeeId !== d.employeeId);
+                          onCommit(next.length ? next : null);
+                        }}
+                        aria-label={`Remove ${d.name ?? "delegate"}`}
+                        title="Remove delegate"
+                        className={cn(
+                          "grid size-6 shrink-0 place-items-center rounded-full text-ink-subtle transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_15%,transparent)] hover:text-altus-red",
+                          FOCUS_RING,
+                        )}
+                      >
+                        <X size={12} strokeWidth={2.6} />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="flex items-center gap-2 px-2 py-1.5 text-[12.5px] font-medium text-ink-subtle">
+                <UserPlus size={13} className="shrink-0" />
+                No delegate assigned
+              </p>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -1292,47 +1345,53 @@ function TargetDateInline({
   const has = st.daysLeft != null;
 
   if (!editable) {
-    if (!has) return null;
+    if (!iso) return null;
     return (
-      <span
-        className="inline-flex items-center gap-1 rounded-full px-2 py-[1px] text-[12px] font-bold tabular-nums"
-        style={{ background: `color-mix(in srgb, ${st.color} 12%, transparent)`, color: st.color }}
-        title={`Target date ${fmtTargetDate(iso)} · ${st.label}`}
-      >
-        <CalendarClock size={11} aria-hidden />
-        {fmtTargetDate(iso)} · {st.label}
+      <span className="inline-flex items-center gap-1 text-[12px] font-semibold tabular-nums text-ink-strong">
+        <CalendarClock size={11} className="text-ink-subtle" aria-hidden />
+        {fmtTargetDate(iso)}
       </span>
     );
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <input
-        type="date"
-        defaultValue={iso ?? ""}
-        disabled={disabled}
-        aria-label="Target date"
-        onBlur={(e) => {
-          const v = e.target.value || null;
-          if (v !== (iso ?? null)) onCommit(v);
-        }}
-        className={cn(
-          "h-8 rounded-md border bg-white px-1.5 text-[13px] font-semibold text-ink-strong focus:border-altus-red disabled:opacity-60",
-          FOCUS_RING,
-        )}
-        style={{ borderColor: has ? st.color : "var(--color-hairline-strong)" }}
-      />
-      {has && (
-        <span
-          className="inline-flex items-center gap-1 rounded-full px-1.5 py-[1px] text-[11px] font-bold tabular-nums"
-          style={{ background: `color-mix(in srgb, ${st.color} 12%, transparent)`, color: st.color }}
-          title={st.label}
-        >
-          <CalendarClock size={10} aria-hidden />
-          {st.label}
-        </span>
+    <DateInput
+      value={iso ?? ""}
+      disabled={disabled}
+      ariaLabel="Target date"
+      onChange={(v) => {
+        const next = v || null;
+        if (next !== (iso ?? null)) onCommit(next);
+      }}
+      className={cn(
+        "h-6 rounded-md border bg-white px-1.5 text-[12.5px] font-semibold text-ink-strong focus:border-altus-red disabled:opacity-60",
+        FOCUS_RING,
       )}
-    </div>
+      style={{ borderColor: has ? st.color : "var(--color-hairline-strong)" }}
+    />
+  );
+}
+
+/** Days-left/overdue status — split into its own last column so it doesn't
+ *  wrap under the Target Date input at narrow widths. */
+function TargetDateStatusCell({ iso }: { iso: string | null }) {
+  const st = targetDateStatus(iso);
+  if (st.daysLeft == null) {
+    return (
+      <span className="text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
+        —
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-[1px] text-[11px] font-bold tabular-nums"
+      style={{ background: `color-mix(in srgb, ${st.color} 12%, transparent)`, color: st.color }}
+      title={st.label}
+    >
+      <CalendarClock size={10} aria-hidden />
+      {st.label}
+    </span>
   );
 }
 
@@ -1634,11 +1693,10 @@ function BulkTargetDate({ onApply }: { onApply: (iso: string | null) => void }) 
         style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
       >
         <p className="pb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">Set target date</p>
-        <input
-          type="date"
+        <DateInput
           value={iso}
-          onChange={(e) => setIso(e.target.value)}
-          aria-label="Bulk target date"
+          onChange={setIso}
+          ariaLabel="Bulk target date"
           className={cn("h-9 w-full rounded-md border bg-white px-2 text-[13px] font-semibold text-ink-strong focus:border-altus-red", FOCUS_RING)}
           style={{ borderColor: "var(--color-hairline-strong)" }}
         />
@@ -1761,7 +1819,7 @@ function DupCollisionDialog({
 /* ------------------------------------------------------------------ */
 
 const TH =
-  "px-2 py-1.5 text-left text-table-head whitespace-nowrap max-md:px-1.5 max-md:py-1.5";
+  "px-2 py-1.5 text-left whitespace-nowrap max-md:px-1.5 max-md:py-1.5 font-sans text-[10.5px] font-bold uppercase tracking-[0.03em]";
 
 /** Header cell metadata (not JSX — the component attaches live drag handlers
  *  itself) for one REORDERABLE_COLUMNS key, in the table's fixed per-column
@@ -1774,34 +1832,36 @@ function headerCellsFor(key: string): { reactKey: string; label: string; classNa
     case "srno":
       return [{ reactKey: "srno", label: "#", className: cn(TH, "w-px") }];
     case "area":
-      return [{ reactKey: "area", label: "Area", className: cn(TH, "px-1.5 min-w-[68px]") }];
+      return [{ reactKey: "area", label: "Area", className: cn(TH, "pl-1.5 pr-0 min-w-[36px]") }];
     case "title":
-      return [{ reactKey: "title", label: "Goal", className: cn(TH, "min-w-[320px]") }];
+      return [{ reactKey: "title", label: "Goal", className: cn(TH, "pl-0 pr-2 min-w-[320px]") }];
     case "measure":
-      return [{ reactKey: "measure", label: "Measure", className: cn(TH, "px-1.5 min-w-[68px]") }];
+      return [{ reactKey: "measure", label: "Measure", className: cn(TH, "px-1.5 min-w-[52px]") }];
     case "actual":
-      return [{ reactKey: "actual", label: "Actual", className: cn(TH, "px-1.5 w-[70px]") }];
+      return [{ reactKey: "actual", label: "Actual", className: cn(TH, "px-1.5 w-[66px]") }];
     case "target":
-      return [{ reactKey: "target", label: "Target", className: cn(TH, "px-1.5 w-[70px]") }];
+      return [{ reactKey: "target", label: "Target", className: cn(TH, "px-1.5 w-[66px]") }];
     case "pct":
-      return [{ reactKey: "pct", label: "% Done", className: cn(TH, "px-1.5 w-[74px]") }];
+      return [{ reactKey: "pct", label: "% Done", className: cn(TH, "px-1.5 w-[70px]") }];
     case "teamPct":
       return [{ reactKey: "teamPct", label: "Team %", className: cn(TH, "px-1.5 w-[54px]") }];
     case "weight":
       return [{ reactKey: "weight", label: "Weight", className: cn(TH, "px-1.5 w-[58px]") }];
     case "delegate":
-      return [{ reactKey: "delegate", label: "Delegated", className: cn(TH, "px-1.5 min-w-[118px]") }];
+      return [{ reactKey: "delegate", label: "Delegated", className: cn(TH, "px-1.5 min-w-[28px]") }];
     case "targetDate":
-      return [{ reactKey: "targetDate", label: "Target Date", className: cn(TH, "min-w-[190px]") }];
+      return [{ reactKey: "targetDate", label: "Target Date", className: cn(TH, "px-1.5 min-w-[130px]") }];
     case "owner":
-      return [{ reactKey: "owner", label: "Owner", className: cn(TH, "px-1.5 min-w-[84px]") }];
+      return [{ reactKey: "owner", label: "Owner", className: cn(TH, "px-1.5 min-w-[50px]") }];
     case "type":
-      return [{ reactKey: "type", label: "Type", className: cn(TH, "px-1.5 min-w-[68px]") }];
+      return [{ reactKey: "type", label: "Type", className: cn(TH, "px-1.5 min-w-[56px]") }];
     case "notes":
       return [
-        { reactKey: "notes", label: "Notes", className: cn(TH, "px-1.5 min-w-[100px]") },
-        { reactKey: "attachments", label: "Attachments", className: cn(TH, "px-1.5 min-w-[140px]") },
+        { reactKey: "notes", label: "Notes", className: cn(TH, "px-1.5 min-w-[64px]") },
+        { reactKey: "attachments", label: "Files", className: cn(TH, "px-1.5 min-w-[28px]") },
       ];
+    case "targetDateStatus":
+      return [{ reactKey: "targetDateStatus", label: "Days Left", className: cn(TH, "px-1.5 min-w-[96px]") }];
     default:
       return [];
   }
@@ -1858,10 +1918,11 @@ export const REORDERABLE_COLUMNS: { key: string; label: string; pickable: boolea
   { key: "teamPct", label: "Team %", pickable: true },
   { key: "weight", label: "Weight", pickable: true },
   { key: "delegate", label: "Delegated", pickable: true },
-  { key: "targetDate", label: "Target Date", pickable: false },
   { key: "owner", label: "Owner", pickable: true },
   { key: "type", label: "Type", pickable: true },
   { key: "notes", label: "Notes", pickable: true },
+  { key: "targetDate", label: "Target Date", pickable: false },
+  { key: "targetDateStatus", label: "Days Left", pickable: false },
 ];
 
 /** Reconciles a (possibly stale) saved column order against
@@ -2006,7 +2067,7 @@ export function GoalTableView(props: GoalTableViewProps) {
   const orderedColumnKeys = React.useMemo(
     () =>
       mergedColOrder.filter((k) => {
-        if (k === "targetDate") return level === "month" || level === "week";
+        if (k === "targetDate" || k === "targetDateStatus") return level === "month" || level === "week";
         const col = REORDERABLE_COLUMNS.find((c) => c.key === k);
         return col?.pickable ? visibleCols.has(k) : true;
       }),
@@ -2483,7 +2544,7 @@ export function GoalTableView(props: GoalTableViewProps) {
         ];
       case "area":
         return [
-          <td key="area" {...grid.cellProps(i, grid.ci("area"), "px-1.5 py-0 align-middle")}>
+          <td key="area" {...grid.cellProps(i, grid.ci("area"), "pl-1.5 pr-0 py-0 align-middle")}>
             <div className={cn(locked && "pointer-events-none opacity-60")}>
               <GoalLookupSelect
                 kind="area"
@@ -2502,7 +2563,7 @@ export function GoalTableView(props: GoalTableViewProps) {
         ];
       case "title":
         return [
-          <td key="title" {...grid.cellProps(i, grid.ci("title"), "px-1.5 py-0 align-middle")}>
+          <td key="title" {...grid.cellProps(i, grid.ci("title"), "pl-0 pr-1.5 py-0 align-middle")}>
             {/* Single-line, truncated — keeps every row one line tall (dense
                 table, column stays narrow) — but a hover tooltip always shows
                 the FULL goal text, so nothing is ever actually hidden. */}
@@ -2583,7 +2644,7 @@ export function GoalTableView(props: GoalTableViewProps) {
               disabled={locked}
               ariaLabel="Actual"
               placeholder="Actual"
-              className="w-[64px]"
+              className="w-[60px]"
               onCommit={(raw) => grid.commit("actual", g, raw)}
             />
             {Math.abs(a ?? 0) >= 1000 && (
@@ -2601,7 +2662,7 @@ export function GoalTableView(props: GoalTableViewProps) {
               disabled={locked}
               ariaLabel="Target"
               placeholder="Target"
-              className="w-[64px]"
+              className="w-[60px]"
               onCommit={(raw) => grid.commit("target", g, raw)}
             />
             {Math.abs(t ?? 0) >= 1000 && (
@@ -2718,6 +2779,12 @@ export function GoalTableView(props: GoalTableViewProps) {
           </td>,
           <td key="attachments" className="px-1.5 py-0 align-top">
             <AttachmentsCell goalId={g.id} expanded={expanded.has(g.id)} onToggle={() => toggleExpand(g.id)} />
+          </td>,
+        ];
+      case "targetDateStatus":
+        return [
+          <td key="targetDateStatus" className="px-1.5 py-0 align-middle">
+            <TargetDateStatusCell iso={g.targetDate} />
           </td>,
         ];
       default:

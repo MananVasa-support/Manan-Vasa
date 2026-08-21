@@ -8,7 +8,7 @@
  */
 
 import * as React from "react";
-import { FileText, Mic, Square } from "lucide-react";
+import { FileText, Mic, Square, X } from "lucide-react";
 import { useDictation } from "@/components/ui/use-dictation";
 import { cn } from "@/lib/utils";
 import { UserCog } from "lucide-react";
@@ -111,12 +111,28 @@ export function GoalDetailRow({
     <tr>
       <td
         colSpan={colSpan}
-        className="px-6 py-4"
+        className="relative px-6 py-4"
         style={{
           background: "color-mix(in srgb, var(--color-altus-red) 3%, var(--color-surface-soft))",
           borderBottom: "1px solid var(--color-hairline)",
         }}
       >
+        {/* ── Close — collapse this row without touching notes/attachments. ── */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            title="Close"
+            className={cn(
+              "absolute right-3 top-3 grid size-6 place-items-center rounded-full text-ink-subtle transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_12%,transparent)] hover:text-altus-red",
+              FOCUS_RING,
+            )}
+          >
+            <X size={14} strokeWidth={2.6} />
+          </button>
+        )}
+
         {/* ── Assignment ── a quiet line: Self-created / Assigned by … */}
         {assignment && (
           <div className="mb-4 flex items-center gap-1.5">
