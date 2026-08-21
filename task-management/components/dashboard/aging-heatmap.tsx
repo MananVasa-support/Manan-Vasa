@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import * as Popover from "@radix-ui/react-popover";
+import * as Tooltip from "@radix-ui/react-tooltip";
+import { PRIORITY_LABELS } from "@/db/enums";
 import { AlertTriangle, Flame, ArrowDownUp, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -691,13 +692,22 @@ function Segment({
   // `isCritical` lived here to drive the heatPulse animation. The animation is
   // gone; CRITICAL_BUCKETS is still used by the risk score and the risk sort.
 
+  // Up to four, per spec — a hover preview is a glance, not the drill-down.
+  const preview = tasks.slice(0, 4);
+
   return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
+    // HOVER, not click. This was a Popover, which opens on click — and the same
+    // click also fired `onOpen()`, so one press produced the preview card AND
+    // the full drill-down drawer at once. Splitting them by input fixes that:
+    // hover previews, click drills down. Radix tooltip content is hoverable, so
+    // the rows inside stay reachable.
+    <Tooltip.Provider delayDuration={100} skipDelayDuration={200}>
+      <Tooltip.Root>
+      <Tooltip.Trigger asChild>
         <button
           type="button"
           // Crucial: keep the segment click from bubbling up to the lane's
-          // navigation handler so the popover opens instead of redirecting.
+          // navigation handler so the drill-down opens instead of redirecting.
           onClick={(e) => {
             // Stop the lane's own handler: a segment click is MORE specific
             // (this person AND this bracket), so it must not be swallowed by
@@ -742,108 +752,78 @@ function Segment({
         >
           {showLabel && <span className="tabular-nums">{count}</span>}
         </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content
           side="top"
           align="center"
           sideOffset={10}
           collisionPadding={12}
-          className="z-[100] bg-surface-card border rounded-section overflow-hidden max-h-[var(--radix-popover-content-available-height)] flex flex-col"
-          style={{
-            borderColor: c.deep,
-            borderWidth: 2,
-            boxShadow:
-              "0 24px 56px -16px rgba(15, 23, 42, 0.24), 0 8px 24px -8px rgba(15, 23, 42, 0.14)",
-            // Fixed, bounded width so a long task title can never stretch the
-            // popover off-screen — titles wrap inside instead. Never exceeds
-            // the viewport minus the 12px collision gutter on each side.
-            width: "min(420px, calc(100vw - 24px))",
-            maxWidth: "calc(100vw - 24px)",
-          }}
-          onClick={(e) => e.stopPropagation()}
+          /* COMPACT. This was a 420px card with a full-bleed tier header and
+             15.5px rows — a panel, not a hover. At 280px it sits over the lane
+             without covering the neighbouring rows you are comparing against.
+             The tier colour survives as the bucket pill rather than a band. */
+          className="z-50 w-[280px] max-w-[calc(100vw-24px)] rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
         >
-          {/* Header — flat tier band with the bucket label. Solid, not a
-              gradient, so the popover's header is literally the same colour as
-              the segment that opened it. Ink follows the tier for the same
-              reason the bar's does: white is unreadable on amber and sky. */}
-          <div
-            className="px-5 py-4 shrink-0"
-            style={{ background: c.fill, color: c.ink }}
-          >
-            <p
-              className="font-black leading-tight"
-              style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontSize: 22,
-                letterSpacing: "-0.01em",
-              }}
+          <p className="text-[11.5px] font-black leading-tight text-slate-900">
+            {employeeName}
+            <span className="mx-1.5 text-slate-400">·</span>
+            <span
+              className="rounded-pill px-1.5 py-0.5 text-[10px] font-bold"
+              style={{ background: c.fill, color: c.ink }}
             >
-              {employeeName}
-            </p>
-            <p
-              className="uppercase tracking-[0.12em] font-bold mt-1.5 opacity-95"
-              style={{
-                fontFamily: "var(--font-mono-display), ui-monospace, monospace",
-                fontSize: 13,
-              }}
-            >
-              {bucketLabel} · {tasks.length}{" "}
-              {tasks.length === 1 ? "task" : "tasks"}
-            </p>
-          </div>
+              {bucketLabel}
+            </span>
+            <span className="ml-1.5 tabular-nums text-slate-500">
+              ({count} {count === 1 ? "Task" : "Tasks"})
+            </span>
+          </p>
 
-          {/* Task list — each title wraps to 2 lines (with long URLs/emails
-              broken) so nothing spills out of the popover. The list scrolls
-              when there are many tasks. */}
-          <ul className="flex flex-col flex-1 min-h-0 p-2 overflow-y-auto bg-surface-card">
-            {tasks.length === 0 && (
-              <li
-                className="py-4 px-3 font-semibold"
-                style={{ fontSize: 16, color: "var(--color-ink-muted)" }}
-              >
-                No tasks.
-              </li>
+          <ul className="mt-2 flex flex-col gap-1">
+            {preview.length === 0 && (
+              <li className="py-2 text-[11.5px] font-semibold text-slate-500">No tasks.</li>
             )}
-            {tasks.map((t) => (
+            {preview.map((t) => (
               <li key={t.id}>
                 <Link
                   href={`/tasks/${t.id}` as Route}
-                  className="aging-popover-row flex items-start justify-between gap-3 py-3 px-3 rounded-chip transition-colors"
+                  className="block rounded-lg border border-slate-100 p-2 transition-colors hover:bg-slate-50"
                 >
-                  <span
-                    className="text-ink-strong font-bold min-w-0"
-                    style={{
-                      fontSize: 15.5,
-                      lineHeight: 1.4,
-                      overflowWrap: "anywhere",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {t.title}
+                  {/* DESCRIPTION, not `title`. `title` in this schema is the
+                      CLIENT NAME, so this list used to read "Altus Corp / AA
+                      Tech / JMT Drive Solutions" — three rows that say nothing
+                      about the work. */}
+                  <span className="block line-clamp-2 break-words text-xs font-semibold leading-snug text-slate-900">
+                    {t.description?.trim() || "Untitled task"}
                   </span>
-                  <span
-                    className="tabular-nums font-black shrink-0 rounded-pill px-2.5 py-1 mt-0.5"
-                    style={{
-                      fontFamily: "var(--font-display), system-ui, sans-serif",
-                      fontSize: 15,
-                      // Solid tier fill, matching the bar and legend pill.
-                      color: c.ink,
-                      background: c.fill,
-                    }}
-                  >
-                    {t.ageDays}d
+                  <span className="mt-1 flex items-center gap-1.5">
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                        t.priority === "imp_urgent"
+                          ? "bg-red-50 text-red-600"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {PRIORITY_LABELS[t.priority]}
+                    </span>
+                    <span className="ml-auto shrink-0 text-[10px] font-bold tabular-nums text-slate-500">
+                      {t.ageDays}d
+                    </span>
                   </span>
                 </Link>
               </li>
             ))}
           </ul>
-          <Popover.Arrow style={{ fill: c.deep }} width={14} height={8} />
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+
+          {tasks.length > preview.length && (
+            <p className="mt-2 text-[10.5px] font-semibold text-slate-500">
+              +{tasks.length - preview.length} more — click the segment to see all
+            </p>
+          )}
+          <Tooltip.Arrow style={{ fill: "#ffffff" }} width={14} height={7} />
+        </Tooltip.Content>
+      </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   );
 }

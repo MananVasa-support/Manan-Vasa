@@ -79,7 +79,9 @@ export function StatusCellPopover({
   // Scope to the person the row is about — by DOER or INITIATOR, matching the
   // dimension the table was aggregated on, or the link would open a list that
   // counts differently.
-  params.set(view === "doer" ? "emp" : "initiator", employeeId);
+  // `doer` is the assignee alias /tasks understands (lib/task-filters.ts folds
+  // it into `emp`), so the link reads the way the board describes it.
+  params.set(view === "doer" ? "doer" : "initiator", employeeId);
   const href = `/tasks?${params.toString()}` as Route;
 
   return (
@@ -96,8 +98,11 @@ export function StatusCellPopover({
             collisionPadding={16}
             className="z-50 rounded-lg border shadow-lg"
             style={{
-              width: 340,
-              maxWidth: "calc(100vw - 32px)",
+              width: 320,
+              // 380 is the ceiling, not the width: a long description gets room
+              // to breathe where the viewport allows, and the clamp still wins
+              // on a narrow screen.
+              maxWidth: "min(380px, calc(100vw - 32px))",
               background: "var(--color-surface-card)",
               borderColor: "var(--color-hairline-strong)",
             }}
@@ -113,10 +118,14 @@ export function StatusCellPopover({
 
             <ul className="flex flex-col border-t" style={{ borderColor: "var(--color-hairline)" }}>
               {tasks.map((t) => {
-                // description -> subject -> title, the same ladder the
-                // drill-down tables use. `title` in this schema is the CLIENT
-                // NAME, so it is the last resort, never the lead.
-                const text = t.description?.trim() || t.subject?.trim() || t.title;
+                // DESCRIPTION ONLY. This fell back through `subject` and then
+                // `title`, and BOTH fallbacks were the problem: `subject` is a
+                // category ("WMS App", "App"), so a run of rows reads
+                // identically, and `title` in this schema is the CLIENT NAME —
+                // the New Task form's "Client Name" field writes straight to
+                // tasks.title. Neither says what the work is. A task with no
+                // description says so rather than borrowing a label that lies.
+                const text = t.description?.trim() || "Untitled task";
                 // The identifiers that used to occupy the row -- the #number
                 // gutter and the client chip -- moved in here. Nothing is lost;
                 // they just stop competing with the description for the two
@@ -129,23 +138,29 @@ export function StatusCellPopover({
                   .filter(Boolean)
                   .join("\n");
                 return (
-                  <li
-                    key={t.id}
-                    className="flex items-start gap-2 rounded-lg p-2.5 border-b last:border-b-0 transition-colors hover:bg-slate-50"
-                    style={{ borderColor: "var(--color-hairline)" }}
-                  >
-                    {/* Two lines, not one: these are full task descriptions and
-                        a single-line truncate turned most of them into a stub.
-                        `title` still carries the untruncated text. */}
-                    <span
-                      className="min-w-0 flex-1 line-clamp-2 text-[12px] font-bold leading-snug text-ink-strong"
-                      title={hover}
+                  <li key={t.id} className="border-b last:border-b-0" style={{ borderColor: "var(--color-hairline)" }}>
+                    {/* The ROW is a link now, to the same filtered list the
+                        footer opens — not to the single task. The reader is
+                        pointing at a COUNT, so the row is a sample of that set
+                        rather than a specific thing they picked. */}
+                    <Link
+                      href={href}
+                      className="flex items-start gap-2 rounded-lg p-2.5 transition-colors hover:bg-slate-50"
                     >
-                      {text}
-                    </span>
-                    {/* Urgency is the only metadata left, pinned right so the
-                        description gets the full width of the row. */}
-                    <DueChip dueAt={t.dueAt} />
+                      {/* Two lines, not one: these are full task descriptions
+                          and a single-line truncate turned most of them into a
+                          stub. `break-words` keeps a long unbroken token from
+                          forcing a horizontal overflow. */}
+                      <span
+                        className="min-w-0 flex-1 line-clamp-2 break-words text-xs font-semibold leading-snug text-slate-900"
+                        title={hover}
+                      >
+                        {text}
+                      </span>
+                      {/* Urgency is the only metadata left, pinned right so the
+                          description gets the full width of the row. */}
+                      <DueChip dueAt={t.dueAt} />
+                    </Link>
                   </li>
                 );
               })}
