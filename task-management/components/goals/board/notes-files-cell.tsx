@@ -14,8 +14,9 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Eye, FileText, Paperclip } from "lucide-react";
-import { listGoalAttachments, type DetailAttachment } from "@/app/(app)/goals/cascade/detail-actions";
+import { ChevronDown, Eye, FileText, Loader2, Paperclip, X } from "lucide-react";
+import { listGoalAttachments, removeGoalAttachment, type DetailAttachment } from "@/app/(app)/goals/cascade/detail-actions";
+import { fireToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 const FOCUS_RING =
@@ -28,8 +29,17 @@ export interface NotesFilesCellProps {
   onToggle: () => void;
 }
 
-/** Notes column — just the expand toggle, with a dot when notes exist. */
+/** Notes column — the expand toggle, shown only when a note actually exists
+ *  (an empty goal edits its notes via the goal edit dialog instead), colored
+ *  solid red to flag "this goal has a note" at a glance. */
 export function NotesCell({ goalId, hasNotes, expanded, onToggle }: NotesFilesCellProps) {
+  if (!hasNotes) {
+    return (
+      <span className="block w-full text-center text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
+        —
+      </span>
+    );
+  }
   return (
     <button
       type="button"
@@ -37,20 +47,16 @@ export function NotesCell({ goalId, hasNotes, expanded, onToggle }: NotesFilesCe
       aria-expanded={expanded}
       data-notes-toggle={goalId}
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10.5px] font-black uppercase tracking-[0.04em] transition-colors hover:bg-altus-red hover:text-white",
+        "inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.03em] text-white transition-colors hover:bg-altus-red-deep",
         FOCUS_RING,
       )}
       style={{
-        borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)",
-        background: "color-mix(in srgb, var(--color-altus-red) 7%, transparent)",
-        color: "var(--color-altus-red-deep)",
+        borderColor: "var(--color-altus-red-deep)",
+        background: "var(--color-altus-red)",
       }}
     >
-      <ChevronDown size={12} strokeWidth={2.6} className={cn("transition-transform", expanded && "rotate-180")} />
+      <ChevronDown size={10} strokeWidth={2.6} className={cn("transition-transform", expanded && "rotate-180")} />
       Notes
-      {hasNotes && (
-        <span aria-label="has notes" className="ml-0.5 inline-block size-1.5 rounded-full" style={{ background: "var(--color-altus-red)" }} />
-      )}
     </button>
   );
 }
@@ -67,6 +73,7 @@ export function AttachmentsCell({ goalId, expanded, onToggle }: { goalId: string
   const wrapRef = React.useRef<HTMLDivElement>(null);
   const [pos, setPos] = React.useState<{ left: number; top: number } | null>(null);
   const hideTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [removingId, setRemovingId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let live = true;
@@ -78,6 +85,18 @@ export function AttachmentsCell({ goalId, expanded, onToggle }: { goalId: string
     };
   }, [goalId]);
 
+  async function remove(a: DetailAttachment) {
+    if (removingId) return;
+    setRemovingId(a.id);
+    const res = await removeGoalAttachment({ id: a.id });
+    setRemovingId(null);
+    if (!res.ok) {
+      fireToast({ message: res.error ?? "Couldn't remove file", type: "error" });
+      return;
+    }
+    setAtts((prev) => (prev ? prev.filter((x) => x.id !== a.id) : prev));
+  }
+
   const cancelHide = () => {
     if (hideTimer.current) {
       clearTimeout(hideTimer.current);
@@ -85,7 +104,7 @@ export function AttachmentsCell({ goalId, expanded, onToggle }: { goalId: string
     }
   };
   const show = () => {
-    if (!atts || atts.length === 0) return; // nothing to preview
+    if (!atts) return; // still loading — nothing to preview yet
     cancelHide();
     const r = wrapRef.current?.getBoundingClientRect();
     if (!r) return;
@@ -113,29 +132,9 @@ export function AttachmentsCell({ goalId, expanded, onToggle }: { goalId: string
         className={cn("flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 text-left", FOCUS_RING)}
       >
         {atts && atts.length > 0 ? (
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-1">
-            <span
-              className="inline-flex min-w-0 max-w-[160px] items-center gap-1.5 rounded-md border bg-white px-1.5 py-1"
-              style={{ borderColor: "var(--color-hairline)" }}
-            >
-              <FileText size={12} className="shrink-0 text-ink-subtle" />
-              <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold text-ink-strong" title={atts[0]!.title}>
-                {atts[0]!.title}
-              </span>
-            </span>
-            {atts.length > 1 && (
-              <span
-                className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-altus-red-deep"
-                style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)" }}
-              >
-                +{atts.length - 1}
-              </span>
-            )}
-          </div>
+          <Paperclip size={14} className="shrink-0 text-altus-red-deep" aria-label={`${atts.length} attached file${atts.length === 1 ? "" : "s"} — hover to view`} />
         ) : atts && atts.length === 0 ? (
-          <span className="flex items-center gap-1 text-[10.5px] text-ink-subtle">
-            <Paperclip size={11} /> No files
-          </span>
+          <Paperclip size={14} className="shrink-0 text-ink-subtle" aria-label="No files attached" />
         ) : (
           <span className="text-[10.5px] text-ink-subtle">…</span>
         )}
@@ -143,7 +142,6 @@ export function AttachmentsCell({ goalId, expanded, onToggle }: { goalId: string
 
       {pos &&
         atts &&
-        atts.length > 0 &&
         createPortal(
           <div
             role="dialog"
@@ -163,29 +161,53 @@ export function AttachmentsCell({ goalId, expanded, onToggle }: { goalId: string
               padding: 6,
             }}
           >
-            <ul className="flex flex-col gap-1">
-              {atts.map((a) => (
-                <li key={a.id}>
-                  <a
-                    href={a.url ?? undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`View ${a.title}`}
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-soft",
-                      !a.url && "pointer-events-none opacity-50",
-                      FOCUS_RING,
-                    )}
-                  >
-                    <FileText size={13} className="shrink-0 text-ink-subtle" />
-                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink-strong" title={a.title}>
-                      {a.title}
-                    </span>
-                    <Eye size={13} className="shrink-0 text-altus-red-deep" />
-                  </a>
-                </li>
-              ))}
-            </ul>
+            {atts.length > 0 ? (
+              <ul className="flex flex-col gap-1">
+                {atts.map((a) => (
+                  <li key={a.id} className="flex items-center gap-1 rounded-lg transition-colors hover:bg-surface-soft">
+                    <a
+                      href={a.url ?? undefined}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`View ${a.title}`}
+                      className={cn(
+                        "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left",
+                        !a.url && "pointer-events-none opacity-50",
+                        FOCUS_RING,
+                      )}
+                    >
+                      <FileText size={13} className="shrink-0 text-ink-subtle" />
+                      <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink-strong" title={a.title}>
+                        {a.title}
+                      </span>
+                      <Eye size={13} className="shrink-0 text-altus-red-deep" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => remove(a)}
+                      disabled={removingId === a.id}
+                      aria-label={`Remove ${a.title}`}
+                      title="Remove attachment"
+                      className={cn(
+                        "grid size-6 shrink-0 place-items-center rounded-full text-ink-subtle transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_15%,transparent)] hover:text-altus-red disabled:opacity-50",
+                        FOCUS_RING,
+                      )}
+                    >
+                      {removingId === a.id ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <X size={12} strokeWidth={2.6} />
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="flex items-center gap-2 px-2 py-1.5 text-[12.5px] font-medium text-ink-subtle">
+                <Paperclip size={13} className="shrink-0" />
+                No file uploaded
+              </p>
+            )}
           </div>,
           document.body,
         )}

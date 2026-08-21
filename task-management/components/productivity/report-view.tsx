@@ -1,15 +1,5 @@
-import Link from "next/link";
 import type { Route } from "next";
-import {
-  ArrowLeft,
-  Download,
-  Gauge,
-  GraduationCap,
-  ListChecks,
-  Target,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Download, Gauge, GraduationCap, ListChecks, Target, Users, type LucideIcon } from "lucide-react";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { GradeBadge } from "@/components/productivity/grade-badge";
 import {
@@ -56,13 +46,6 @@ export function ProductivityReportView({
 
   return (
     <div className="flex flex-col gap-7 max-md:gap-5">
-      <Link
-        href={backHref}
-        className="inline-flex w-fit items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
-      >
-        <ArrowLeft size={15} strokeWidth={2.4} /> Back to Dashboard
-      </Link>
-
       {/* ── Report masthead ── */}
       <header
         className="flex flex-wrap items-center justify-between gap-x-6 gap-y-5 rounded-2xl border border-hairline-strong bg-surface-card px-6 py-5 max-md:px-4 max-md:py-4"

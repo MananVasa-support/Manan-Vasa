@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { loadAuthorisedSubmission } from "@/lib/hr/forms/load";
@@ -48,13 +47,6 @@ export default async function HrFormSubmissionPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="standard">
-        <Link
-          href={backHref}
-          className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-subtle transition-colors hover:text-ink-strong"
-        >
-          <ArrowLeft size={14} /> Back to filled forms
-        </Link>
-
         <header className="mb-5 border-b border-hairline pb-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>

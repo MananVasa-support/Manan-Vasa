@@ -43,23 +43,7 @@ export interface KpiSet {
   notApproved: KpiWithDelta;
 }
 
-export interface StatusDistributionPayload {
-  rows: StatusDistribution[];
-  denominator: number; // total − approved
-  /** Headline counts surfaced as their own cards beneath the chart.
-   *  pending = open & awaiting a verdict; notApproved = declined;
-   *  archived = removed from active boards. */
-  summary: {
-    pending: number;
-    notApproved: number;
-    archived: number;
-  };
-}
 
-export interface StatusDistribution {
-  status: TaskStatus;
-  count: number;
-}
 
 /** The six count columns the Status-by-Doer table renders, keyed by the field
  *  they read. Used to key the hover previews below. */
@@ -102,6 +86,14 @@ export interface EmployeeStatusRow {
   followUp: number;
   initiated: number;
   notStarted: number;
+  /** "Not Read" (`dont_know`). Split out of notStarted: the table now renders a
+   *  column per status, and folding two statuses into one made the Not Started
+   *  column overstate itself. */
+  dontKnow: number;
+  /** Paused work. It had no sub-bucket and lived only inside pendingTotal, so
+   *  once the Pending aggregate stopped being rendered it would have counted
+   *  toward Total while appearing in no column at all. */
+  onHold: number;
   total: number;
   /** tasks with priority = imp_urgent */
   criticalCount: number;
@@ -317,7 +309,6 @@ export interface DashboardData {
   initiator: { d3: InitiatorBoard; d7: InitiatorBoard };
   pullQuote: string;
   statusTable: EmployeeStatusRow[];
-  statusDistribution: StatusDistributionPayload;
   topPerformers: TopPerformer[];
   agingTable: AgingRow[];
   agingHeatmap: AgingHeatmapCell[];
@@ -338,6 +329,9 @@ export interface TaskListFilters {
   clients: string[];
   taskId: string | null;
   archived: boolean;
+  /** `?type=goals|tasks|commitments` -- which activity family a manager-board
+   *  click came from. Null when absent or unrecognised. */
+  activityType: import("@/lib/task-filters").ActivityType | null;
   /** `?overdue=true` — only OPEN tasks whose effective due date is already
    *  past. A cross-cut, not a status: it narrows within whatever statuses are
    *  selected rather than replacing them. Terminal work is excluded because a

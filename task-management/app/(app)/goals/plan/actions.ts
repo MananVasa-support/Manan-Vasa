@@ -333,6 +333,8 @@ export async function addTaskToPlan(
       id: tasks.id,
       doerId: tasks.doerId,
       title: tasks.title,
+      // The DESCRIPTION was missing here, which is what broke the "+" button:
+      // without it the row could only ever be labelled with the raw title.
       description: tasks.description,
       client: tasks.client,
       subject: tasks.subject,
@@ -373,10 +375,9 @@ export async function addTaskToPlan(
         planDate: ymd,
         taskId: task.id,
         origin: "standalone",
-        // The SAME rule the pull rail labels the card with (Sir's bug: this
-        // stored `tasks.title` raw, and many WMS tasks keep the client there —
-        // so the rail read "In bulk upload excel of Tasks…" and the card you
-        // got out of it read "Altus Corp"). One rule, both paths.
+        // Same label the source card showed, via the same helper the server
+        // render uses (payload.displayTitle). Storing `task.title` here is what
+        // made a pulled task come across as just its client name.
         title: displayTitle(task.title, task.description, task.client),
         client: task.client,
         subject: task.subject,

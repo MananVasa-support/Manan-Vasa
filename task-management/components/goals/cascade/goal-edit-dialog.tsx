@@ -9,6 +9,7 @@ import type { GoalPeriod } from "@/lib/goals/types";
 import { createGoal, addChildGoal, editGoal } from "@/app/(app)/goals/cascade/actions";
 import { TeamPicker, type TeamMember } from "./team-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { DateInput } from "@/components/ui/date-input";
 import {
   GOALS_ACCENT,
   GOALS_ACCENT_DEEP,
@@ -289,11 +290,11 @@ export function GoalEditDialog({
           {isMonth && (
             <div>
               <label className={labelCls}>Target date</label>
-              <input
-                type="date"
+              <DateInput
                 value={f.targetDate}
-                onChange={(e) => upd("targetDate", e.target.value)}
+                onChange={(iso) => upd("targetDate", iso)}
                 className={`${inputCls} mt-1`}
+                ariaLabel="Target date"
               />
             </div>
           )}

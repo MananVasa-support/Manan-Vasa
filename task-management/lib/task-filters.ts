@@ -16,6 +16,10 @@ const STATUS_SET = new Set<TaskStatus>(TASK_STATUSES);
 const PRIO_SET = new Set<TaskPriority>(TASK_PRIORITIES);
 const DEPT_SET = new Set<Department>(DEPARTMENTS);
 
+/** The three activity families the manager board links out from. */
+export const ACTIVITY_TYPES = ["goals", "tasks", "commitments"] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
 const split = (v: unknown): string[] =>
   typeof v === "string" ? v.split(",").filter(Boolean) : [];
 
@@ -82,7 +86,11 @@ export function parseTaskFilters(
   //  - `emp` absent  → default to [defaultDoerId] if provided, else []
   //  - `emp=all`     → explicitly all assignees (clears default)
   //  - `emp=<ids>`   → comma-separated IDs
-  const empRaw = get("emp");
+  // `doer` is an accepted alias for `emp`. The manager-activity board links
+  // out as ?manager=&doer=&type=, and those three names describe the same
+  // two axes this parser already has: doer IS the assignee, manager IS the
+  // initiator. Aliasing here means one resolution ladder, not two.
+  const empRaw = get("emp") ?? get("doer");
   const empPresent = empRaw !== undefined;
   let doerIds: string[];
   let assigneeMode: "default" | "all" | "specific";
@@ -107,7 +115,7 @@ export function parseTaskFilters(
     endDate: parseDate(get("end")) ?? todayUtcMidnight(),
     statuses,
     doerIds,
-    initiatorIds: split(get("initiator")),
+    initiatorIds: split(get("initiator") ?? get("manager")),
     departments,
     teams,
     viewerId: opts.defaultDoerId ?? null,
@@ -123,6 +131,13 @@ export function parseTaskFilters(
     // should show an unfiltered list, not an error page.
     ageRange: FINE_BUCKET_BY_SLUG[(get("age_range") ?? "").trim()] ?? null,
     assigneeMode,
+    // Which activity family the click came from. Only `tasks` narrows this
+    // list -- /tasks cannot render goals or commitments, so those values are
+    // carried for the page to notice, not silently applied as a filter that
+    // would return a task list dressed up as something else.
+    activityType: ACTIVITY_TYPES.includes((get("type") ?? "") as ActivityType)
+      ? ((get("type") as ActivityType))
+      : null,
   };
 }
 

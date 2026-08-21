@@ -98,13 +98,6 @@ export default async function IncentivePayoutPage({ searchParams }: PageProps) {
                 salary. Payable is what the client has fully paid (Accrued); the account nils when
                 Paid catches up. This records the payout only — it does not disburse to a bank.
               </p>
-              <Link
-                href={"/salary" as Route}
-                className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-bold"
-                style={{ color: GREEN_DEEP }}
-              >
-                ← Back to Salary
-              </Link>
             </div>
 
             <nav aria-label="Month" className="flex max-w-[520px] flex-wrap items-center justify-end gap-2 max-md:justify-start">

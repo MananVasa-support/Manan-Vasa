@@ -426,7 +426,7 @@ export function FilterBar({
 const SECTION_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/tasks": "Tasks",
-  "/my-day": "Plan My Day",
+  "/my-day": "Daily Goals",
   "/tasks/kanban": "Kanban",
   "/archived": "Archived",
 };

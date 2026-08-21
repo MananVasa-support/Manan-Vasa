@@ -1,7 +1,5 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { DashboardHeader } from "@/components/layout/header";
 import { requireHrSupport } from "@/lib/hr/flag";
@@ -33,12 +31,6 @@ export default async function TicketDetailPage({ params }: PageProps) {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[820px] px-8 max-md:px-4 pt-8 pb-16">
-        <Link
-          href={"/support" as Route}
-          className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted transition hover:text-ink-strong"
-        >
-          <ArrowLeft size={15} /> Back to Support
-        </Link>
         <TicketThread
           ticket={{
             id: t.id,

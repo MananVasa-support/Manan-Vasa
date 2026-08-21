@@ -1,5 +1,7 @@
 "use client";
 
+import { PageCommandBar } from "@/components/layout/page-command-bar";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -192,173 +194,22 @@ function HeroHeader({
   totals: { projects: number; milestones: number; results: number; tasks: number };
 }) {
   return (
-    <section
-      className="relative overflow-hidden rounded-section px-10 py-10 max-md:px-6 max-md:py-8"
-      style={{
-        opacity: 0,
-        animation: "fadeUp 700ms ease-out 50ms forwards",
-        background:
-          "radial-gradient(ellipse 90% 70% at 85% 100%, rgba(225, 6, 0, 0.55), transparent 55%), radial-gradient(ellipse 60% 60% at 15% 0%, rgba(168, 4, 0, 0.20), transparent 60%), linear-gradient(135deg, #0E0B0A 0%, #1A0F0C 50%, #0B0708 100%)",
-        boxShadow:
-          "0 24px 60px -20px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
-      }}
-    >
-      {/* Decorative dot grid (echo of the login page) */}
-      <div
-        aria-hidden
-        className="absolute inset-0 opacity-[0.10] pointer-events-none"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "28px 28px",
-        }}
-      />
-      {/* Film grain overlay */}
-      <div
-        aria-hidden
-        className="absolute inset-0 opacity-[0.05] mix-blend-overlay pointer-events-none"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
-        }}
-      />
-
-      <div className="relative flex items-end justify-between gap-8 max-md:flex-col max-md:items-start">
-        <div className="min-w-0 flex-1">
-          <div
-            className="inline-flex items-center gap-2.5 mb-4"
-            style={{
-              fontSize: 11.5,
-              letterSpacing: "0.24em",
-              color: "rgba(255,255,255,0.78)",
-              fontFamily: "var(--font-mono)",
-              fontWeight: 700,
-              textTransform: "uppercase",
-            }}
-          >
-            <span
-              aria-hidden
-              style={{
-                display: "inline-block",
-                width: 0,
-                height: 0,
-                borderLeft: "6px solid transparent",
-                borderRight: "6px solid transparent",
-                borderBottom: "10px solid #E10600",
-                filter: "drop-shadow(0 0 10px rgba(225, 6, 0, 0.8))",
-              }}
-            />
-            Projects
-          </div>
-          <h1
-            className="text-white"
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontStyle: "italic",
-              fontWeight: 500,
-              fontSize: 58,
-              lineHeight: 1.02,
-              letterSpacing: "-0.025em",
-              textShadow: "0 2px 12px rgba(0,0,0,0.45)",
-            }}
-          >
-            Break work down.
-          </h1>
-          <p
-            className="mt-4 max-w-2xl"
-            style={{
-              color: "rgba(255,255,255,0.85)",
-              fontSize: 16.5,
-              lineHeight: 1.55,
-              fontWeight: 400,
-            }}
-          >
-            Project → Milestone → Result → Action → Sub-Action. Hierarchy
-            for ambitious work — link any task to the node it serves.
-          </p>
-
-          {/* Org-wide stat strip — only meaningful when there's data */}
-          {totals.projects > 0 && (
-            <div className="mt-7 flex flex-wrap items-center gap-x-7 gap-y-3">
-              <HeroStat
-                icon={<FolderKanban size={13} strokeWidth={2.2} />}
-                label="Projects"
-                value={totals.projects}
-              />
-              <HeroStat
-                icon={<Layers size={13} strokeWidth={2.2} />}
-                label="Milestones"
-                value={totals.milestones}
-              />
-              <HeroStat
-                icon={<Target size={13} strokeWidth={2.2} />}
-                label="Results"
-                value={totals.results}
-              />
-              <HeroStat
-                icon={<ListChecks size={13} strokeWidth={2.2} />}
-                label="Linked tasks"
-                value={totals.tasks}
-              />
-            </div>
-          )}
-        </div>
-
-        <NewProjectButton hero />
-      </div>
-    </section>
-  );
-}
-
-function HeroStat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <span
-        className="inline-flex items-center justify-center size-8 rounded-full"
-        style={{
-          background: "rgba(255,255,255,0.08)",
-          border: "1px solid rgba(255,255,255,0.16)",
-          color: "rgba(255,255,255,0.95)",
-        }}
-      >
-        {icon}
-      </span>
-      <span className="flex flex-col">
-        <span
-          className="tabular-nums"
-          style={{
-            color: "#fff",
-            fontSize: 22,
-            fontWeight: 700,
-            letterSpacing: "-0.01em",
-            lineHeight: 1,
-            fontFamily: "var(--font-serif)",
-          }}
-        >
-          {value}
-        </span>
-        <span
-          style={{
-            color: "rgba(255,255,255,0.72)",
-            fontSize: 11,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            fontWeight: 700,
-            marginTop: 5,
-          }}
-        >
-          {label}
-        </span>
-      </span>
-    </div>
+    /* MINIMAL HEADER (Sir) — the shared PageCommandBar, i.e. the Yearly Goals
+       band. What stood here was a full-bleed near-black poster: layered radial
+       gradients, a decorative dot grid, an SVG film-grain overlay and a 58px
+       italic serif headline ("Break work down."), roughly 300px tall before a
+       single project appeared. The counts it carried are kept — as a compact
+       inline hint rather than a stat strip — and New Project moves into the
+       band's actions slot. */
+    <PageCommandBar
+      title="Projects"
+      hint={
+        totals.projects > 0
+          ? `${totals.projects} projects · ${totals.milestones} milestones · ${totals.results} results · ${totals.tasks} linked tasks`
+          : "Project → Milestone → Result → Action. Link any task to the node it serves."
+      }
+      actions={<NewProjectButton />}
+    />
   );
 }
 

@@ -19,7 +19,6 @@ export default async function TrainingDashboardPage() {
         <main className="w-full px-8 max-md:px-4 pt-16 pb-16">
           <div className="mx-auto max-w-md rounded-section border border-hairline bg-surface-card p-10 text-center" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}>
             <p className="text-[15px] font-semibold text-ink-muted">The training dashboard is available to managers and admins.</p>
-            <Link href={"/training" as Route} className="mt-4 inline-block text-[13.5px] font-bold text-altus-red">← Back to Training Centre</Link>
           </div>
         </main>
       </>

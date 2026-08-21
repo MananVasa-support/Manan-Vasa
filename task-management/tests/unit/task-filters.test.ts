@@ -78,6 +78,7 @@ describe("parseTaskFilters", () => {
       clients: [],
       taskId: null,
       archived: false,
+      activityType: null,
     overdue: false,
     ageRange: null,
       assigneeMode: "all" as const,

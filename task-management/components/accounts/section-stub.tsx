@@ -1,6 +1,4 @@
-import Link from "next/link";
-import type { Route } from "next";
-import { ArrowLeft, Wrench } from "lucide-react";
+import { Wrench } from "lucide-react";
 import type { AccountsSection } from "@/lib/accounts/sections";
 
 /**
@@ -14,13 +12,6 @@ export function SectionStub({ section }: { section: AccountsSection }) {
 
   return (
     <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-      <Link
-        href={"/accounts" as Route}
-        className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-soft hover:text-ink-strong transition-colors"
-      >
-        <ArrowLeft size={15} strokeWidth={2.6} aria-hidden /> Back to Accounts Index
-      </Link>
-
       <header className="mt-4 mb-7 wg-rise">
         <span
           className="text-[11px] font-bold uppercase tracking-[0.2em]"

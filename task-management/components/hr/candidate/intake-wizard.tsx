@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ArrowLeft, ArrowRight, Loader2, Send } from "lucide-react";
 import { sectionsForMode, hasAnyContent, intakeProgress, sectionRequiredKeys, type IntakeSection, type IntakeMode } from "@/lib/hr/candidate/intake-schema";
-import { saveCandidateDraft, submitCandidateDraft, uploadCandidateFile } from "@/app/(app)/hr/candidate-actions";
+import { saveCandidateDraft, submitCandidateDraft } from "@/app/(app)/hr/candidate-actions";
 
 /**
  * The three writes the wizard performs, typed off the HR actions so the injected
@@ -13,13 +13,11 @@ import { saveCandidateDraft, submitCandidateDraft, uploadCandidateFile } from "@
  */
 export interface IntakeActions {
   save: typeof saveCandidateDraft;
-  upload: typeof uploadCandidateFile;
   submit: typeof submitCandidateDraft;
 }
 
 const HR_ACTIONS: IntakeActions = {
   save: saveCandidateDraft,
-  upload: uploadCandidateFile,
   submit: submitCandidateDraft,
 };
 import { fireToast } from "@/lib/toast";
@@ -58,8 +56,6 @@ export interface IntakeInitial {
   draftId?: string;
   values?: Record<string, string>;
   instances?: Record<string, string[]>;
-  photoPath?: string | null;
-  signaturePath?: string | null;
   startAtReview?: boolean;
 }
 
@@ -210,8 +206,6 @@ export function IntakeWizard({
     for (const s of sections) if (s.repeat) init[s.id] = Array.from({ length: Math.max(s.repeat.seed, s.repeat.min) }, (_, i) => `i${i}`);
     return init;
   });
-  const [photo, setPhoto] = React.useState<{ path?: string; preview?: string; busy?: boolean }>(() => (initial?.photoPath ? { path: initial.photoPath } : {}));
-  const [sign, setSign] = React.useState<{ path?: string; preview?: string; busy?: boolean }>(() => (initial?.signaturePath ? { path: initial.signaturePath } : {}));
   const [saving, setSaving] = React.useState(false);
   const [attempted, setAttempted] = React.useState<Set<string>>(new Set());
   // High base so freshly-added repeater uids never collide with a resumed draft's.
@@ -222,8 +216,8 @@ export function IntakeWizard({
   const recordIdRef = React.useRef<string | null>(initial?.draftId ?? null);
   const savingRef = React.useRef(false);
   const dirtyRef = React.useRef(false);
-  const stateRef = React.useRef({ values, instances, photoPath: photo.path, signaturePath: sign.path });
-  stateRef.current = { values, instances, photoPath: photo.path, signaturePath: sign.path };
+  const stateRef = React.useRef({ values, instances });
+  stateRef.current = { values, instances };
 
   const flush = React.useCallback(async () => {
     if (!dirtyRef.current || savingRef.current) return;
@@ -236,8 +230,6 @@ export function IntakeWizard({
         id: recordIdRef.current ?? undefined,
         values: s.values,
         instances: s.instances,
-        photoPath: s.photoPath,
-        signaturePath: s.signaturePath,
       });
       if (res.ok) {
         if (!recordIdRef.current) { recordIdRef.current = res.id; setRecordId(res.id); pinDraftToUrl(res.id); }
@@ -259,7 +251,7 @@ export function IntakeWizard({
   }, []);
 
   // Mark dirty on any change; flush on a ~1.2s tick and once more on unmount.
-  React.useEffect(() => { if (hasAnyContent(values)) dirtyRef.current = true; }, [values, instances, photo.path, sign.path]);
+  React.useEffect(() => { if (hasAnyContent(values)) dirtyRef.current = true; }, [values, instances]);
   React.useEffect(() => {
     const iv = setInterval(() => { void flush(); }, 1200);
     return () => { clearInterval(iv); void flush(); };
@@ -274,26 +266,32 @@ export function IntakeWizard({
   // Every field is mandatory (see intake-schema.isRequiredField); a section's
   // required keys are derived live so showIf-hidden fields never count and each
   // repeater instance must be complete.
-  /** Required value-keys (or __photo__/__sign__ markers) still empty in a section. */
+  /**
+   * Required value-keys still empty in a section.
+   *
+   * THE SAVE BUG LIVED HERE (fixed 2026-08-20). This used to append
+   * `__photo__` / `__sign__` markers whenever the Declaration uploads were
+   * empty. Because `handleSubmit` refuses to run while ANY section reports a
+   * missing key, a form with every field filled still bounced back to
+   * Declaration with "Some required fields are still missing" and `submit()`
+   * was never reached — the form simply could not be saved without uploading
+   * two images. Both uploads are gone (Sir), so the markers go with them.
+   */
   function missingKeys(s: IntakeSection): string[] {
-    const out = sectionRequiredKeys(s, values, instances).filter((k) => (values[k] ?? "").trim() === "");
-    if (s.declaration) {
-      if (!photo.path) out.push(`${s.id}.__photo__`);
-      if (!sign.path) out.push(`${s.id}.__sign__`);
-    }
-    return out;
+    return sectionRequiredKeys(s, values, instances).filter((k) => (values[k] ?? "").trim() === "");
   }
   /**
    * A section reads "done" (green tick) ONLY when it actually has required work
    * AND none of it is missing — so a fresh, untouched section (repeaters with
-   * empty instances, etc.) never shows complete. Declaration is special-cased
-   * because its two uploads are its "required work" alongside the text fields.
+   * empty instances, etc.) never shows complete. Declaration keeps its
+   * `s.declaration ||` guard: it still has required fields of its own (date,
+   * the confirmation button, and the recruiter name in HR mode).
    */
   function sectionComplete(s: IntakeSection): boolean {
     const hasRequirements = s.declaration || sectionRequiredKeys(s, values, instances).length > 0;
     return hasRequirements && missingKeys(s).length === 0;
   }
-  const pct = intakeProgress(values, instances, Boolean(photo.path), Boolean(sign.path));
+  const pct = intakeProgress(values, instances);
 
   function go(to: number) {
     setStep(Math.max(0, Math.min(reviewStep, to)));
@@ -346,18 +344,6 @@ export function IntakeWizard({
     setInstances((p) => ({ ...p, [sid]: (p[sid] ?? []).filter((x) => x !== uid) }));
   }
 
-  async function upload(kind: "photo" | "signature", file: File) {
-    const preview = URL.createObjectURL(file);
-    const setter = kind === "photo" ? setPhoto : setSign;
-    setter({ preview, busy: true });
-    const fd = new FormData();
-    fd.set("file", file);
-    fd.set("kind", kind);
-    const res = await actions.upload(fd);
-    if (!res.ok) { setter({ preview }); fireToast({ message: res.error, type: "error" }); return; }
-    setter({ preview, path: res.path });
-  }
-
   async function submit() {
     setSaving(true);
     try {
@@ -366,8 +352,6 @@ export function IntakeWizard({
         id: recordIdRef.current ?? undefined,
         values: s.values,
         instances: s.instances,
-        photoPath: s.photoPath,
-        signaturePath: s.signaturePath,
       });
       if (!saved.ok) { fireToast({ message: saved.error, type: "error" }); return; }
       recordIdRef.current = saved.id;
@@ -453,16 +437,13 @@ export function IntakeWizard({
                   instances={instances[active.id] ?? []}
                   onAdd={() => addInstance(active)}
                   onRemove={(uid) => removeInstance(active.id, uid)}
-                  photo={photo}
-                  sign={sign}
-                  onUpload={upload}
                   invalid={attempted.has(active.id) ? new Set(missingKeys(active)) : new Set<string>()}
                   positions={positions}
                   departments={departments}
                   canManagePositions={canManagePositions}
                 />
               ) : (
-                <IntakeReviewStep sections={sections} values={values} instances={instances} photo={photo} sign={sign} onEdit={go} />
+                <IntakeReviewStep sections={sections} values={values} instances={instances} onEdit={go} />
               )}
             </div>
           </div>

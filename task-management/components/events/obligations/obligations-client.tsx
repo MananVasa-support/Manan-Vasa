@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import Link from "next/link";
 import type { Route } from "next";
 import {
@@ -88,55 +89,27 @@ export function ObligationsClient({
 
   return (
     <>
-      {/* Masthead */}
-      <header className="mt-3 mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <span
-            className="mt-1 inline-flex size-11 items-center justify-center rounded-xl"
-            style={{ background: `${ACCENT}1a`, color: ACCENT_DEEP }}
+      {/* MINIMAL HEADER (Sir) — the shared PageCommandBar, i.e. the Yearly
+          Goals band. What stood here was a 42px display headline under a red
+          uppercase eyebrow, a two-line paragraph and an icon tile, all above the
+          KPI card that actually answers the question this page exists to answer.
+          The New Obligation button keeps its prominence by moving into the
+          band's own actions slot, where every other page puts its primary CTA. */}
+      <PageCommandBar
+        title="Obligations Dashboard"
+        hint="Compulsory monthly sessions, counted from tagged calendar events."
+        actions={
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13.5px] font-bold text-white shadow-sm transition-opacity hover:opacity-90"
+            style={{ background: "var(--color-altus-red)" }}
           >
-            <Gauge size={22} strokeWidth={2.2} />
-          </span>
-          <div>
-            <span
-              className="text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ color: ACCENT_DEEP }}
-            >
-              Monthly Events Master
-            </span>
-            <h1
-              className="text-ink-strong"
-              style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontWeight: 900,
-                fontSize: "clamp(28px, 3.2vw, 42px)",
-                letterSpacing: "-0.025em",
-                lineHeight: 1.04,
-                marginTop: 4,
-              }}
-            >
-              Obligations Dashboard
-            </h1>
-            <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15 }}>
-              Compulsory monthly sessions — a done/target compliance grid across
-              the financial year, auto-counted from tagged calendar events.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={openCreate}
-          className="brand-btn wg-btn inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white"
-          style={{
-            background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
-            boxShadow: "0 10px 24px -12px rgba(8,145,178,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
-          }}
-        >
-          <Plus size={17} strokeWidth={2.6} aria-hidden />
-          New Obligation
-        </button>
-      </header>
+            <Plus size={15} strokeWidth={2.6} aria-hidden />
+            New Obligation
+          </button>
+        }
+      />
 
       {/* KPI + FY navigator */}
       <div className="mb-6 flex flex-wrap items-stretch gap-4">

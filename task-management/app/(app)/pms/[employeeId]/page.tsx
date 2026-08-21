@@ -1,20 +1,8 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import {
-  ArrowLeft,
-  Target,
-  TrendingUp,
-  GraduationCap,
-  ShieldCheck,
-  Smile,
-  Users,
-  Award,
-  Sparkles,
-  Flag,
-} from "lucide-react";
+import { Target, TrendingUp, GraduationCap, ShieldCheck, Smile, Users, Award, Sparkles, Flag } from "lucide-react";
 import { db, employees } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
@@ -159,12 +147,6 @@ export default async function PmsDetailPage({
       <main className="mx-auto w-full max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
         {/* Back link */}
         <div className="mb-5 wg-rise">
-          <Link
-            href={"/pms" as Route}
-            className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
-          >
-            <ArrowLeft size={15} strokeWidth={2.6} /> Back to Roster
-          </Link>
         </div>
 
         {/* ── Glass hero: identity + big score ring ── */}

@@ -28,6 +28,7 @@ import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { Select } from "@/components/ui/select";
+import { DateInput } from "@/components/ui/date-input";
 import { ViewingSelect } from "@/components/goals/shared/viewing-select";
 import { WeekSelect, formatWeekRangeShort } from "./week-select";
 import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
@@ -1173,10 +1174,10 @@ const WeeklyQuickAdd = React.forwardRef<
           {/* Target Date (deadline) — turns amber ≤7 days out, red once overdue. */}
           <label className="block">
             <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target Date</span>
-            <input
-              type="date"
+            <DateInput
               value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
+              onChange={setTargetDate}
+              ariaLabel="Target date"
               className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-medium text-ink-strong focus:border-altus-red ${QUICK_ADD_FOCUS_RING}`}
               style={{ borderColor: "var(--color-hairline-strong)" }}
             />

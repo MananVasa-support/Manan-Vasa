@@ -15,6 +15,7 @@ import type { GoalPeriod } from "@/lib/goals/types";
 import { quartersOfFy, monthKeysOfFy, fyStartYearOfKey } from "@/lib/goals/types";
 import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
+import { DateInput } from "@/components/ui/date-input";
 import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
 import {
   ProjectTagFields,
@@ -495,10 +496,10 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
           {props.level === "month" && (
             <label className="block">
               <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target Date</span>
-              <input
-                type="date"
+              <DateInput
                 value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
+                onChange={setTargetDate}
+                ariaLabel="Target date"
                 className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
                 style={{ borderColor: "var(--color-hairline-strong)" }}
               />

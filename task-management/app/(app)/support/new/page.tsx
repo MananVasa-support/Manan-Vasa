@@ -1,6 +1,4 @@
-import Link from "next/link";
-import type { Route } from "next";
-import { ArrowLeft } from "lucide-react";
+
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { DashboardHeader } from "@/components/layout/header";
 import { requireUser } from "@/lib/auth/current";
@@ -108,12 +106,6 @@ export default async function NewTicketPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[720px] px-8 max-md:px-4 pt-8 pb-16">
-        <Link
-          href={(context ? "/inbox" : "/support") as Route}
-          className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted transition hover:text-ink-strong"
-        >
-          <ArrowLeft size={15} /> {context ? "Back to Inbox" : "Back to Support"}
-        </Link>
         <header className="mb-6 wg-rise">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"

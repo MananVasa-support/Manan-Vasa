@@ -13,7 +13,7 @@ import {
 } from "@/lib/goals/types";
 import { effective } from "@/lib/goals/derive";
 
-const MONTHS = [
+export const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
@@ -199,13 +199,13 @@ export function goalTakesTargetDate(period: GoalPeriod): boolean {
   return period === "month" || period === "week";
 }
 
-/** Format an ISO date as "12 Jul 2026" for the chip. Blank/invalid → "". */
+/** Format an ISO date as "09-Aug-2026" for the chip. Blank/invalid → "". */
 export function fmtTargetDate(iso: string | null | undefined): string {
   if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
   const y = iso.slice(0, 4);
   const mo = Number(iso.slice(5, 7));
-  const da = Number(iso.slice(8, 10));
-  return `${da} ${MONTHS[mo - 1] ?? ""} ${y}`;
+  const da = iso.slice(8, 10);
+  return `${da}-${MONTHS[mo - 1] ?? ""}-${y}`;
 }
 
 /* ------------------------------------------------------------------ */

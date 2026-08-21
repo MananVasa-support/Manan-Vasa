@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowUpRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
+import { PageCommandBar } from "@/components/layout/page-command-bar";
 import { EVENTS_SECTIONS } from "@/lib/monthly-events/sections";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requireEventsAccess } from "@/lib/monthly-events/access";
@@ -24,38 +25,15 @@ export default async function EventsHubPage() {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-6 wg-rise">
-          <span
-            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
-            style={{ color: "#ffffff", background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-          >
-            Monthly Events Master
-          </span>
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(30px, 3.6vw, 46px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.04,
-              marginTop: 6,
-              maxWidth: "20ch",
-            }}
-          >
-            The company calendar, planned like Sir&apos;s sheet
-          </h1>
-          {/* One compact line directly under the title — no longer a 3-line
-              block that pushes the section cards down. Full width, truncates with
-              a hover tooltip on the rare screen too narrow to show it all. */}
-          <p
-            className="mt-1.5 truncate font-medium text-ink-muted"
-            style={{ fontSize: 13.5 }}
-            title="One month-at-a-glance grid for every batch, meeting and obligation — with the same spreadsheet-style facility to type, drag, colour and copy events, plus auto-blocking from batch schedules."
-          >
-            One month-at-a-glance grid for every batch, meeting and obligation — with the same spreadsheet-style facility to type, drag, colour and copy events, plus auto-blocking from batch schedules.
-          </p>
-        </header>
+        {/* MINIMAL HEADER (Sir) — the shared PageCommandBar, which is the
+            Yearly Goals band extracted for reuse (see its own doc comment). The
+            poster hero that stood here — a red uppercase pill, a 46px two-line
+            display headline and a paragraph — was three bands of chrome before
+            any content. The band keeps the name and one line of orientation. */}
+        <PageCommandBar
+          title="Monthly Events Master"
+          hint="The company calendar — batches, meetings and obligations, one month at a glance."
+        />
 
         <section
           className="grid gap-4 max-md:gap-3"

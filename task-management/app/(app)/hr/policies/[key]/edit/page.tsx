@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, SlidersHorizontal, Eye } from "lucide-react";
+import { SlidersHorizontal, Eye } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { PageShell } from "@/components/layout/page-shell";
@@ -28,18 +28,6 @@ export default async function PolicyEditPage({
     <div className="min-h-dvh bg-[#faf9fb]">
       <header className="sticky sticky-below-topbar z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4 print:hidden">
         <div className="justify-self-start">
-          <Link
-            href={`/hr/policies/${key}` as Route}
-            className="group inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold text-white transition-transform hover:-translate-x-0.5 max-md:px-3"
-            style={{
-              background: "linear-gradient(120deg, #18181b 0%, #A80400 100%)",
-              boxShadow: "0 12px 26px -12px rgba(168,4,0,0.55)",
-            }}
-          >
-            <ArrowLeft size={15} strokeWidth={2.6} className="transition-transform group-hover:-translate-x-0.5" />
-            <span className="max-md:hidden">Back to Policy</span>
-            <span className="md:hidden">Back</span>
-          </Link>
         </div>
         <span className="justify-self-center inline-flex items-center gap-1.5 truncate text-[15px] font-extrabold tracking-tight text-ink-strong">
           <SlidersHorizontal size={15} strokeWidth={2.4} style={{ color: "#A80400" }} aria-hidden />

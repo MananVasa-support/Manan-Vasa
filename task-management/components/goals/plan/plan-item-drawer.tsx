@@ -99,7 +99,7 @@ export function PlanItemDrawer({
         <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 border-b border-hairline bg-white px-5 py-3">
           <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
             <span className="block truncate text-[12px] font-semibold text-ink-subtle">
-              Plan My Day <span className="text-ink-subtle/60">/</span> {category}
+              Daily Goals <span className="text-ink-subtle/60">/</span> {category}
               {item.taskNo ? (
                 <>
                   {" "}

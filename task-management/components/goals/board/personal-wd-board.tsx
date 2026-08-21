@@ -8,6 +8,7 @@ import { PageShell } from "@/components/layout/page-shell";
 import { useOptimisticGoals } from "@/components/goals/canvas/optimistic";
 import { GoalTableView } from "@/components/goals/board/goal-table-view";
 import { BoardQuickAdd } from "@/components/goals/board/board-quick-add";
+import { DateInput } from "@/components/ui/date-input";
 import { formatWeekShort, nextWeekStart, prevWeekStart } from "@/lib/weekly-goals/week";
 import { formatDate } from "@/lib/format";
 import type { PersonalWDData } from "@/app/(app)/goals/personal-wd-data";
@@ -76,11 +77,10 @@ export function PersonalWDBoard({ data }: { data: PersonalWDData }) {
               {bucketLabel}
             </span>
           ) : (
-            <input
-              type="date"
+            <DateInput
               value={data.periodKey}
-              onChange={(e) => e.target.value && goTo(e.target.value)}
-              aria-label="Pick a day"
+              onChange={(iso) => iso && goTo(iso)}
+              ariaLabel="Pick a day"
               className={`cursor-pointer border-x bg-transparent px-3 py-2 text-[14px] font-bold tabular-nums text-ink-strong ${FOCUS_RING}`}
               style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 14%, var(--color-hairline))" }}
             />
