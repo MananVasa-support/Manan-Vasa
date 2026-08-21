@@ -54,11 +54,17 @@ export const DEFAULT_ADMIN_COLUMN_ORDER: ColId[] = [
   "on_hold",
 ];
 
-// Non-admins: their curated lifecycle list with Archived appended.
-// Non-admins: their curated lifecycle list, plus both approved stages (they can
-// SEE where their work got to, even though they cannot move it there).
+// Non-admins: their curated lifecycle list, plus the terminal verdicts. They can
+// SEE where their work got to even though they cannot move it there.
+//
+// NOT APPROVED was missing here. `USER_TASK_STATUSES` is the DOER's operational
+// lifecycle and deliberately stops at `done`, so a non-admin board showed the
+// two approved stages but no Not Approved column — sent-back work simply
+// vanished from the board for the person who has to redo it. It is appended
+// explicitly, in the same place the admin order puts it: straight after Done.
 export const USER_COLUMN_ORDER: ColId[] = [
   ...USER_TASK_STATUSES,
+  "not_approved",
   MANAGER_APPROVED_COL,
   ADMIN_APPROVED_COL,
   ARCHIVE_COL,

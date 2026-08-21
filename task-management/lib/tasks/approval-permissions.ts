@@ -40,6 +40,19 @@ export interface ApprovalTask {
 export interface ApprovalContext {
   /** The actor is the DIRECT manager of the task's doer. */
   isDoersManager: boolean;
+  /**
+   * The actor is ANYWHERE above the doer in the reporting tree — direct manager,
+   * their manager, and so on. Widened from direct-only (Sir, 2026-08-21): a
+   * manager may sign off work anywhere in their downline, not just one level
+   * down. Computed with the recursive walk in lib/weekly-goals/hierarchy, so a
+   * three-deep chain resolves the same way the goals module already resolves it.
+   *
+   * Kept as a SEPARATE field rather than folded into isDoersManager: the direct
+   * relationship still has its own meaning elsewhere, and a caller that cannot
+   * afford the recursive query can pass `isDoersManager` alone and get the old,
+   * narrower behaviour rather than silently wrong permissions.
+   */
+  isDoersUpline?: boolean;
   /** The person who handed the task out is an admin. */
   assignerIsAdmin: boolean;
   /** The person who handed the task out manages at least one person. */
@@ -66,7 +79,7 @@ export function canManagerApprove(
   if (task.status !== "done") return false;
   if (task.approvalLevel !== "none") return false;
   if (!(ctx.assignerIsAdmin || ctx.assignerIsManager)) return false;
-  return actor.isAdmin || ctx.isDoersManager;
+  return actor.isAdmin || ctx.isDoersManager || ctx.isDoersUpline === true;
 }
 
 /**
@@ -92,7 +105,12 @@ export function canManagerSendBack(
   ctx: ApprovalContext,
 ): boolean {
   if (task.status !== "done" || task.approvalLevel !== "none") return false;
-  return actor.isAdmin || ctx.isDoersManager || actor.id === task.assignerId;
+  return (
+    actor.isAdmin ||
+    ctx.isDoersManager ||
+    ctx.isDoersUpline === true ||
+    actor.id === task.assignerId
+  );
 }
 
 /**
