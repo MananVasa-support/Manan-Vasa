@@ -1,6 +1,6 @@
 import "server-only";
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
-import { db, employees, tasks, weeklyGoals, dailyChecklist } from "@/lib/db";
+import { db, employees, tasks, weeklyGoals, dailyChecklist, holidays } from "@/lib/db";
 import { withRetry } from "@/lib/db/with-timeout";
 import { istYmd } from "@/lib/weekly-goals/week";
 
@@ -64,11 +64,13 @@ import type {
   ManagerActivityBoard,
 } from "@/lib/dashboard/manager-activity-contract";
 import {
-  ACTIVITY_TARGETS,
   activityWindow,
   daysBefore,
+  calendarDaysBetween,
+  computeActivityTargets,
   type ActivityPeriod,
 } from "@/lib/dashboard/manager-activity-contract";
+import { countWorkingDays } from "@/lib/transforms/working-days";
 
 const emptySplit = (): ActivitySplit => ({ delegate: 0, counterpart: 0, total: 0 });
 
@@ -82,10 +84,28 @@ function credit(split: ActivitySplit, originatorId: string | null, managerId: st
 export async function managerActivityBoard(
   period: ActivityPeriod,
   now: Date = new Date(),
+  custom?: { from: string; to: string } | null,
 ): Promise<ManagerActivityBoard> {
   // The window is computed from today's date, not subtracted from it: "This
-  // Month" and "This Year" are calendar-anchored and have no day count.
-  const { from, to } = activityWindow(period, istYmd(now));
+  // Month" and "This Year" are calendar-anchored and have no day count. A
+  // custom range is the one case that supplies its own bounds.
+  const { from, to } = activityWindow(period, istYmd(now), custom);
+
+  // Working days need the holiday calendar, so the targets are computed here
+  // rather than in the contract (which stays I/O-free for the client bundle).
+  const holidayRows = await db
+    .select({ holidayDate: holidays.holidayDate })
+    .from(holidays)
+    .where(and(gte(holidays.holidayDate, from), lte(holidays.holidayDate, to)))
+    .catch(() => [] as { holidayDate: string }[]);
+  const targets = computeActivityTargets(
+    calendarDaysBetween(from, to),
+    countWorkingDays(
+      new Date(`${from}T00:00:00Z`),
+      new Date(`${to}T00:00:00Z`),
+      new Set(holidayRows.map((h) => h.holidayDate)),
+    ),
+  );
 
   const people = await withRetry(
     () =>
@@ -115,7 +135,7 @@ export async function managerActivityBoard(
     .sort((a, b) => a.name.localeCompare(b.name));
 
   if (managers.length === 0) {
-    return { period, from, to, rows: [] };
+    return { period, from, to, targets, rows: [] };
   }
 
   // Everyone who can appear on the board: every manager plus every direct
@@ -256,5 +276,5 @@ export async function managerActivityBoard(
     };
   });
 
-  return { period, from, to, rows };
+  return { period, from, to, targets, rows };
 }

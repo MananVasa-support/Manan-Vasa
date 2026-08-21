@@ -14,10 +14,15 @@ import type {
 } from "@/lib/dashboard/manager-activity-contract";
 
 /** The periods the board can be read over. Kept in sync with the dropdown. */
-const PERIODS = ["3d", "7d", "month", "year"] as const;
+const PERIODS = ["3d", "7d", "month", "year", "custom"] as const;
+
+/** YYYY-MM-DD. Validated so a hand-edited range cannot reach the query. */
+const Ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const CustomRange = z.object({ from: Ymd, to: Ymd }).nullish();
 
 const InputSchema = z.object({
   period: z.enum(PERIODS),
+  custom: CustomRange,
 });
 
 /**
@@ -34,6 +39,7 @@ const InputSchema = z.object({
  */
 export async function getManagerActivityBoard(
   period: ActivityPeriod,
+  custom?: { from: string; to: string } | null,
 ): Promise<ManagerActivityBoard | { error: string }> {
   try {
     const me = await requireUser();
@@ -41,10 +47,10 @@ export async function getManagerActivityBoard(
     const limited = rateLimitOrError(me.id, "read");
     if (limited) return { error: limited.error };
 
-    const parsed = InputSchema.safeParse({ period });
+    const parsed = InputSchema.safeParse({ period, custom });
     if (!parsed.success) return { error: "Invalid input" };
 
-    return await managerActivityBoard(parsed.data.period);
+    return await managerActivityBoard(parsed.data.period, new Date(), parsed.data.custom ?? null);
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Failed to load the activity board",
@@ -58,6 +64,7 @@ const PreviewSchema = z.object({
   category: z.enum(["goals", "tasks", "commitments"]),
   split: z.enum(["delegate", "counterpart", "gt"]),
   period: z.enum(PERIODS),
+  custom: CustomRange,
 });
 
 /**
@@ -73,6 +80,7 @@ export async function getActivityPreview(input: {
   category: "goals" | "tasks" | "commitments";
   split: "delegate" | "counterpart" | "gt";
   period: ActivityPeriod;
+  custom?: { from: string; to: string } | null;
 }): Promise<ActivityPreview | { error: string }> {
   try {
     const me = await requireUser();

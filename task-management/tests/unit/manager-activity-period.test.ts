@@ -4,6 +4,8 @@ import {
   daysBefore,
   toActivityPeriod,
   DEFAULT_ACTIVITY_PERIOD,
+  calendarDaysBetween,
+  computeActivityTargets,
 } from "@/lib/dashboard/manager-activity-contract";
 
 /**
@@ -80,5 +82,56 @@ describe("toActivityPeriod", () => {
     for (const junk of ["30d", "", null, undefined, 7, {}]) {
       expect(toActivityPeriod(junk)).toBe(DEFAULT_ACTIVITY_PERIOD);
     }
+  });
+});
+
+describe("activityWindow — custom range", () => {
+  it("uses the supplied bounds", () => {
+    expect(
+      activityWindow("custom", "2026-08-21", { from: "2026-08-10", to: "2026-08-21" }),
+    ).toEqual({ from: "2026-08-10", to: "2026-08-21" });
+  });
+
+  it("falls back to the default rather than serving an inverted range", () => {
+    // An inverted or half-filled range must not reach the query: it would
+    // return nothing and look like the filter had been applied.
+    const fallback = activityWindow(DEFAULT_ACTIVITY_PERIOD, "2026-08-21");
+    expect(activityWindow("custom", "2026-08-21", { from: "2026-08-21", to: "2026-08-10" })).toEqual(fallback);
+    expect(activityWindow("custom", "2026-08-21", null)).toEqual(fallback);
+  });
+
+  it("accepts a single-day range", () => {
+    expect(
+      activityWindow("custom", "2026-08-21", { from: "2026-08-21", to: "2026-08-21" }),
+    ).toEqual({ from: "2026-08-21", to: "2026-08-21" });
+  });
+});
+
+describe("pro-rated targets", () => {
+  it("counts calendar days inclusively", () => {
+    expect(calendarDaysBetween("2026-08-10", "2026-08-21")).toBe(12);
+    expect(calendarDaysBetween("2026-08-21", "2026-08-21")).toBe(1);
+    // Inverted input is 0, not negative — a negative target would invert the
+    // attainment colour rather than just being wrong.
+    expect(calendarDaysBetween("2026-08-21", "2026-08-10")).toBe(0);
+  });
+
+  it("scales each family by its own rate", () => {
+    // 7 calendar days, 6 working: goals 3/7 x 7 = 3; tasks and commitments 5 x 6.
+    const t = computeActivityTargets(7, 6);
+    expect(t.goals).toBe(3);
+    expect(t.tasks).toBe(30);
+    expect(t.commitments).toBe(30);
+  });
+
+  it("never yields a zero target for a non-empty window", () => {
+    // 3/7 x 1 day rounds to 0; a 0 target would make every attainment read as
+    // met, so it floors at 1.
+    expect(computeActivityTargets(1, 1).goals).toBe(1);
+  });
+
+  it("yields zero for an empty window", () => {
+    const t = computeActivityTargets(0, 0);
+    expect([t.goals, t.tasks, t.commitments]).toEqual([0, 0, 0]);
   });
 });

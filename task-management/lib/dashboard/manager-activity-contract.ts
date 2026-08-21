@@ -57,7 +57,10 @@ export interface ManagerActivityRow {
 }
 
 export interface ManagerActivityBoard {
-  period: "3d" | "7d" | "month" | "year";
+  period: "3d" | "7d" | "month" | "year" | "custom";
+  /** Targets for THIS window — pro-rated, so they mean the same thing over
+   *  three days as over a year. */
+  targets: ActivityTargets;
   /** Inclusive IST date bounds the counts were taken over, as YYYY-MM-DD. */
   from: string;
   to: string;
@@ -113,6 +116,10 @@ export const ACTIVITY_PERIODS = [
   { id: "7d", label: "Last 7 Days" },
   { id: "month", label: "This Month" },
   { id: "year", label: "This Year" },
+  // Not a fixed window: picking it opens the date-range popover, and the
+  // chosen bounds travel alongside the id. Kept in the same list so the
+  // dropdown renders from one source.
+  { id: "custom", label: "Custom Range..." },
 ] as const;
 
 export type ActivityPeriod = (typeof ACTIVITY_PERIODS)[number]["id"];
@@ -140,7 +147,16 @@ export function toActivityPeriod(v: unknown): ActivityPeriod {
 export function activityWindow(
   period: ActivityPeriod,
   todayYmd: string,
+  custom?: { from: string; to: string } | null,
 ): { from: string; to: string } {
+  // A custom range is the ONLY period whose bounds are not derivable from
+  // today, so it is the one case that reads its window from the caller.
+  // Falls back to the default window when the bounds are missing rather than
+  // returning an inverted or empty range.
+  if (period === "custom") {
+    if (custom?.from && custom.to && custom.from <= custom.to) return { ...custom };
+    return activityWindow(DEFAULT_ACTIVITY_PERIOD, todayYmd);
+  }
   const to = todayYmd;
   if (period === "month") return { from: `${todayYmd.slice(0, 7)}-01`, to };
   if (period === "year") return { from: `${todayYmd.slice(0, 4)}-01-01`, to };
@@ -156,4 +172,59 @@ export function daysBefore(ymd: string, n: number): string {
   const d = new Date(`${ymd}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - n);
   return d.toISOString().slice(0, 10);
+}
+
+
+/* ── Pro-rated targets ─────────────────────────────────────────────────────
+   The targets were flat (15 / 25 / 15) and so meant different things over a
+   3-day window and a year. They scale with the window now:
+
+     Weekly goals      3 per 7 CALENDAR days   — a goal is a weekly commitment,
+                                                 so it accrues with the calendar
+                                                 rather than with attendance.
+     WMS tasks         5 per WORKING day
+     Daily commitments 5 per WORKING day       — you cannot commit to a day you
+                                                 do not work, so weekends and
+                                                 holidays must not inflate these.
+
+   Working days come from the caller because they need the holiday calendar,
+   which is a DB read; this module stays I/O-free so both sides can import it. */
+
+export const TARGET_RATES = {
+  /** Goals per calendar day. */
+  goalsPerCalendarDay: 3 / 7,
+  tasksPerWorkingDay: 5,
+  commitmentsPerWorkingDay: 5,
+} as const;
+
+export interface ActivityTargets {
+  goals: number;
+  tasks: number;
+  commitments: number;
+  /** Carried so the UI can explain a target rather than just assert it. */
+  calendarDays: number;
+  workingDays: number;
+}
+
+/** Inclusive count of calendar days between two YYYY-MM-DD bounds. */
+export function calendarDaysBetween(from: string, to: string): number {
+  const ms = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`);
+  if (Number.isNaN(ms) || ms < 0) return 0;
+  return Math.round(ms / 86400000) + 1;
+}
+
+export function computeActivityTargets(
+  calendarDays: number,
+  workingDays: number,
+): ActivityTargets {
+  // Rounded, and floored at 1 for any non-empty window: a target of 0 would
+  // make every attainment read as met, which is worse than slightly generous.
+  const atLeastOne = (n: number) => (n > 0 ? Math.max(1, Math.round(n)) : 0);
+  return {
+    goals: atLeastOne(calendarDays * TARGET_RATES.goalsPerCalendarDay),
+    tasks: atLeastOne(workingDays * TARGET_RATES.tasksPerWorkingDay),
+    commitments: atLeastOne(workingDays * TARGET_RATES.commitmentsPerWorkingDay),
+    calendarDays,
+    workingDays,
+  };
 }

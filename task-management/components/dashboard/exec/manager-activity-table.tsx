@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronDown, Loader2, Users } from "lucide-react";
+import { ChevronDown, Loader2, Users, CalendarDays } from "lucide-react";
+import * as Popover from "@radix-ui/react-popover";
 import { Avatar } from "@/components/ui/avatar";
 import { getManagerActivityBoard } from "@/app/(app)/dashboard/manager-activity-actions";
 // From the CONTRACT module, not the query module. The query module is
@@ -10,7 +11,7 @@ import { getManagerActivityBoard } from "@/app/(app)/dashboard/manager-activity-
 // puts a real module edge into the client graph and fails the production build.
 // The types alone would have been fine; the constant is what broke it.
 import {
-  ACTIVITY_TARGETS,
+  type ActivityTargets,
   type ActivitySplit,
   type ManagerActivityBoard,
   type ManagerActivityRow,
@@ -53,15 +54,13 @@ function attainColor(actual: number, target: number): string {
 }
 
 /** The three families, in the column order the header declares them. */
+/** The three families, in the column order the header declares them. Targets
+ *  are NOT here any more: they are pro-rated to the selected window, so they
+ *  arrive with the board rather than being fixed at module scope. */
 const FAMILIES = [
-  { key: "goals", label: "WMS Goals", target: ACTIVITY_TARGETS.goals, type: "goals" },
-  { key: "tasks", label: "WMS Tasks", target: ACTIVITY_TARGETS.tasks, type: "tasks" },
-  {
-    key: "commitments",
-    label: "Daily Commitments",
-    target: ACTIVITY_TARGETS.commitments,
-    type: "commitments",
-  },
+  { key: "goals", label: "WMS Goals" },
+  { key: "tasks", label: "WMS Tasks" },
+  { key: "commitments", label: "Daily Commitments" },
 ] as const;
 
 type FamilyKey = (typeof FAMILIES)[number]["key"];
@@ -103,6 +102,7 @@ function CountLink({
   categoryLabel,
   split,
   period,
+  custom,
   hero = false,
 }: {
   value: number;
@@ -113,6 +113,9 @@ function CountLink({
   categoryLabel: string;
   split: ActivitySplitKey;
   period: ActivityPeriod;
+  /** Applied custom window, when the period is `custom`. Threaded so a
+   *  preview can never be fetched over a different range than its cell. */
+  custom?: { from: string; to: string } | null;
   hero?: boolean;
 }) {
   // A zero renders inert, with NO popover and no link. Offering a hover that
@@ -128,6 +131,7 @@ function CountLink({
       categoryLabel={categoryLabel}
       split={split}
       period={period}
+                custom={custom}
       count={value}
     >
       <Link
@@ -151,6 +155,15 @@ function CountLink({
    `@media (prefers-color-scheme: dark)`, so adding it would turn these headers
    near-WHITE on a #f9fafb strip for anyone whose OS is in dark mode. That is
    invisible text, not dark-mode support. */
+/** "2026-08-21" -> "21 Aug 2026", for the dropdown and trigger labels. */
+function fmtYmd(ymd: string): string {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString("en-IN", {
+    day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  });
+}
+
 const HEAD_CELL =
   "px-2 py-3 text-[11px] font-bold uppercase leading-tight tracking-wider text-slate-900";
 
@@ -161,6 +174,8 @@ function ManagerRow({
   open,
   onToggle,
   period,
+  custom,
+  targets,
 }: {
   row: ManagerActivityRow;
   resolveAvatar: (id: string) => string | null;
@@ -168,11 +183,16 @@ function ManagerRow({
    *  showing — a preview over a different period than its own count would be
    *  worse than no preview. */
   period: ActivityPeriod;
+  /** Applied custom window, when the period is `custom`. Threaded so a
+   *  preview can never be fetched over a different range than its cell. */
+  custom?: { from: string; to: string } | null;
   /** CONTROLLED. The row used to own this as local state, but Maximize has to
    *  open every breakdown at once — and a parent cannot reach into children's
    *  useState. The open set lives in the table now; the row just renders it. */
   open: boolean;
   onToggle: () => void;
+  /** Pro-rated to the selected window; see computeActivityTargets. */
+  targets: ActivityTargets;
 }) {
   return (
     <>
@@ -208,15 +228,17 @@ function ManagerRow({
                 categoryLabel={f.label}
                 split="gt"
                 period={period}
+                custom={custom}
               />
-              {/* Target is a flat baseline, not a computed figure -- the colour
-                  is the only thing carrying attainment, so it has to be on the
-                  denominator where the eye already is. */}
+              {/* actual / target. The target is PRO-RATED to the selected
+                  window, so the same ratio means the same thing over three days
+                  and over a year; the colour rides on the denominator, where
+                  the eye already is. */}
               <span
                 className="ml-1 text-[11px] font-bold tabular-nums"
-                style={{ color: attainColor(actual, f.target) }}
+                style={{ color: attainColor(actual, targets[f.key]) }}
               >
-                /{f.target}
+                /{targets[f.key]}
               </span>
             </td>
           );
@@ -256,6 +278,8 @@ function ManagerRow({
               managerId={row.managerId}
               resolveAvatar={resolveAvatar}
               period={period}
+                custom={custom}
+              targets={targets}
             />
           </td>
         </tr>
@@ -270,11 +294,17 @@ function MemberBreakdown({
   managerId,
   resolveAvatar,
   period,
+  custom,
+  targets,
 }: {
   members: MemberActivityRow[];
   managerId: string;
   resolveAvatar: (id: string) => string | null;
   period: ActivityPeriod;
+  /** Applied custom window, when the period is `custom`. Threaded so a
+   *  preview can never be fetched over a different range than its cell. */
+  custom?: { from: string; to: string } | null;
+  targets: ActivityTargets;
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -348,6 +378,7 @@ function MemberBreakdown({
                         categoryLabel={`${f.label} · Delegated`}
                         split="delegate"
                         period={period}
+                custom={custom}
                       />
                     </td>
                     <td className="px-2 py-1.5 text-center">
@@ -360,10 +391,20 @@ function MemberBreakdown({
                         categoryLabel={`${f.label} · Counterpart`}
                         split="counterpart"
                         period={period}
+                custom={custom}
                       />
                     </td>
-                    <td className="px-2 py-1.5 text-center">
+                    <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                      {/* actual / target on the member's own total for this
+                          family. A and B are two halves of it, so hanging a
+                          target off either would compare a part to a whole. */}
                       <Num value={split.total} />
+                      <span
+                        className="ml-1 text-[10.5px] font-bold tabular-nums"
+                        style={{ color: attainColor(split.total, targets[f.key]) }}
+                      >
+                        /{targets[f.key]}
+                      </span>
                     </td>
                   </React.Fragment>
                 );
@@ -386,6 +427,12 @@ export function ManagerActivityTable({
   avatarById?: Record<string, string | null>;
 }) {
   const [period, setPeriod] = React.useState<ActivityPeriod>(DEFAULT_ACTIVITY_PERIOD);
+  // The APPLIED range — only set when Apply is pressed, so dragging the date
+  // inputs never refetches mid-edit. `draft` is what the popover binds to.
+  const [custom, setCustom] = React.useState<{ from: string; to: string } | null>(null);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
+  const [draft, setDraft] = React.useState<{ from: string; to: string }>({ from: "", to: "" });
+  const draftValid = draft.from !== "" && draft.to !== "" && draft.from <= draft.to;
   // Section collapse, the SAME control every other dashboard section uses
   // (CollapseToggle + CollapsibleBody in section-chrome). This board used to
   // own a bespoke toggle that expanded it in place, so the one button that
@@ -408,7 +455,7 @@ export function ManagerActivityTable({
 
   React.useEffect(() => {
     let cancelled = false;
-    void getManagerActivityBoard(period).then((res) => {
+    void getManagerActivityBoard(period, custom).then((res) => {
       if (cancelled) return;
       if ("error" in res) setState({ kind: "error", message: res.error, forWindow: period });
       else setState({ kind: "ok", board: res, forWindow: period });
@@ -416,7 +463,7 @@ export function ManagerActivityTable({
     return () => {
       cancelled = true;
     };
-  }, [period]);
+  }, [period, custom]);
 
   // NO body scroll lock and no Esc trap any more. Maximize expands the widget
   // IN PLACE inside the page rather than throwing a viewport overlay over it,
@@ -435,6 +482,9 @@ export function ManagerActivityTable({
     () => (state.kind === "ok" ? state.board.rows : []),
     [state],
   );
+  // Null until the first board lands: the targets belong to a WINDOW, so there
+  // is no honest value to show before one has been fetched.
+  const targets = state.kind === "ok" ? state.board.targets : null;
 
   const toggleRow = React.useCallback((id: string) => {
     setOpenIds((cur) => {
@@ -463,15 +513,91 @@ export function ManagerActivityTable({
       <select
         id="activity-period"
         value={period}
-        onChange={(e) => setPeriod(e.target.value as ActivityPeriod)}
+        onChange={(e) => {
+          const next = e.target.value as ActivityPeriod;
+          setPeriod(next);
+          // Choosing Custom opens the picker rather than refetching: there is
+          // no range yet, and the board must not flicker to a default window
+          // on the way to one.
+          if (next === "custom") {
+            setDraft(custom ?? { from: "", to: "" });
+            setPickerOpen(true);
+          } else {
+            setCustom(null);
+            setPickerOpen(false);
+          }
+        }}
         className="h-9 cursor-pointer rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] font-bold text-gray-700 outline-none transition-colors hover:border-gray-300 focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
       >
         {ACTIVITY_PERIODS.map((p) => (
           <option key={p.id} value={p.id}>
-            {p.label}
+            {/* Once a range is applied the Custom option NAMES it, so the
+                control still says what it is showing. */}
+            {p.id === "custom" && custom ? `${fmtYmd(custom.from)} - ${fmtYmd(custom.to)}` : p.label}
           </option>
         ))}
       </select>
+
+      {period === "custom" && (
+        <Popover.Root open={pickerOpen} onOpenChange={setPickerOpen}>
+          <Popover.Trigger asChild>
+            <button
+              type="button"
+              title="Choose a date range"
+              className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] font-bold text-gray-700 transition-colors hover:border-gray-300"
+            >
+              <CalendarDays size={14} strokeWidth={2.4} />
+              {custom ? `${fmtYmd(custom.from)} - ${fmtYmd(custom.to)}` : "Pick dates"}
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content
+              side="bottom"
+              align="end"
+              sideOffset={6}
+              className="z-50 w-[280px] rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+            >
+              <p className="text-[12px] font-black text-slate-900">Custom range</p>
+              <div className="mt-2 flex flex-col gap-2">
+                <label className="flex flex-col gap-1 text-[11px] font-bold text-slate-600">
+                  Start date
+                  <input
+                    type="date"
+                    value={draft.from}
+                    max={draft.to || undefined}
+                    onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))}
+                    className="h-9 rounded-lg border border-slate-200 px-2 text-[13px] font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] font-bold text-slate-600">
+                  End date
+                  <input
+                    type="date"
+                    value={draft.to}
+                    min={draft.from || undefined}
+                    onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))}
+                    className="h-9 rounded-lg border border-slate-200 px-2 text-[13px] font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
+                  />
+                </label>
+              </div>
+              {/* Disabled until both ends exist and the range runs forwards —
+                  an inverted range would silently fall back to the default
+                  window server-side, which looks like the filter was ignored. */}
+              <button
+                type="button"
+                disabled={!draftValid}
+                onClick={() => {
+                  setCustom({ ...draft });
+                  setPickerOpen(false);
+                }}
+                className="mt-3 w-full cursor-pointer rounded-lg bg-slate-900 px-3 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Apply Filter
+              </button>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
+      )}
       {rows.length > 0 && (
         <button
           type="button"
@@ -549,6 +675,8 @@ export function ManagerActivityTable({
                   open={openIds.has(row.managerId)}
                   onToggle={() => toggleRow(row.managerId)}
                   period={period}
+                custom={custom}
+                  targets={state.board.targets}
                 />
               ))}
             </tbody>
@@ -574,8 +702,9 @@ export function ManagerActivityTable({
           Who is delegating, and how much
         </h3>
         <p className="mt-0.5 text-[12.5px] font-semibold text-ink-subtle">
-          Targets: {ACTIVITY_TARGETS.goals} goals · {ACTIVITY_TARGETS.tasks} tasks ·{" "}
-          {ACTIVITY_TARGETS.commitments} commitments
+          {targets
+            ? `Targets for this window: ${targets.goals} goals · ${targets.tasks} tasks · ${targets.commitments} commitments (${targets.workingDays} working of ${targets.calendarDays} days)`
+            : "Targets scale with the selected period"}
         </p>
       </div>
       {controls}

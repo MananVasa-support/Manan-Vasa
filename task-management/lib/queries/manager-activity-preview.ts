@@ -76,12 +76,13 @@ export async function managerActivityPreview(input: {
   category: ActivityCategory;
   split: ActivitySplitKey;
   period: ActivityPeriod;
+  custom?: { from: string; to: string } | null;
   now?: Date;
 }): Promise<ActivityPreview> {
   const { managerId, memberId, category, split, period } = input;
   // Same window helper the board uses, so a preview can never be computed over
   // a different period than the count it hangs off.
-  const { from, to } = activityWindow(period, istYmd(input.now ?? new Date()));
+  const { from, to } = activityWindow(period, istYmd(input.now ?? new Date()), input.custom);
 
   let items: ActivityPreviewItem[] = [];
 

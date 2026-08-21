@@ -109,6 +109,7 @@ export function ActivityCellPopover({
   categoryLabel,
   split,
   period,
+  custom,
   count,
 }: {
   children: React.ReactNode;
@@ -119,6 +120,9 @@ export function ActivityCellPopover({
   categoryLabel: string;
   split: ActivitySplitKey;
   period: ActivityPeriod;
+  /** Applied custom window, when the period is `custom`. Threaded so a
+   *  preview can never be fetched over a different range than its cell. */
+  custom?: { from: string; to: string } | null;
   count: number;
 }) {
   const [state, setState] = React.useState<
@@ -130,12 +134,12 @@ export function ActivityCellPopover({
   const load = React.useCallback(() => {
     setState((cur) => {
       if (cur.kind !== "idle") return cur;
-      void getActivityPreview({ managerId, memberId, category, split, period }).then((res) => {
+      void getActivityPreview({ managerId, memberId, category, split, period, custom }).then((res) => {
         setState("error" in res ? { kind: "error" } : { kind: "ok", data: res });
       });
       return { kind: "loading" };
     });
-  }, [managerId, memberId, category, split, period]);
+  }, [managerId, memberId, category, split, period, custom]);
 
   const href = activityHref(managerId, memberId, category, split);
 
