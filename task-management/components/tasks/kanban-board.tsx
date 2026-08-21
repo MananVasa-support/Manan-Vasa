@@ -49,7 +49,12 @@ import {
   type TaskPriority,
   type StatusColorToken,
 } from "@/db/enums";
-import { ARCHIVE_COL, type ColId } from "@/lib/kanban-columns";
+import {
+  ARCHIVE_COL,
+  MANAGER_APPROVED_COL,
+  ADMIN_APPROVED_COL,
+  type ColId,
+} from "@/lib/kanban-columns";
 import { NoResults } from "./task-table";
 import {
   useSectionSearch,
@@ -86,6 +91,17 @@ interface Props {
   /** Ordered column ids to render (statuses + the synthetic Archive column).
    *  Admins can drag column headers to reorder; the new order is persisted. */
   columnOrder: ColId[];
+}
+
+/** Columns whose entry is an approval decision rather than a status change.
+ *  Both approved stages are synthetic column ids, so this checks strings. */
+function isApprovalTarget(col: string): boolean {
+  return (
+    col === "not_approved" ||
+    col === "approved" ||
+    col === MANAGER_APPROVED_COL ||
+    col === ADMIN_APPROVED_COL
+  );
 }
 
 // Cards rendered per column before "Show more"; each tap reveals 10 more.
@@ -500,7 +516,13 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
       fireToast({
         message:
           res.error === "forbidden"
-            ? "You can't move this task to that status."
+            ? // Approval columns get their own wording. "You can't move this
+              // task to that status" is true but unhelpful here: the reason is
+              // always the same one, and naming it saves the reader guessing
+              // whether they picked the wrong card or lack the rights.
+              isApprovalTarget(status)
+              ? "Approval requires Manager or Admin authorization."
+              : "You can't move this task to that status."
             : res.error === "invalid"
               ? res.message ?? "That move isn't allowed from here."
               : res.error === "stale"

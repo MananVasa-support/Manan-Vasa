@@ -42,15 +42,37 @@ import { AgingTaskDrawer } from "@/components/dashboard/aging-task-drawer";
  * against the white cards, and a gradient made two adjacent tiers blur into
  * each other at the seam.
  */
+/**
+ * THE AGE RAMP. One map, read by the legend pills, the stacked bar segments and
+ * the hover popover, so a bucket is the same colour in all three.
+ *
+ * 0-3 AND 4-7 WERE BYTE-IDENTICAL — same fill, same deep, both commented
+ * "fresh". The two youngest buckets were indistinguishable everywhere the ramp
+ * appears, which is the whole point of a ramp.
+ *
+ * 4-7 is TEAL, not the lime or cyan also on the table. Cyan-500 sits right next
+ * to 8-14's sky-500 and would have recreated the same collision one step over;
+ * lime breaks the hue progression by going green → yellow-green → blue. Teal
+ * keeps the ramp monotonic — green → teal → sky → amber → orange → red — and is
+ * clearly distinct from both neighbours.
+ *
+ * INK follows the tier rather than a blanket white: sky, amber and orange are
+ * all too light to carry it. 21-30 flips to dark ink here — white on orange-500
+ * measures 2.8:1, under even the 3:1 large-text floor, and these labels are
+ * 11px. That is the same rule the other light tiers already followed.
+ *
+ * 46-60 and 60+ keep escalating past red-500; "31d+" in the spec is where red
+ * BEGINS, not where the ramp stops.
+ */
 const BUCKET_COLOR: Record<AgeBucketId, { fill: string; ink: string; deep: string }> = {
-  "0-3":   { fill: "#059669", ink: "#ffffff", deep: "#047857" }, // emerald-600 — fresh
-  "4-7":   { fill: "#059669", ink: "#ffffff", deep: "#047857" }, // emerald-600 — fresh
-  "8-14":  { fill: "#38bdf8", ink: "#111827", deep: "#0284c7" }, // sky-400    — low
-  "15-20": { fill: "#fbbf24", ink: "#111827", deep: "#b45309" }, // amber-400  — moderate
-  "21-30": { fill: "#f97316", ink: "#ffffff", deep: "#c2410c" }, // orange-500 — elevated
-  "31-45": { fill: "#dc2626", ink: "#ffffff", deep: "#991b1b" }, // red-600    — high
-  "46-60": { fill: "#991b1b", ink: "#ffffff", deep: "#7f1d1d" }, // red-800    — critical
-  "60+":   { fill: "#6b21a8", ink: "#ffffff", deep: "#581c87" }, // purple-700 — extreme
+  "0-3":   { fill: "#10b981", ink: "#ffffff", deep: "#059669" }, // emerald-500 — fresh
+  "4-7":   { fill: "#0d9488", ink: "#ffffff", deep: "#0f766e" }, // teal-600    — early warning
+  "8-14":  { fill: "#0ea5e9", ink: "#111827", deep: "#0284c7" }, // sky-500     — moderate
+  "15-20": { fill: "#f59e0b", ink: "#111827", deep: "#b45309" }, // amber-500   — late
+  "21-30": { fill: "#f97316", ink: "#111827", deep: "#c2410c" }, // orange-500  — critical
+  "31-45": { fill: "#ef4444", ink: "#ffffff", deep: "#b91c1c" }, // red-500     — severe
+  "46-60": { fill: "#991b1b", ink: "#ffffff", deep: "#7f1d1d" }, // red-800     — very severe
+  "60+":   { fill: "#6b21a8", ink: "#ffffff", deep: "#581c87" }, // purple-700  — extreme
 };
 
 const BUCKET_WEIGHT: Record<AgeBucketId, number> = {
