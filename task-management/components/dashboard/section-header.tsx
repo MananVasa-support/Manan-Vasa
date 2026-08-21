@@ -16,10 +16,12 @@ import * as React from "react";
    ──────────────────────────────────────────────────────────────────────── */
 
 export interface DashboardSectionHeaderProps {
-  /** Small category tag above the title, e.g. "Managers · Initiation Scorecards". */
-  eyebrow?: React.ReactNode;
-  /** Eyebrow tone. "brand" = the Altus red used by the exec sections. */
-  eyebrowTone?: "brand" | "muted";
+  /* NO EYEBROW. Every section carried a small red uppercase tag above its
+     title ("PEOPLE · STATUS BREAKDOWN", "TASKS · AGING"). Stacked down the
+     page they read as a second, competing set of headings in the one colour
+     the design reserves for alerts, and each said little the title below it
+     did not already say. Removed at the source so no section can reintroduce
+     one by passing a prop. */
   /** Optional glyph to the left of the title block. */
   icon?: React.ReactNode;
   title: React.ReactNode;
@@ -37,8 +39,6 @@ export interface DashboardSectionHeaderProps {
 }
 
 export function DashboardSectionHeader({
-  eyebrow,
-  eyebrowTone = "brand",
   icon,
   title,
   subtitle,
@@ -54,15 +54,6 @@ export function DashboardSectionHeader({
       <div className="flex min-w-0 items-start gap-3">
         {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
         <div className="min-w-0">
-          {eyebrow && (
-            <p
-              className={`text-xs font-semibold uppercase tracking-wider ${
-                eyebrowTone === "brand" ? "text-rose-600" : "text-gray-500"
-              }`}
-            >
-              {eyebrow}
-            </p>
-          )}
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">
             {title}
           </h2>

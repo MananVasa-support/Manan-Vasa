@@ -6,15 +6,13 @@ import Link from "next/link";
 import type { Route } from "next";
 import * as React from "react";
 import { motion } from "motion/react";
-import { XCircle, Users, ChevronUp } from "lucide-react";
+import { Users, ChevronUp } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
-import { FineBucketBars } from "@/components/dashboard/task-report/fine-bucket-bars";
 import { ManagerInitiatorTable } from "@/components/dashboard/exec/manager-initiator-table";
 import { ManagerDrilldown } from "@/components/dashboard/exec/manager-drilldown";
 import { useReducedMotion } from "@/lib/motion-utils";
 import type {
-  NotApprovedPersonRow,
   TaskReportData,
 } from "@/lib/queries/task-report";
 import type { FineBucketCount } from "@/lib/transforms/aging-buckets-fine";
@@ -57,28 +55,10 @@ export function TaskReportView({ data, avatarById, isAdmin, meId }: TaskReportVi
           number it breaks down. `DoneCard` and its GlassCard shell went with
           it; `data.doneByOriginal` is still computed by the report query and no
           longer rendered here. */}
-      {/* ── Section 3: Not Approved ── */}
-      <motion.section {...rise(0.08)} className="mt-12" aria-label="Not-approved tasks">
-        <ReportSection
-          icon={<XCircle size={22} strokeWidth={2.4} />}
-          kicker="Not approved"
-          title="Sent-back work, by person and by how overdue"
-          subtitle="Tasks an Admin Declined and Returned. Left: Who is Carrying Them · Right: Aged Against Each Task's Effective Due Date (Red = Overdue)."
-          tone="red"
-          label="sent-back work"
-        >
-        <NotApprovedPanel
-          total={data.notApproved.total}
-          byPerson={data.notApproved.byPerson}
-          buckets={data.notApproved.buckets}
-          undated={data.notApproved.undated}
-          isAdmin={isAdmin}
-          meId={meId}
-          resolveAvatar={resolveAvatar}
-        />
-        </ReportSection>
-      </motion.section>
-
+      {/* Section 3 (sent-back work) MOVED to the main WMS dashboard — see
+          components/dashboard/sent-back-section.tsx. It sits under Overdue
+          Tasks by Person there, which is the card it pairs with. NotApprovedPanel
+          and its EmptyState helper went with it. */}
       {/* ── Section 4: Task Initiator scorecards ── */}
       <motion.section {...rise(0.12)} className="mt-12" aria-label="Task initiator scorecards">
         <ReportSection
@@ -306,136 +286,6 @@ function GlassCard({ children, className }: { children: React.ReactNode; classNa
 }
 
 /* ──────────────────────────── ③ Not-approved ───────────────────────────── */
-
-function NotApprovedPanel({
-  total,
-  byPerson,
-  buckets,
-  undated,
-  isAdmin,
-  meId,
-  resolveAvatar,
-}: {
-  total: number;
-  byPerson: NotApprovedPersonRow[];
-  buckets: FineBucketCount[];
-  undated: number;
-  isAdmin: boolean;
-  meId: string | null;
-  resolveAvatar: (id: string) => string | null;
-}) {
-  // Privacy: admins see everyone; a non-admin sees only their own row.
-  const people = isAdmin ? byPerson : byPerson.filter((p) => p.employeeId === meId);
-
-  if (total === 0) {
-    return (
-      <GlassCard>
-        <EmptyState
-          icon={<XCircle size={24} strokeWidth={2.2} />}
-          title="No tasks awaiting re-work"
-          body="Nothing has been sent back for correction. When an admin declines a task it appears here, by person and by how overdue it is."
-        />
-      </GlassCard>
-    );
-  }
-
-  const maxCount = Math.max(...people.map((p) => p.count), 1);
-
-  return (
-    <div className="grid grid-cols-2 gap-6 max-lg:grid-cols-1">
-      {/* LEFT — person-wise */}
-      <GlassCard>
-        <p className="text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">
-          By person · most first
-          <span className="ml-2 tabular-nums text-ink-soft">{total} total</span>
-        </p>
-        {people.length === 0 ? (
-          <p className="mt-4 text-[13.5px] font-semibold text-ink-subtle">
-            You have no tasks awaiting re-work.
-          </p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-2.5">
-            {people.map((p) => {
-              const w = (p.count / maxCount) * 100;
-              return (
-                <li key={p.employeeId}>
-                  {/* The whole row is the target, bar included — the bar is the
-                      thing the eye lands on, so making only the name clickable
-                      would put the affordance in the wrong place.
-
-                      `emp`, not `doer`, and the employee ID rather than a name
-                      slug: that is what parseTaskFilters already reads and what
-                      the query filters on. A slug would need a reverse lookup
-                      and would break on renames and duplicate names. */}
-                  <Link
-                    href={
-                      `/tasks?emp=${encodeURIComponent(p.employeeId)}&status=not_approved&overdue=true` as Route
-                    }
-                    title={`Open ${p.employeeName}'s overdue sent-back tasks`}
-                    className="flex items-center gap-3 rounded-lg px-1 py-1 -mx-1 transition-colors hover:bg-slate-50"
-                  >
-                  <Avatar name={p.employeeName} avatarUrl={resolveAvatar(p.employeeId)} size={32} />
-                  <span
-                    className="w-[30%] shrink-0 truncate text-[13.5px] font-bold text-ink-strong"
-                    title={p.employeeName}
-                  >
-                    {p.employeeName}
-                  </span>
-                  <span
-                    className="relative h-3 flex-1 overflow-hidden rounded-full"
-                    style={{ background: "color-mix(in srgb, var(--color-altus-red) 14%, transparent)" }}
-                  >
-                    <span
-                      className="absolute inset-y-0 left-0"
-                      style={{
-                        width: `${w}%`,
-                        background: `linear-gradient(90deg, color-mix(in srgb, ${RED} 75%, transparent), ${RED})`,
-                      }}
-                    />
-                  </span>
-                  <span className="w-9 shrink-0 text-right text-[14px] font-black tabular-nums" style={{ color: RED }}>
-                    {p.count}
-                  </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </GlassCard>
-
-      {/* RIGHT — aging across the fine buckets.
-          `h-full flex flex-col` on the card + `flex-1` on the chart wrapper is
-          what lets the nine rows absorb the height the taller left panel sets,
-          instead of the card ending early and leaving a white band. */}
-      <GlassCard className="flex h-full flex-col">
-        <p className="text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">
-          How overdue · vs effective due date
-        </p>
-        <div className="mt-4 flex flex-1 flex-col">
-          <FineBucketBars
-            buckets={buckets}
-            earlyLabel="not yet due"
-            lateLabel="overdue"
-            // Every task in THIS chart is sent-back work by construction — it is
-            // the Not Approved section — so the drill-through and the tooltip's
-            // split can both state that rather than infer it per row.
-            linkStatuses={["not_approved"]}
-            statusBreakdown={(count) => [
-              { label: "Not Approved", value: count },
-              { label: "Pending", value: 0 },
-            ]}
-          />
-        </div>
-        {undated > 0 && (
-          <p className="mt-3 text-[12px] font-semibold text-ink-subtle">
-            {undated} declined without a due date — not placed.
-          </p>
-        )}
-      </GlassCard>
-    </div>
-  );
-}
 
 /* ─────────────────────────── ④ Task initiator ──────────────────────────── */
 

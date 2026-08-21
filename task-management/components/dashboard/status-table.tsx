@@ -440,7 +440,6 @@ export function StatusTable({
       }}
     >
       <DashboardSectionHeader
-        eyebrow="People · Status Breakdown"
         icon={
           <span
             aria-hidden

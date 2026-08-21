@@ -561,12 +561,11 @@ export function ManagerActivityTable({
   const header = (
     <div className="mb-3 flex items-start justify-between gap-3 max-md:flex-col">
       <div className="min-w-0">
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.09em] text-ink-subtle">
-          <Users size={12} strokeWidth={2.8} />
-          Managers · Activity Board
-        </span>
+        {/* No category overline. Removed across every dashboard section — see
+            the note in section-header.tsx. `mt-0.5` goes with it, or the title
+            keeps the offset that existed to clear the tag. */}
         <h3
-          className="mt-0.5 text-[20px] font-black leading-tight"
+          className="text-[20px] font-black leading-tight"
           style={{
             color: "var(--color-ink-strong)",
             fontFamily: "var(--font-display), system-ui, sans-serif",

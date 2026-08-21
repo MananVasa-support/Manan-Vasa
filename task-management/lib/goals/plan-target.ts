@@ -10,11 +10,19 @@ import { goalScopeFor, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
  * "plan for someone else" (Sir: "I should be able to give goals over the next 7
  * days to whichever employee I choose, and the same with managers").
  *
- * Authority reuses the EXISTING goals hierarchy rather than inventing a second
- * one, so who you may plan for and who you may set goals for can never drift:
- *   · admins  → anyone
- *   · managers → themselves + their downline (getDownlineIds)
- *   · everyone else → only themselves
+ * OPEN TO EVERYONE (decided 2026-08). The planner used to reuse the goals
+ * hierarchy — admins anyone, managers their downline, everyone else only
+ * themselves — which meant a team member saw no picker at all, because the only
+ * person in their roster was themselves.
+ *
+ * That restriction is now lifted FOR THIS SCREEN ONLY: any active employee may
+ * open and edit any other active employee's day. Goal approvals, the cascade and
+ * weekly goals still run on the hierarchy, so this cannot widen anything beyond
+ * the daily plan.
+ *
+ * Be clear about what that means: a person's daily commitments are visible and
+ * editable by every colleague. That was the explicit instruction; set
+ * GOALS_PLAN_ANY_EMPLOYEE=0 to put the hierarchy back without a code change.
  *
  * SECURITY NOTE: every mutating plan action must call `resolvePlanTarget` and
  * write to the id it returns — never to a raw `forEmployeeId` off the wire. An
@@ -61,6 +69,16 @@ async function managerChain(
   }
 }
 
+/**
+ * Whether the planner is open to every employee. On by default; set
+ * GOALS_PLAN_ANY_EMPLOYEE to "0", "off" or "false" to restore the old
+ * hierarchy-scoped behaviour.
+ */
+export function plannerOpenToAll(): boolean {
+  const raw = (process.env.GOALS_PLAN_ANY_EMPLOYEE ?? "").trim().toLowerCase();
+  return !(raw === "0" || raw === "off" || raw === "false");
+}
+
 export async function resolvePlanTarget(
   me: { id: string; name: string; isAdmin: boolean },
   forEmployeeId?: string | null,
@@ -68,23 +86,35 @@ export async function resolvePlanTarget(
   const scope = await goalScopeFor({ id: me.id, isAdmin: me.isAdmin });
 
   const requested = (forEmployeeId ?? "").trim();
-  // The fallback-to-self is the security boundary — see the note above.
-  const employeeId =
-    requested && requested !== me.id && canManageGoalFor(scope, requested) ? requested : me.id;
+  const openToAll = plannerOpenToAll();
 
-  const rows = scope.all
-    ? await db
-        .select({ id: employees.id, name: employees.name })
-        .from(employees)
-        .where(eq(employees.isActive, true))
-        .orderBy(asc(employees.name))
-    : scope.ids.length > 0
+  // The roster is fetched FIRST now, because when the planner is open to all it
+  // is also what validates the requested id: membership of this list replaces
+  // the hierarchy check. Without that, a crafted `?emp=` carrying any UUID
+  // would set employeeId to a person who does not exist.
+  const rows =
+    openToAll || scope.all
       ? await db
           .select({ id: employees.id, name: employees.name })
           .from(employees)
-          .where(and(inArray(employees.id, scope.ids), eq(employees.isActive, true)))
+          .where(eq(employees.isActive, true))
           .orderBy(asc(employees.name))
-      : [];
+      : scope.ids.length > 0
+        ? await db
+            .select({ id: employees.id, name: employees.name })
+            .from(employees)
+            .where(and(inArray(employees.id, scope.ids), eq(employees.isActive, true)))
+            .orderBy(asc(employees.name))
+        : [];
+
+  // The fallback-to-self is still the security boundary — an id that is not an
+  // ACTIVE employee (or not permitted, when the hierarchy applies) can only ever
+  // plan your own day, never someone else's.
+  const permitted =
+    !!requested &&
+    requested !== me.id &&
+    (openToAll ? rows.some((r) => r.id === requested) : canManageGoalFor(scope, requested));
+  const employeeId = permitted ? requested : me.id;
 
   const name = rows.find((r) => r.id === employeeId)?.name ?? me.name;
   const { manager, managerManager } = await managerChain(employeeId);

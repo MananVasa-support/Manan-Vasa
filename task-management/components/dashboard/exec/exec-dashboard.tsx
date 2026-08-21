@@ -412,23 +412,10 @@ function ManagerRail({
     <section className="relative min-w-0" aria-label="Manager initiation scorecards">
       {/* The section's only header, above the table's white box. It absorbed
           the "Delivery & Delegation" masthead that used to sit in the card
-          above it — same eyebrow, same target line, one heading. */}
+          above it — one heading, one target line.
+          NOTE: the manager COUNT badge lived inside the old red eyebrow and
+          went with it. The count is still readable from the table itself. */}
       <DashboardSectionHeader
-        eyebrow={
-          <span className="inline-flex items-center gap-1.5">
-            <Users size={12} strokeWidth={2.8} />
-            Managers · Initiation Scorecards
-            <span
-              className="rounded-pill px-1.5 py-0.5 font-bold tabular-nums"
-              style={{
-                fontSize: 10,
-                background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)",
-              }}
-            >
-              {managers.length}
-            </span>
-          </span>
-        }
         title="Who is delegating, and how much"
         /* Reads the constant, not a literal: this caption still said "3 ×"
            after the target moved to 5/report/day, so the header contradicted

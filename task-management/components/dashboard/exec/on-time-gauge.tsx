@@ -60,7 +60,6 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
       {/* Header ABOVE this card — see components/dashboard/section-header.tsx. */}
       <DashboardSectionHeader
         className="mb-3"
-        eyebrow="Delivery · On Time"
         icon={
           <span
             className="inline-flex size-9 items-center justify-center rounded-full"

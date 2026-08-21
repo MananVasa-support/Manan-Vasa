@@ -311,6 +311,15 @@ export interface DashboardData {
   /** The 12-bucket delivery spread, over every non-archived done task (not the
    *  filtered period) — see the note beside its computation in queries/dashboard. */
   doneSpread: import("@/lib/queries/task-report").DoneFineDistribution;
+  /** Sent-back (declined) work — who carries it and how overdue it is. Not
+   *  scoped to the filtered period: a task declined weeks ago is still open
+   *  today, so a date filter would under-report the backlog. */
+  sentBack: {
+    total: number;
+    byPerson: import("@/lib/queries/task-report").NotApprovedPersonRow[];
+    buckets: import("@/lib/transforms/aging-buckets-fine").FineBucketCount[];
+    undated: number;
+  };
   statusTable: EmployeeStatusRow[];
   topPerformers: TopPerformer[];
   agingTable: AgingRow[];
