@@ -122,8 +122,6 @@ export function TopPerformersSection({
     >
       <DashboardSectionHeader
         className="mb-3"
-        eyebrow="People · Rankings"
-        eyebrowTone="muted"
         icon={
           <span
             aria-hidden

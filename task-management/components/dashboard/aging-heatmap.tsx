@@ -412,7 +412,6 @@ export function AgingHeatmap({
           section-header.tsx. The sort control comes with it so the whole
           header line reads as one bar above the heat lanes. */}
       <DashboardSectionHeader
-        eyebrow="Tasks · Aging"
         icon={
           <Flame className="size-8" style={{ color: "#dc2626" }} strokeWidth={2.25} />
         }
