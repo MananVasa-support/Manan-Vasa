@@ -36,7 +36,6 @@ export function DeliverySpreadSection({ dist }: { dist: DoneFineDistribution }) 
   return (
     <PageShell as="section" width="full" py={false} aria-label="Delivery vs due date">
       <DashboardSectionHeader
-        eyebrow="Done on time"
         icon={
           <span
             aria-hidden

@@ -89,11 +89,11 @@ export function PerformanceByPersonTable({
     [scoped],
   );
 
-  // Paged 8 at a time via the shared top-right pager (was a "Show all"
-  // expander, which made the card grow without bound on a big roster).
-  const PAGE = 8;
-  const paged = usePagedRows(rows, PAGE);
-  const visible = paged.visible;
+  // EVERY person renders. This paged 8 at a time, so on a big roster most of
+  // the team was simply not on the card — and the reason the pager existed
+  // (a "Show all" expander grew the card without bound) is solved better by a
+  // capped-height scroller: all rows present, card height fixed.
+  const visible = rows;
 
   // Header ABOVE the card — see components/dashboard/section-header.tsx. The
   // pager rides along in the actions slot because its page state lives here,
@@ -101,7 +101,6 @@ export function PerformanceByPersonTable({
   return (
     <CollapsibleSection
       label="Overdue tasks by person"
-      eyebrow="Delivery · Overdue"
       icon={
         <span
           className="inline-flex size-9 items-center justify-center rounded-full"
@@ -116,14 +115,9 @@ export function PerformanceByPersonTable({
       title="Overdue Tasks by Person"
       subtitle="On-time rate & late spread · heaviest overdue burden first"
       actions={
-        <SectionPagination
-          page={paged.page}
-          pageCount={paged.pageCount}
-          onPage={paged.setPage}
-          total={paged.total}
-          pageSize={PAGE}
-          label="Overdue tasks by person"
-        />
+        <span className="text-[12px] font-semibold text-ink-subtle">
+          {rows.length} {rows.length === 1 ? "person" : "people"}
+        </span>
       }
     >
     <section
@@ -167,7 +161,9 @@ export function PerformanceByPersonTable({
                 ))}
                 <span className="text-center">Late</span>
               </div>
-              <ul className="flex flex-col gap-1.5">
+              {/* 520px, not unbounded: the whole roster is reachable by
+                  scrolling without the card growing down the page. */}
+              <ul className="flex max-h-[520px] flex-col gap-1.5 overflow-y-auto">
                 <AnimatePresence initial={false}>
                   {visible.map((p, i) => (
                     <PersonTableRow
@@ -183,7 +179,7 @@ export function PerformanceByPersonTable({
             </div>
 
             {/* ── Mobile cards ── */}
-            <ul className="flex flex-col gap-2.5 md:hidden">
+            <ul className="flex max-h-[520px] flex-col gap-2.5 overflow-y-auto md:hidden">
               <AnimatePresence initial={false}>
                 {visible.map((p, i) => (
                   <PersonCard

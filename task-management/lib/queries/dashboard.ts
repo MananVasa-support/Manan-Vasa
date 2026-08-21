@@ -3,8 +3,14 @@ import { db, employees, tasks, taskEvents, holidays } from "@/lib/db";
 import type { Task } from "@/lib/db";
 import type { DashboardData, DashboardFilters, KpiSet, InitiatorBoard } from "@/lib/types";
 import { isFounderEmail } from "@/lib/auth/founder";
-import { distributeDoneFine } from "@/lib/transforms/aging-buckets-fine";
-import type { DoneFineDistribution } from "@/lib/queries/task-report";
+import {
+  distributeDoneFine,
+  distributePendingFine,
+} from "@/lib/transforms/aging-buckets-fine";
+import type {
+  DoneFineDistribution,
+  NotApprovedPersonRow,
+} from "@/lib/queries/task-report";
 import {
   computeKpiTotals,
   computeAgingByDate,
@@ -459,6 +465,48 @@ async function loadDashboardDataUncached(
     }
   }
 
+  // SENT-BACK WORK — also moved off the Task Analytics report.
+  //
+  // Same predicate the report used: declined by status OR approval_status, not
+  // archived, and NOT scoped to the dashboard's period — a task sent back six
+  // weeks ago is still sitting on someone's plate today, so filtering it out by
+  // date would under-report exactly the work this widget exists to surface.
+  const sentBackRows = await db
+    .select({ doerId: tasks.doerId, effectiveDueAt: effectiveDueAtSql() })
+    .from(tasks)
+    .where(
+      and(
+        sql`(${tasks.status} = 'not_approved' OR ${tasks.approvalStatus} = 'not_approved')`,
+        sql`${tasks.archived} = false`,
+      ),
+    )
+    .catch(() => [] as { doerId: string; effectiveDueAt: unknown }[]);
+
+  const sentBackPerCount = new Map<string, number>();
+  for (const r of sentBackRows) {
+    sentBackPerCount.set(r.doerId, (sentBackPerCount.get(r.doerId) ?? 0) + 1);
+  }
+  const sentBackNames = new Map(allEmployees.map((e) => [e.id, e.name] as const));
+  const sentBackByPerson: NotApprovedPersonRow[] = [...sentBackPerCount.entries()]
+    .map(([employeeId, count]) => ({
+      employeeId,
+      employeeName: sentBackNames.get(employeeId) ?? "Unknown",
+      count,
+    }))
+    .sort((a, b) => b.count - a.count || a.employeeName.localeCompare(b.employeeName));
+
+  const sentBackDist = distributePendingFine(
+    sentBackRows.map((r) => ({ effectiveDue: (r.effectiveDueAt as Date | null) ?? null })),
+    now,
+  );
+
+  const sentBack = {
+    total: sentBackRows.length,
+    byPerson: sentBackByPerson,
+    buckets: sentBackDist.buckets,
+    undated: sentBackDist.undated,
+  };
+
   // DELIVERY SPREAD — moved onto this dashboard from the Task Analytics report.
   //
   // Computed over EVERY non-archived done task, deliberately NOT over
@@ -499,6 +547,7 @@ async function loadDashboardDataUncached(
       topPerformerCount: globalRanking[0]?.doneCount ?? 0,
     }),
     doneSpread,
+    sentBack,
     statusTable,
     topPerformers,
     agingTable: computeEmployeeAgingTable(periodTasks, allEmployees, now),
