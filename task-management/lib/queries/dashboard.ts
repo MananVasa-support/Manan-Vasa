@@ -78,7 +78,19 @@ export async function loadDashboardData(
   filters: DashboardFilters,
 ): Promise<DashboardData> {
   const keyParts = [
-    "dashboard-data:v1",
+    // BUMP THIS WHENEVER THE PAYLOAD SHAPE CHANGES.
+    //
+    // v1 -> v2: `doneSpread` and `sentBack` were added to DashboardData without
+    // touching the key, so after deploy this cache kept serving v1-shaped
+    // entries that had neither. The page read `data.sentBack.total` on them and
+    // threw a TypeError during RENDER — past the try/catch around the fetch, so
+    // it surfaced as the generic error page with a digest ref rather than the
+    // dashboard's own load-error card.
+    //
+    // The key is the real fix: a shape change and a stale entry cannot coexist.
+    // The consumers are also defensive now, but that is the belt, not the
+    // braces — the next field added still needs a bump here.
+    "dashboard-data:v2",
     filters.startDate?.toISOString() ?? "_",
     filters.endDate?.toISOString() ?? "_",
     filters.view,

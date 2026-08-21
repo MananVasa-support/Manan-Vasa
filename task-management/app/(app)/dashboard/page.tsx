@@ -14,6 +14,7 @@ import {
   ExecOnTimeSection,
 } from "@/components/dashboard/exec/exec-dashboard";
 import { DashboardSectionNav } from "@/components/dashboard/section-nav";
+import { WidgetBoundary } from "@/components/dashboard/widget-boundary";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
@@ -223,48 +224,69 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                       these sections no longer inherit the panel's padding, so each
                       needs the page gutter itself. AgingHeatmap renders its own. */}
                   <div id="overdue-by-person" className="scroll-mt-20">
+                    <WidgetBoundary label="the overdue list">
                     <PageShell as="div" width="full" py={false}>
                       <ExecOverdueSection />
                     </PageShell>
+                    </WidgetBoundary>
                   </div>
 
                   {/* 1b — Sent-back work, directly under the overdue card. Both
                       answer "who is carrying work that has gone wrong", so they
                       read as a pair. Moved here from Task Analytics. */}
                   <div id="sent-back-work" className="scroll-mt-20">
+                    <WidgetBoundary label="sent-back work">
                   <SentBackSection
-                    total={data.sentBack.total}
-                    byPerson={data.sentBack.byPerson}
-                    buckets={data.sentBack.buckets}
-                    undated={data.sentBack.undated}
+                    /* Optional-chained: the Data Cache can serve a payload
+                       shaped by the PREVIOUS deploy for the length of its TTL,
+                       and reading `.total` off an absent `sentBack` throws
+                       during render — past the try/catch above, so it takes the
+                       whole page rather than this card. The cache key carries a
+                       version for exactly this reason; these are the fallback
+                       if one is ever forgotten. */
+                    total={data.sentBack?.total ?? 0}
+                    byPerson={data.sentBack?.byPerson ?? []}
+                    buckets={data.sentBack?.buckets ?? []}
+                    undated={data.sentBack?.undated ?? 0}
                     isAdmin={Boolean(me?.isAdmin)}
                     meId={me?.id ?? null}
                     resolveAvatar={(id) => avatarById[id] ?? null}
                   />
+                    </WidgetBoundary>
                   </div>
 
                   {/* 2 — Aging Heatmap */}
                   <div id="aging-heatmap" className="scroll-mt-20">
+                    <WidgetBoundary label="the aging heatmap">
                   <AgingHeatmap
                     rows={data.agingTable}
                     cellTasks={data.agingHeatmapData.byCell}
                     avatarById={avatarById}
                     me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
                   />
+                    </WidgetBoundary>
                   </div>
 
                   {/* 3 — Delivered on Time */}
                   <div id="delivered-on-time" className="scroll-mt-20">
+                    <WidgetBoundary label="the on-time gauge">
                     <PageShell as="div" width="full" py={false}>
                       <ExecOnTimeSection />
                     </PageShell>
+                    </WidgetBoundary>
                   </div>
 
                   {/* 3b — The 12-bucket delivery spread, immediately after the
                       on-time overview it elaborates. Moved here from the Task
                       Analytics report; the card itself is unchanged. */}
                   <div id="delivery-vs-due" className="scroll-mt-20">
-                    <DeliverySpreadSection dist={data.doneSpread} />
+                    <WidgetBoundary label="the delivery spread">
+                    {/* Same reasoning as sentBack above — render nothing
+                        rather than throw if a pre-deploy payload lacks it. */}
+                    {data.doneSpread ? (
+                      <DeliverySpreadSection dist={data.doneSpread} />
+                    ) : null}
+                    </WidgetBoundary>
                   </div>
 
                   {/* 4 — Insights. No longer a TABBED box: the
@@ -273,20 +295,24 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                       continuous page instead. Top Performers therefore moves
                       into the flow rather than being orphaned with its tab. */}
                   <div id="status-by-doer" className="scroll-mt-20">
+                    <WidgetBoundary label="Status by Doer">
                     <StatusTable
                       rows={data.statusTable}
                       view={filters.view}
                       avatarById={avatarById}
                     />
+                    </WidgetBoundary>
                   </div>
 
                   <div id="delegation-scorecard" className="scroll-mt-20 flex flex-col gap-6 md:gap-8">
+                    <WidgetBoundary label="the delegation scorecards">
                     <ExecDelegationSection />
                     {/* Sits directly under the initiation scorecards: the two
                         read the same manager hierarchy, one asking who DELEGATES
                         tasks and this one asking what each team is actually
                         CARRYING across goals, tasks and daily commitments. */}
                     <ManagerActivityTable avatarById={avatarById} />
+                    </WidgetBoundary>
                   </div>
 
                   <TopPerformersSection
