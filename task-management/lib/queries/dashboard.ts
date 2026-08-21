@@ -414,25 +414,16 @@ async function loadDashboardDataUncached(
   // exactly the pending tasks that reached a cell — a bounded set, one extra
   // round trip — and attach it. The big scan stays lean; the drill-down gets
   // real text.
-  const cellTaskIds = Object.values(byCell)
-    .flatMap((buckets) => Object.values(buckets))
-    .flat()
-    .map((t) => t.id);
-
-  if (cellTaskIds.length > 0) {
-    const descRows = await db
-      .select({ id: tasks.id, description: tasks.description })
-      .from(tasks)
-      .where(inArray(tasks.id, cellTaskIds))
-      .catch(() => [] as { id: string; description: string | null }[]);
-    const descById = new Map(descRows.map((r) => [r.id, r.description] as const));
-    for (const buckets of Object.values(byCell)) {
-      for (const list of Object.values(buckets)) {
-        for (const t of list) t.description = descById.get(t.id) ?? null;
-      }
-    }
-  }
-
+  // ── ONE parallel batch for everything still outstanding ───────────────────
+  //
+  // These reads used to run as FOUR SEQUENTIAL awaits appended to the end of
+  // this function, two of them unbounded scans. On a real dataset that is four
+  // round trips in series on the critical page-load path, and it is what made
+  // /dashboard time out. They do not depend on each other, so they run
+  // together.
+  //
+  // The two description back-fills are also merged into ONE query: they read
+  // the same column of the same table and differed only in their id list.
   const initiator = { d3: board(threeAgo, 3), d7: board(sevenAgo, 7) };
 
   const statusTable = computeEmployeeStatusTable(
@@ -442,46 +433,62 @@ async function loadDashboardDataUncached(
     departmentMap,
   );
 
-  // SAME BACK-FILL AS THE HEATMAP CELLS ABOVE, for the same reason.
-  //
-  // The status table's hover previews are built from `periodTasks`, which the
-  // main scan strips `description` from — so every preview row resolved to its
-  // placeholder. The heatmap path was fixed; this one has the identical defect
-  // and was missed. Both now read real text.
+  const cellTaskIds = Object.values(byCell)
+    .flatMap((buckets) => Object.values(buckets))
+    .flat()
+    .map((t) => t.id);
   const previewIds = statusTable.flatMap((row) =>
     Object.values(row.previews ?? {}).flatMap((list) => (list ?? []).map((t) => t.id)),
   );
-  if (previewIds.length > 0) {
-    const rows = await db
-      .select({ id: tasks.id, description: tasks.description })
+  const descIds = [...new Set([...cellTaskIds, ...previewIds])];
+
+  const [descRows, sentBackRows, doneForSpread] = await Promise.all([
+    descIds.length > 0
+      ? db
+          .select({ id: tasks.id, description: tasks.description })
+          .from(tasks)
+          .where(inArray(tasks.id, descIds))
+          .catch(() => [] as { id: string; description: string | null }[])
+      : Promise.resolve([] as { id: string; description: string | null }[]),
+
+    db
+      .select({ doerId: tasks.doerId, effectiveDueAt: effectiveDueAtSql() })
       .from(tasks)
-      .where(inArray(tasks.id, previewIds))
-      .catch(() => [] as { id: string; description: string | null }[]);
-    const byId = new Map(rows.map((r) => [r.id, r.description] as const));
+      .where(
+        and(
+          sql`(${tasks.status} = 'not_approved' OR ${tasks.approvalStatus} = 'not_approved')`,
+          sql`${tasks.archived} = false`,
+        ),
+      )
+      .catch(() => [] as { doerId: string; effectiveDueAt: unknown }[]),
+
+    db
+      .select({ completedAt: tasks.completedAt, originalDueAt: tasks.dueAt })
+      .from(tasks)
+      .where(and(sql`${tasks.status} = 'done'`, sql`${tasks.archived} = false`))
+      .catch(() => [] as { completedAt: Date | null; originalDueAt: Date | null }[]),
+  ]);
+
+  // Descriptions land on BOTH consumers from the one result set. The main scan
+  // drops `description` for payload size, so anything reading it off
+  // `periodTasks` sees null; these are the two paths that need real text.
+  if (descRows.length > 0) {
+    const descById = new Map(descRows.map((r) => [r.id, r.description] as const));
+    for (const buckets of Object.values(byCell)) {
+      for (const list of Object.values(buckets)) {
+        for (const t of list) t.description = descById.get(t.id) ?? null;
+      }
+    }
     for (const row of statusTable) {
       for (const list of Object.values(row.previews ?? {})) {
-        for (const t of list ?? []) t.description = byId.get(t.id) ?? null;
+        for (const t of list ?? []) t.description = descById.get(t.id) ?? null;
       }
     }
   }
 
-  // SENT-BACK WORK — also moved off the Task Analytics report.
-  //
-  // Same predicate the report used: declined by status OR approval_status, not
-  // archived, and NOT scoped to the dashboard's period — a task sent back six
-  // weeks ago is still sitting on someone's plate today, so filtering it out by
-  // date would under-report exactly the work this widget exists to surface.
-  const sentBackRows = await db
-    .select({ doerId: tasks.doerId, effectiveDueAt: effectiveDueAtSql() })
-    .from(tasks)
-    .where(
-      and(
-        sql`(${tasks.status} = 'not_approved' OR ${tasks.approvalStatus} = 'not_approved')`,
-        sql`${tasks.archived} = false`,
-      ),
-    )
-    .catch(() => [] as { doerId: string; effectiveDueAt: unknown }[]);
-
+  // SENT-BACK WORK — declined by status OR approval_status, not archived, and
+  // deliberately NOT scoped to the dashboard's period: a task sent back weeks
+  // ago is still on someone's plate today.
   const sentBackPerCount = new Map<string, number>();
   for (const r of sentBackRows) {
     sentBackPerCount.set(r.doerId, (sentBackPerCount.get(r.doerId) ?? 0) + 1);
@@ -507,19 +514,8 @@ async function loadDashboardDataUncached(
     undated: sentBackDist.undated,
   };
 
-  // DELIVERY SPREAD — moved onto this dashboard from the Task Analytics report.
-  //
-  // Computed over EVERY non-archived done task, deliberately NOT over
-  // `periodTasks`. The report built it from the same unfiltered set, and the
-  // brief was to move the widget without changing its numbers; scoping it to
-  // the dashboard's date filter would silently restate the on-time percentage
-  // the moment anyone narrowed the range.
-  const doneForSpread = await db
-    .select({ completedAt: tasks.completedAt, originalDueAt: tasks.dueAt })
-    .from(tasks)
-    .where(and(sql`${tasks.status} = 'done'`, sql`${tasks.archived} = false`))
-    .catch(() => [] as { completedAt: Date | null; originalDueAt: Date | null }[]);
-
+  // DELIVERY SPREAD — every non-archived done task, matching how the Task
+  // Analytics report computed it so the on-time percentage reads the same here.
   const spreadParts = distributeDoneFine(
     doneForSpread.map((r) => ({ effectiveDue: r.originalDueAt, completedAt: r.completedAt })),
   );
@@ -534,6 +530,7 @@ async function loadDashboardDataUncached(
     onTime: spreadParts.dated - spreadLate,
     late: spreadLate,
   };
+
 
   return {
     kpis,
