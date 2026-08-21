@@ -443,12 +443,21 @@ export function WeeklyCascadeBoard({
           boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
         }}
       >
-        {/* Week selector FIRST — the period control leads the strip, the person
-            picker follows: [ W19 · 10 Aug – 16 Aug ▾ ] [ Viewing ]. */}
-        <WeekSelect value={weekStart} thisWeek={thisWeek} onPick={goWeek} />
+        {/* Week selector + Add Goal + the person picker, all grouped on the
+            RIGHT: ..... [ W19 · 10 Aug – 16 Aug ▾ ] [ + Add Goal ] [ Viewing ]. */}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <WeekSelect value={weekStart} thisWeek={thisWeek} onPick={goWeek} />
 
-        {canPickPerson && people.length > 0 && (
-          <div className="ml-auto flex shrink-0 items-center">
+          <button
+            type="button"
+            onClick={() => quickAddRef.current?.open()}
+            className={`pastel-cta wg-btn inline-flex shrink-0 items-center gap-1.5 h-9 rounded-pill px-3.5 text-[13px] font-bold transition-all hover:-translate-y-px cursor-pointer ${FOCUS_RING}`}
+          >
+            <Plus size={14} strokeWidth={2.8} />
+            Add Goal
+          </button>
+
+          {canPickPerson && people.length > 0 && (
             <ViewingSelect
               people={people}
               value={scopeEmp}
@@ -456,14 +465,15 @@ export function WeeklyCascadeBoard({
               onChange={(v) => goPerson(v)}
               myEmployeeId={me.id}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* ── Feature toolbar — Add Weekly Goal · view toggle · ritual chips ·
-          Sort · Areas · Types · Rows · Columns · Export · Bulk upload, ALL in
-          one wrapping line (no horizontal scroll) — same glass instrument
-          strip + control order as the Yearly/Quarterly/Monthly toolbar. ── */}
+      {/* ── Feature toolbar — view toggle · ritual chips · Sort · Areas ·
+          Types · Rows · Columns · Export · Bulk upload, ALL in one wrapping
+          line (no horizontal scroll) — same glass instrument strip + control
+          order as the Yearly/Quarterly/Monthly toolbar. Add Goal now lives in
+          the row above, right after the week selector. ── */}
       <div
         className="wg-rise mb-3 flex flex-wrap items-center gap-1 rounded-section border border-hairline px-2.5 py-1.5 max-md:px-2.5"
         style={{
@@ -473,18 +483,6 @@ export function WeeklyCascadeBoard({
           boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
         }}
       >
-        {/* Create — a single weekly goal (composer drawer). Writes into the
-            week + person in view via the cascade weekly engine (addWeekGoal). */}
-        <button
-          type="button"
-          onClick={() => quickAddRef.current?.open()}
-          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 h-7 rounded-pill px-2 text-[11px] font-bold text-white ${FOCUS_RING}`}
-          style={{ background: ACCENT }}
-        >
-          <Plus size={12} strokeWidth={2.8} />
-          Add Goal
-        </button>
-
         {/* View toggle — List | Kanban | Dashboard */}
         <div
           role="group"
@@ -792,13 +790,11 @@ function ViewToggleButton({
       aria-label={`${label} view`}
       className="cursor-pointer inline-flex h-full items-center gap-1 px-2 text-[11px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
       style={
-        // Selection is carried by the raised white chip against the grey track,
-        // not by red ink — a view toggle is navigation, not a status.
         active
           ? {
-              background: "var(--color-surface-card)",
-              color: "var(--color-ink-strong)",
-              boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
+              background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+              color: "#fff",
+              boxShadow: "0 6px 14px -8px var(--color-altus-red-deep)",
             }
           : { background: "transparent", color: "var(--color-ink-subtle)" }
       }
