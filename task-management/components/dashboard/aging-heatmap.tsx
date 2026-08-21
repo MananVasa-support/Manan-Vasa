@@ -250,7 +250,7 @@ export function AgingHeatmap({
       <div
         /* Vertical padding trimmed below the horizontal: the gutter still needs
            to clear the card edge, but the stack inside is what was tall. */
-        className="wms-card aging-shell relative overflow-hidden rounded-xl bg-white px-4 py-3 shadow-xs hover:shadow-sm max-md:px-3 max-md:py-2.5"
+        className="wms-card aging-shell relative overflow-hidden bg-white border border-slate-200/80 rounded-2xl shadow-xs p-6 md:p-8 hover:shadow-sm"
       >
         {/* The red/green "heat wash" backdrop was removed — it was the other
             half of the peach tint. The heat colours still live where they carry
@@ -794,7 +794,7 @@ function Segment({
                       Tech / JMT Drive Solutions" — three rows that say nothing
                       about the work. */}
                   <span className="block line-clamp-2 break-words text-xs font-semibold leading-snug text-slate-900">
-                    {t.description?.trim() || "Untitled task"}
+                    {t.description?.trim() || "No description provided"}
                   </span>
                   <span className="mt-1 flex items-center gap-1.5">
                     <span

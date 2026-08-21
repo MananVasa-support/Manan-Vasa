@@ -280,3 +280,27 @@ export function usePagedRows<T>(rows: T[], pageSize: number) {
 
   return { page, setPage, pageCount, visible, total: rows.length, pageSize };
 }
+
+/**
+ * THE dashboard section card. One definition, because the six sections had
+ * grown six different shells — `rounded-xl px-4 py-3`, `rounded-section` with
+ * no padding at all, `rounded-2xl p-6` — and that divergence is what reads as
+ * erratic when they are stacked.
+ *
+ * NO `dark:` variants. This app has no dark theme: there is not one real
+ * `dark:` class anywhere in components/, and no dark variant is configured in
+ * globals.css. Tailwind's default `dark:` is `@media (prefers-color-scheme:
+ * dark)`, so `dark:bg-slate-900` here would paint these cards near-black for
+ * anyone whose OS is in dark mode while every heading, label and number inside
+ * them stayed dark — unreadable, not dark mode. Dark mode is worth doing, but
+ * as its own pass across the token layer, not one card at a time.
+ */
+export const DASHBOARD_CARD =
+  "bg-white border border-slate-200/80 rounded-2xl shadow-xs";
+
+/** The card with its standard internal padding. Tables that need to bleed to
+ *  the scroll edge use DASHBOARD_CARD and pad their own wrapper instead. */
+export const DASHBOARD_CARD_PADDED = `${DASHBOARD_CARD} p-6 md:p-8`;
+
+/** Gap between a section's title bar and its content grid. */
+export const SECTION_HEADER_GAP = "mb-6";
