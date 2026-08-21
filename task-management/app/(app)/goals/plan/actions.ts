@@ -11,7 +11,7 @@ import { todayYmd, ymdForOffset, clampDayOffset, countPlannedItems } from "@/lib
 import { MIN_ATTENDANCE_ITEMS } from "@/lib/daily-checklist/constants";
 import { goalsCanvasOn } from "@/lib/goals/flag";
 import { getPlanDayPayload, displayTitle } from "./payload";
-import { resolvePlanTarget } from "@/lib/goals/plan-target";
+import { resolvePlanTarget, plannerOpenToAll } from "@/lib/goals/plan-target";
 import { goalScopeFor, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
 import type { PlanDayPayload, PlanItem, PlanKind } from "@/components/goals/plan/types";
 
@@ -139,6 +139,9 @@ async function ownerIfPermitted(
     .limit(1);
   if (!row) return null;
   if (row.employeeId === me.id) return row.employeeId;
+  // Open to everyone, matching resolvePlanTarget — otherwise the picker would
+  // offer you a colleague whose rows every action then refused to touch.
+  if (plannerOpenToAll()) return row.employeeId;
   const scope = await goalScopeFor({ id: me.id, isAdmin: me.isAdmin });
   return canManageGoalFor(scope, row.employeeId) ? row.employeeId : null;
 }
