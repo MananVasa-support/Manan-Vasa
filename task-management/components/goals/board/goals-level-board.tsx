@@ -1440,6 +1440,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                   visibleCols={visibleCols}
                   colOrder={colOrder}
                   onColOrderChange={setColOrder}
+                  fullscreen={fullscreen}
                 />
               )}
 

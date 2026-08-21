@@ -147,6 +147,9 @@ export interface GoalTableViewProps {
    *  Columns picker's list, reorders live the same way. Omitted → headers
    *  aren't draggable (read-only order). */
   onColOrderChange?: (next: string[]) => void;
+  /** True while the board's Full screen mode is active — the Notes column's
+   *  empty-state dash left-aligns here (matching Team %) instead of centering. */
+  fullscreen?: boolean;
 }
 
 type ActionRes = { ok: true } | { ok: false; error: string };
@@ -2046,6 +2049,7 @@ export function GoalTableView(props: GoalTableViewProps) {
     codeOf,
     ownerNameOf,
     level,
+    fullscreen,
   } = props;
 
   const weekly = props.variant === "weekly";
@@ -2773,6 +2777,7 @@ export function GoalTableView(props: GoalTableViewProps) {
             <NotesCell
               goalId={g.id}
               hasNotes={(g.notes?.trim()?.length ?? 0) > 0}
+              leftAlign={fullscreen}
               expanded={expanded.has(g.id)}
               onToggle={() => toggleExpand(g.id)}
             />
