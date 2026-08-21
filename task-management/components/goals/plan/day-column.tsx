@@ -180,8 +180,8 @@ export function DayColumn({
           // EVERY column wears the red edge, not just today (Sir) — the day it
           // is still reads from the heading, which stays accented for today.
           borderColor: isOver
-            ? `color-mix(in srgb, ${GOALS_ACCENT} 45%, transparent)`
-            : `color-mix(in srgb, ${GOALS_ACCENT} 26%, transparent)`,
+            ? GOALS_ACCENT
+            : `color-mix(in srgb, ${GOALS_ACCENT_DEEP} 55%, transparent)`,
           // White, not the soft grey — the column reads by its border now that
           // the page behind it is white too.
           background: isOver ? `color-mix(in srgb, ${GOALS_ACCENT} 5%, transparent)` : "#ffffff",

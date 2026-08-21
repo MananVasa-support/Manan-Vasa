@@ -271,7 +271,13 @@ export function PlanItemCard({
             row height, which left a blank strip under every card. */}
         <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-150 focus-within:grid-rows-[1fr] group-hover:grid-rows-[1fr] max-md:grid-rows-[1fr]">
           <div className="overflow-hidden">
-        <div className="mt-1.5 flex flex-nowrap items-center gap-0.5 @min-[260px]:gap-1">
+        {/* ONE LINE AT EVERY WIDTH (Sir). Not by wrapping, which cost a line,
+            and not by truncating, which cost the word — the chips SCALE to the
+            card instead. Five of them need ~270px at full size and a column in
+            the 7-day view is 210px, so below that the type and padding step
+            down through the container queries on ActionButton until they fit.
+            Same five words throughout; only their size changes. */}
+        <div className="mt-1.5 flex flex-nowrap items-center gap-[2px] @min-[230px]:gap-1">
             <ActionButton
               label={item.done ? "Undo" : "Done"}
               tone={item.done ? "muted" : "green"}
@@ -282,21 +288,23 @@ export function PlanItemCard({
             {!item.done ? (
               <>
                 <ActionButton
-                  label={dayOffset === 0 ? "Tomm" : "+1 day"}
-                  name="Tomorrow"
-                  short="+1"
+                  // "Tomm" and "Day After" at EVERY width and on every day
+                  // column (Sir) — the +1 / +2 forms were a third vocabulary
+                  // for the same two buttons, and a control that renames itself
+                  // depending on which column it is in cannot be learned.
+                  label="Tomm"
+                  name={dayOffset === 0 ? "Tomorrow" : "The next day"}
                   tone="orange"
                   onClick={() => onTransfer(item.id, dayOffset + 1)}
                 />
                 <ActionButton
-                  label={dayOffset === 0 ? "Day After" : "+2 days"}
-                  short="+2"
+                  label="Day After"
+                  name={dayOffset === 0 ? "Day After" : "Two days on"}
                   tone="blue"
                   onClick={() => onTransfer(item.id, dayOffset + 2)}
                 />
                 <ActionButton
                   label="Pending"
-                  short="Hold"
                   tone="red"
                   busy={busy}
                   onClick={() => onPending(item)}
@@ -371,7 +379,6 @@ const TONE_STYLE: Record<string, React.CSSProperties> = {
 function ActionButton({
   label,
   name,
-  short,
   tone,
   onClick,
   icon,
@@ -381,14 +388,6 @@ function ActionButton({
   label: string;
   /** The action's real name, when the visible label abbreviates it. */
   name?: string;
-  /**
-   * The same action in fewer characters, shown only when the card is too narrow
-   * for the full word. Five chips need ~270px and a column in the 7-day view is
-   * 210px, so at that width something has to give — a shorter word gives the
-   * least. The full label stays the accessible name and the hover title, so the
-   * meaning is never actually lost, only the letters.
-   */
-  short?: string;
   tone: "green" | "orange" | "blue" | "red" | "yellow" | "muted";
   onClick: () => void;
   icon?: React.ReactNode;
@@ -404,20 +403,16 @@ function ActionButton({
       disabled={busy}
       aria-label={name ?? label}
       className={
-        "inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border text-[10px] font-bold leading-[15px] transition-[filter] hover:brightness-95 disabled:opacity-50 focus-visible:outline-2 " +
-        (iconOnly ? "size-[23px]" : "px-1 py-[3px] @min-[260px]:px-1.5")
+        "inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border font-bold transition-[filter] hover:brightness-95 disabled:opacity-50 focus-visible:outline-2 " +
+        "text-[8.5px] leading-[13px] @min-[200px]:text-[9.5px] @min-[230px]:text-[10px] @min-[230px]:leading-[15px] @min-[300px]:text-[10.5px] " +
+        (iconOnly
+          ? "size-[19px] @min-[230px]:size-[23px]"
+          : "px-[3px] py-[3px] @min-[200px]:px-1 @min-[230px]:px-1.5")
       }
       style={{ ...style, outlineColor: GOALS_ACCENT }}
     >
       {icon}
-      {iconOnly ? null : (
-        <>
-          {/* One of the two is always display:none, so the row can never be
-              wider than the words actually on screen. */}
-          <span className={short ? "@min-[260px]:hidden" : undefined}>{short ?? label}</span>
-          {short ? <span className="hidden @min-[260px]:inline">{label}</span> : null}
-        </>
-      )}
+      {iconOnly ? null : label}
     </button>
   );
   return iconOnly ? (

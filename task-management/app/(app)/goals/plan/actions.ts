@@ -10,7 +10,7 @@ import { applyTaskStatusChange } from "@/lib/tasks/set-status";
 import { todayYmd, ymdForOffset, clampDayOffset, countPlannedItems } from "@/lib/queries/daily-checklist";
 import { MIN_ATTENDANCE_ITEMS } from "@/lib/daily-checklist/constants";
 import { goalsCanvasOn } from "@/lib/goals/flag";
-import { getPlanDayPayload } from "./payload";
+import { getPlanDayPayload, displayTitle } from "./payload";
 import { resolvePlanTarget } from "@/lib/goals/plan-target";
 import { goalScopeFor, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
 import type { PlanDayPayload, PlanItem, PlanKind } from "@/components/goals/plan/types";
@@ -333,6 +333,7 @@ export async function addTaskToPlan(
       id: tasks.id,
       doerId: tasks.doerId,
       title: tasks.title,
+      description: tasks.description,
       client: tasks.client,
       subject: tasks.subject,
     })
@@ -372,7 +373,11 @@ export async function addTaskToPlan(
         planDate: ymd,
         taskId: task.id,
         origin: "standalone",
-        title: task.title,
+        // The SAME rule the pull rail labels the card with (Sir's bug: this
+        // stored `tasks.title` raw, and many WMS tasks keep the client there —
+        // so the rail read "In bulk upload excel of Tasks…" and the card you
+        // got out of it read "Altus Corp"). One rule, both paths.
+        title: displayTitle(task.title, task.description, task.client),
         client: task.client,
         subject: task.subject,
         position: nextPosition,
