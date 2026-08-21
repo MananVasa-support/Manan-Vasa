@@ -202,16 +202,18 @@ function DueChip({ dueAt }: { dueAt: Date | null }) {
   const days = differenceInCalendarDays(d, new Date());
   const overdue = days < 0;
   const today = days === 0;
+  // A PILL, not bare coloured text. Beside a two-line description a loose
+  // coloured word reads as part of the sentence; a filled chip reads as status.
+  // `shrink-0` so a long description can never squeeze "20d overdue" onto two
+  // lines or crop it.
+  const tone = overdue
+    ? "text-red-600 bg-red-50"
+    : today
+      ? "text-amber-700 bg-amber-50"
+      : "text-slate-500 bg-slate-50";
   return (
     <span
-      className="shrink-0 whitespace-nowrap text-[10px] font-bold tabular-nums"
-      style={{
-        color: overdue
-          ? "var(--color-red-deep)"
-          : today
-            ? "var(--color-orange-deep)"
-            : "var(--color-ink-subtle)",
-      }}
+      className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${tone}`}
     >
       {overdue
         ? `${Math.abs(days)}d overdue`

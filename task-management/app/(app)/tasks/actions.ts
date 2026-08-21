@@ -1,5 +1,6 @@
 "use server";
 
+import { getDownlineIds } from "@/lib/weekly-goals/hierarchy";
 import { z } from "zod";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
@@ -1449,8 +1450,18 @@ export async function decideTaskApproval(
     doerId: current.doerId,
     assignerId,
   };
+  // Downline, not just direct reports (Sir, 2026-08-21). Only computed when the
+  // cheap direct check already failed, so the common case still costs nothing;
+  // and only for a real doer, so a task with no doer cannot walk the tree.
+  const isDirectManager = !!doerRow?.managerId && doerRow.managerId === me.id;
+  const isDoersUpline =
+    isDirectManager || !current.doerId
+      ? false
+      : (await getDownlineIds(me.id)).includes(current.doerId);
+
   const ctx = {
-    isDoersManager: !!doerRow?.managerId && doerRow.managerId === me.id,
+    isDoersManager: isDirectManager,
+    isDoersUpline,
     assignerIsAdmin: !!assignerRow?.isAdmin,
     assignerIsManager,
   };

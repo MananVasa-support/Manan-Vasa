@@ -35,7 +35,7 @@ export interface NotesFilesCellProps {
 export function NotesCell({ goalId, hasNotes, expanded, onToggle }: NotesFilesCellProps) {
   if (!hasNotes) {
     return (
-      <span className="block w-full text-center text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
+      <span className="block w-full text-left text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
         —
       </span>
     );

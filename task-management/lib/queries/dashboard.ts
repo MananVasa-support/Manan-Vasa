@@ -429,6 +429,36 @@ async function loadDashboardDataUncached(
 
   const initiator = { d3: board(threeAgo, 3), d7: board(sevenAgo, 7) };
 
+  const statusTable = computeEmployeeStatusTable(
+    periodTasks,
+    allEmployees,
+    filters.view,
+    departmentMap,
+  );
+
+  // SAME BACK-FILL AS THE HEATMAP CELLS ABOVE, for the same reason.
+  //
+  // The status table's hover previews are built from `periodTasks`, which the
+  // main scan strips `description` from — so every preview row resolved to its
+  // placeholder. The heatmap path was fixed; this one has the identical defect
+  // and was missed. Both now read real text.
+  const previewIds = statusTable.flatMap((row) =>
+    Object.values(row.previews ?? {}).flatMap((list) => (list ?? []).map((t) => t.id)),
+  );
+  if (previewIds.length > 0) {
+    const rows = await db
+      .select({ id: tasks.id, description: tasks.description })
+      .from(tasks)
+      .where(inArray(tasks.id, previewIds))
+      .catch(() => [] as { id: string; description: string | null }[]);
+    const byId = new Map(rows.map((r) => [r.id, r.description] as const));
+    for (const row of statusTable) {
+      for (const list of Object.values(row.previews ?? {})) {
+        for (const t of list ?? []) t.description = byId.get(t.id) ?? null;
+      }
+    }
+  }
+
   // DELIVERY SPREAD — moved onto this dashboard from the Task Analytics report.
   //
   // Computed over EVERY non-archived done task, deliberately NOT over
@@ -469,12 +499,7 @@ async function loadDashboardDataUncached(
       topPerformerCount: globalRanking[0]?.doneCount ?? 0,
     }),
     doneSpread,
-    statusTable: computeEmployeeStatusTable(
-      periodTasks,
-      allEmployees,
-      filters.view,
-      departmentMap,
-    ),
+    statusTable,
     topPerformers,
     agingTable: computeEmployeeAgingTable(periodTasks, allEmployees, now),
     agingHeatmap: [],

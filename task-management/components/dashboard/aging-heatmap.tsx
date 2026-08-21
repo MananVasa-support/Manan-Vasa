@@ -3,7 +3,16 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { PRIORITY_LABELS } from "@/db/enums";
-import { AlertTriangle, Flame, ArrowDownUp, ChevronRight } from "lucide-react";
+import {
+  AlertTriangle,
+  Flame,
+  ArrowDownUp,
+  ChevronRight,
+  ArrowLeftRight,
+  ArrowUp,
+  ArrowDown,
+  ChevronsUpDown,
+} from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 import { AGE_BUCKETS, type AgeBucketId } from "@/db/enums";
@@ -42,15 +51,37 @@ import { AgingTaskDrawer } from "@/components/dashboard/aging-task-drawer";
  * against the white cards, and a gradient made two adjacent tiers blur into
  * each other at the seam.
  */
+/**
+ * THE AGE RAMP. One map, read by the legend pills, the stacked bar segments and
+ * the hover popover, so a bucket is the same colour in all three.
+ *
+ * 0-3 AND 4-7 WERE BYTE-IDENTICAL — same fill, same deep, both commented
+ * "fresh". The two youngest buckets were indistinguishable everywhere the ramp
+ * appears, which is the whole point of a ramp.
+ *
+ * 4-7 is TEAL, not the lime or cyan also on the table. Cyan-500 sits right next
+ * to 8-14's sky-500 and would have recreated the same collision one step over;
+ * lime breaks the hue progression by going green → yellow-green → blue. Teal
+ * keeps the ramp monotonic — green → teal → sky → amber → orange → red — and is
+ * clearly distinct from both neighbours.
+ *
+ * INK follows the tier rather than a blanket white: sky, amber and orange are
+ * all too light to carry it. 21-30 flips to dark ink here — white on orange-500
+ * measures 2.8:1, under even the 3:1 large-text floor, and these labels are
+ * 11px. That is the same rule the other light tiers already followed.
+ *
+ * 46-60 and 60+ keep escalating past red-500; "31d+" in the spec is where red
+ * BEGINS, not where the ramp stops.
+ */
 const BUCKET_COLOR: Record<AgeBucketId, { fill: string; ink: string; deep: string }> = {
-  "0-3":   { fill: "#059669", ink: "#ffffff", deep: "#047857" }, // emerald-600 — fresh
-  "4-7":   { fill: "#059669", ink: "#ffffff", deep: "#047857" }, // emerald-600 — fresh
-  "8-14":  { fill: "#38bdf8", ink: "#111827", deep: "#0284c7" }, // sky-400    — low
-  "15-20": { fill: "#fbbf24", ink: "#111827", deep: "#b45309" }, // amber-400  — moderate
-  "21-30": { fill: "#f97316", ink: "#ffffff", deep: "#c2410c" }, // orange-500 — elevated
-  "31-45": { fill: "#dc2626", ink: "#ffffff", deep: "#991b1b" }, // red-600    — high
-  "46-60": { fill: "#991b1b", ink: "#ffffff", deep: "#7f1d1d" }, // red-800    — critical
-  "60+":   { fill: "#6b21a8", ink: "#ffffff", deep: "#581c87" }, // purple-700 — extreme
+  "0-3":   { fill: "#10b981", ink: "#ffffff", deep: "#059669" }, // emerald-500 — fresh
+  "4-7":   { fill: "#0d9488", ink: "#ffffff", deep: "#0f766e" }, // teal-600    — early warning
+  "8-14":  { fill: "#0ea5e9", ink: "#111827", deep: "#0284c7" }, // sky-500     — moderate
+  "15-20": { fill: "#f59e0b", ink: "#111827", deep: "#b45309" }, // amber-500   — late
+  "21-30": { fill: "#f97316", ink: "#111827", deep: "#c2410c" }, // orange-500  — critical
+  "31-45": { fill: "#ef4444", ink: "#ffffff", deep: "#b91c1c" }, // red-500     — severe
+  "46-60": { fill: "#991b1b", ink: "#ffffff", deep: "#7f1d1d" }, // red-800     — very severe
+  "60+":   { fill: "#6b21a8", ink: "#ffffff", deep: "#581c87" }, // purple-700  — extreme
 };
 
 const BUCKET_WEIGHT: Record<AgeBucketId, number> = {
@@ -80,6 +111,155 @@ function riskScore(row: AgingRow): number {
 
 type SortMode = "risk" | "total" | "oldest";
 
+
+/**
+ * TRANSPOSED VIEW — age buckets down the side, people across the top.
+ *
+ * The standard view is a LANE list (a stacked bar per person), not a grid, so
+ * this is a real table rather than a re-orientation of the same markup. Risk
+ * Score and Total Pending ride along as two extra rows, because in this
+ * orientation they are per-person figures like every bucket count above them.
+ *
+ * Sorting means what it should here: clicking a person's header ranks the
+ * BUCKET rows by that person's counts, so you can see where one individual's
+ * backlog actually sits. A third click clears back to oldest-first order.
+ */
+function TransposedAging({
+  rows,
+  onDrill,
+  sortBy,
+  onSort,
+}: {
+  rows: (AgingRow & { risk: number })[];
+  onDrill: (employeeId: string | null, bucketId: AgeBucketId | null) => void;
+  sortBy: { employeeId: string; desc: boolean } | null;
+  onSort: (employeeId: string) => void;
+}) {
+  const bucketRows = React.useMemo(() => {
+    const base = DISPLAY_BUCKETS.map((b) => ({
+      bucket: b,
+      counts: rows.map((r) => r.buckets[b.id] ?? 0),
+    }));
+    if (!sortBy) return base;
+    const idx = rows.findIndex((r) => r.employeeId === sortBy.employeeId);
+    if (idx < 0) return base;
+    const at = (c: number[]) => c[idx] ?? 0;
+    return [...base].sort((a, b) =>
+      sortBy.desc ? at(b.counts) - at(a.counts) : at(a.counts) - at(b.counts),
+    );
+  }, [rows, sortBy]);
+
+  const head =
+    "px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-900";
+
+  return (
+    <div className="overflow-x-auto">
+      <table
+        className="w-full border-collapse"
+        style={{ minWidth: Math.max(560, 180 + rows.length * 116) }}
+      >
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th className={`${head} sticky left-0 z-10 bg-white text-left`}>Age bucket</th>
+            {rows.map((r) => {
+              const active = sortBy?.employeeId === r.employeeId;
+              return (
+                <th
+                  key={r.employeeId}
+                  aria-sort={active ? (sortBy!.desc ? "descending" : "ascending") : "none"}
+                  className={`${head} text-right`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSort(r.employeeId)}
+                    title={`Sort buckets by ${r.employeeName}`}
+                    className={`group/sort inline-flex cursor-pointer items-center gap-1.5 select-none transition-colors hover:text-gray-900 ${
+                      active ? "text-gray-900" : "text-gray-500"
+                    }`}
+                  >
+                    <span className="max-w-[104px] truncate">{r.employeeName}</span>
+                    {active ? (
+                      sortBy!.desc ? (
+                        <ArrowDown size={12} strokeWidth={2.6} />
+                      ) : (
+                        <ArrowUp size={12} strokeWidth={2.6} />
+                      )
+                    ) : (
+                      <ChevronsUpDown
+                        size={12}
+                        strokeWidth={2.4}
+                        className="opacity-45 transition-opacity group-hover/sort:opacity-100"
+                      />
+                    )}
+                  </button>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {bucketRows.map(({ bucket, counts }) => {
+            const c = BUCKET_COLOR[bucket.id];
+            return (
+              <tr key={bucket.id} className="border-b border-gray-100">
+                <td className="sticky left-0 z-10 bg-white px-3 py-2">
+                  <span
+                    className="inline-flex rounded-pill px-2 py-0.5 text-[11px] font-bold"
+                    style={{ background: c.fill, color: c.ink }}
+                  >
+                    {bucket.label}
+                  </span>
+                </td>
+                {rows.map((r, i) => {
+                  const n = counts[i] ?? 0;
+                  return (
+                    <td key={r.employeeId} className="px-3 py-2 text-right">
+                      {n === 0 ? (
+                        <span className="text-[13px] text-gray-300">0</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onDrill(r.employeeId, bucket.id)}
+                          title={`Open ${r.employeeName}'s ${bucket.label} tasks`}
+                          className="cursor-pointer rounded-md px-1.5 py-0.5 text-[13px] font-bold tabular-nums text-gray-900 transition-colors hover:bg-gray-100"
+                        >
+                          {n}
+                        </button>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+          {/* Risk and Total are per-person figures, so in this orientation they
+              are rows like the buckets above — not a separate summary block. */}
+          <tr className="border-t-2 border-gray-200">
+            <td className="sticky left-0 z-10 bg-white px-3 py-2 text-[12px] font-black text-gray-900">
+              Risk Score
+            </td>
+            {rows.map((r) => (
+              <td key={r.employeeId} className="px-3 py-2 text-right text-[13px] font-bold tabular-nums text-gray-900">
+                {r.risk}
+              </td>
+            ))}
+          </tr>
+          <tr>
+            <td className="sticky left-0 z-10 bg-white px-3 py-2 text-[12px] font-black text-gray-900">
+              Total Pending
+            </td>
+            {rows.map((r) => (
+              <td key={r.employeeId} className="px-3 py-2 text-right text-[13px] font-black tabular-nums text-gray-900">
+                {r.total}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function AgingHeatmap({
   rows,
   cellTasks,
@@ -94,6 +274,22 @@ export function AgingHeatmap({
 }) {
   const [open, setOpen] = React.useState(true);
   const [sortMode, setSortMode] = React.useState<SortMode>("risk");
+  // Orientation, plus the transposed view's own sort. Both live here so
+  // flipping back and forth never discards the other view's ordering — the
+  // lane list keeps its risk/total/oldest mode, the grid keeps its column.
+  const [isTransposed, setIsTransposed] = React.useState(false);
+  const [transposedSort, setTransposedSort] = React.useState<
+    { employeeId: string; desc: boolean } | null
+  >(null);
+  const toggleTransposedSort = React.useCallback((employeeId: string) => {
+    setTransposedSort((cur) =>
+      cur?.employeeId === employeeId
+        ? cur.desc
+          ? null // third click clears, back to oldest-first
+          : { employeeId, desc: true }
+        : { employeeId, desc: false },
+    );
+  }, []);
   // "Critical Only" — keep just the people carrying 31d+ work. Reuses
   // CRITICAL_BUCKETS, the same definition the risk score and the red banner
   // already use, so "critical" means one thing across the widget.
@@ -235,7 +431,22 @@ export function AgingHeatmap({
         actions={
           <>
             <CriticalToggle value={criticalOnly} onChange={setCriticalOnly} />
-            <SortControl value={sortMode} onChange={setSortMode} />
+            {!isTransposed && <SortControl value={sortMode} onChange={setSortMode} />}
+            {/* Transpose sits with the collapse control: both change the
+                section's SHAPE rather than what it contains. The lane sort is
+                hidden while transposed — it orders LANES, and there are none. */}
+            <button
+              type="button"
+              onClick={() => setIsTransposed((v) => !v)}
+              aria-pressed={isTransposed}
+              title={isTransposed ? "Back to lanes" : "Transpose: buckets as rows"}
+              className={`inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-[12.5px] font-bold transition-colors ${
+                isTransposed ? "text-altus-red" : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              <ArrowLeftRight className="size-3.5" strokeWidth={2.6} />
+              Transpose
+            </button>
             <CollapseToggle
               expanded={open}
               onToggle={() => setOpen((v) => !v)}
@@ -274,18 +485,29 @@ export function AgingHeatmap({
                by a hairline rule instead, which is what lets twice as many
                people fit on screen at once. */
             <div className="mt-3">
-              <LaneHeader />
-              {top12.map((r, i) => (
-                <Lane
-                  key={r.employeeId}
-                  row={r}
-                  maxTotal={maxTotal}
-                  index={i}
-                  employeeTasks={cellTasks[r.employeeId] ?? {}}
+              {isTransposed ? (
+                <TransposedAging
+                  rows={top12}
                   onDrill={openDrill}
-                  avatarUrl={avatarById[r.employeeId] ?? null}
+                  sortBy={transposedSort}
+                  onSort={toggleTransposedSort}
                 />
-              ))}
+              ) : (
+                <>
+                  <LaneHeader />
+                  {top12.map((r, i) => (
+                    <Lane
+                      key={r.employeeId}
+                      row={r}
+                      maxTotal={maxTotal}
+                      index={i}
+                      employeeTasks={cellTasks[r.employeeId] ?? {}}
+                      onDrill={openDrill}
+                      avatarUrl={avatarById[r.employeeId] ?? null}
+                    />
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
