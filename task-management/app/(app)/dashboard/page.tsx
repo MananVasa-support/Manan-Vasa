@@ -6,7 +6,6 @@ import { FilterBar } from "@/components/layout/filter-bar";
 import { KpiStrip } from "@/components/dashboard/kpi-strip";
 import { ManagerActivityTable } from "@/components/dashboard/exec/manager-activity-table";
 import { StatusTable } from "@/components/dashboard/status-table";
-import { StatusDistributionChart } from "@/components/dashboard/status-distribution";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
 import {
   ExecDashboard,
@@ -286,12 +285,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   <DashboardTabs
                     overview={
                       <div className="flex flex-col gap-6">
-                        <StatusDistributionChart
-                          data={data.statusDistribution}
-                          labels={statusLabels}
-                          tones={statusTones}
-                          isAdmin={Boolean(me?.isAdmin)}
-                        />
                         <StatusTable
                           rows={data.statusTable}
                           view={filters.view}

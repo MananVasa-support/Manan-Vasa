@@ -21,6 +21,7 @@ import {
   ChevronsUpDown,
   ArrowUp,
   ArrowDown,
+  ArrowLeftRight,
 } from "lucide-react";
 import type { EmployeeStatusRow, StatusCellBucket, ViewMode } from "@/lib/types";
 import { StatusCellPopover } from "./status-cell-popover";
@@ -51,6 +52,13 @@ function Pill({ value, tone }: { value: number; tone: Tone }) {
   );
 }
 
+/** A count with no tone. `Pill` resolves --color-<tone>-deep, and the slate
+ *  family has no such token, so the neutral statuses render as plain figures. */
+function PlainCount({ value }: { value: number }) {
+  if (value === 0) return <span className="text-ink-subtle text-mono">0</span>;
+  return <span className="text-[15px] font-bold tabular-nums text-ink-soft">{value}</span>;
+}
+
 /** Wraps a count cell in its hover preview. Every count column goes through
  *  this, so the header, the mini-list and the "View all" link are defined once
  *  instead of six times. */
@@ -74,6 +82,40 @@ function withPreview(
     </StatusCellPopover>
   );
 }
+
+/** One numeric status column. Declared as DATA, not JSX, because the table
+ *  renders it in two orientations — statuses across the top, or statuses down
+ *  the side when transposed — and a second copy of the schema is how the two
+ *  views drift apart.
+ *
+ *  ON HOLD is included even though it was not in the requested ten: these
+ *  eleven columns PARTITION Total, and dropping it would leave paused work
+ *  counted in Total and shown in no column — the "columns sum short of the
+ *  total" bug the transform's exhaustiveness guard exists to prevent. Critical
+ *  and Pending are gone for the mirror-image reason: a priority and a
+ *  seven-status rollup both cut ACROSS the lifecycle, so neither can sit in a
+ *  per-status schema without double-counting. */
+type StatusCol = {
+  key: keyof EmployeeStatusRow;
+  label: string;
+  tone?: Tone;
+  /** Only set where a preview bucket counts EXACTLY this column. */
+  preview?: StatusCellBucket;
+};
+
+const STATUS_COLUMNS: StatusCol[] = [
+  { key: "approved", label: "Approved", tone: "green" },
+  { key: "notApproved", label: "Not Approved", tone: "red", preview: "notApproved" },
+  { key: "done", label: "Done", tone: "green", preview: "done" },
+  { key: "followUp", label: "Follow Up", tone: "amber" },
+  { key: "needHelp", label: "Need Info", tone: "amber" },
+  { key: "initiated", label: "Initiated", tone: "amber" },
+  { key: "notStarted", label: "Not Started" },
+  { key: "dontKnow", label: "Not Read" },
+  { key: "onHold", label: "On Hold", tone: "amber" },
+  { key: "transferred", label: "Transferred" },
+  { key: "cancelled", label: "Cancelled", tone: "rose", preview: "cancelled" },
+];
 
 function buildColumns(
   avatarById: Record<string, string | null>,
@@ -108,99 +150,20 @@ function buildColumns(
         </span>
       ),
     },
-    // NO Department column. A person can belong to several departments, so
-    // this cell rendered a wrapping stack of chips that set the row height for
-    // the whole table and pushed the count columns into a horizontal squeeze.
-    // Department is now a FILTER in the header, which is what it was actually
-    // being used as — nobody reads a department column, they narrow by it.
-    {
-      accessorKey: "criticalCount",
-      header: "Critical",
-      // Sortable by volume. `sortDescFirst` because the first question anyone
-      // asks of this column is "who has the most critical work" — the first
-      // click should answer it (16 → 0), not bury it on the last page.
-      enableSorting: true,
-      sortingFn: "basic",
-      sortDescFirst: true,
+    ...STATUS_COLUMNS.map<ColumnDef<EmployeeStatusRow>>((c) => ({
+      accessorKey: c.key,
+      header: c.label,
       cell: (info) => {
         const n = info.getValue<number>();
-        return n > 0 ? (
-          withPreview(
-            info.row.original,
-            "criticalCount",
-            n,
-            view,
-            <span className="inline-flex items-center gap-1.5">
-              <CriticalBadge />
-              <span className="text-display-3xs tabular-nums">{n}</span>
-            </span>,
-          )
-        ) : (
-          <span className="text-ink-subtle text-mono">0</span>
-        );
+        const node = c.tone ? <Pill value={n} tone={c.tone} /> : <PlainCount value={n} />;
+        // A preview is attached ONLY where a bucket counts exactly this column.
+        // `pendingTotal` holds every pending task, so hanging it off Follow Up
+        // or Initiated would show a superset of the number being pointed at.
+        return c.preview && n > 0 ? withPreview(info.row.original, c.preview, n, view, node) : node;
       },
-    },
-    // Done COUNTS APPROVED TOO. `approved` was tallied by the transform and
-    // then never rendered, so those tasks were invisible in every column while
-    // still counting toward Total — one of the two reasons the row did not add
-    // up. Folding them here matches the Task Summary's DONE card, which already
-    // links to `?status=done,approved`.
-    {
-      id: "done",
-      accessorFn: (r) => r.done + r.approved,
-      header: "Done",
-      cell: (info) =>
-        withPreview(info.row.original, "done", info.getValue<number>(), view,
-          <Pill value={info.getValue<number>()} tone="green" />),
-    },
-    {
-      accessorKey: "pendingTotal",
-      header: "Pending",
-      cell: (info) =>
-        withPreview(info.row.original, "pendingTotal", info.getValue<number>(), view,
-          <Pill value={info.getValue<number>()} tone="amber" />),
-    },
-    {
-      accessorKey: "notApproved",
-      header: "Not Approved",
-      cell: (info) =>
-        withPreview(info.row.original, "notApproved", info.getValue<number>(), view,
-          <Pill value={info.getValue<number>()} tone="red" />),
-    },
-    {
-      accessorKey: "cancelled",
-      header: "Cancelled",
-      cell: (info) =>
-        withPreview(info.row.original, "cancelled", info.getValue<number>(), view,
-          <Pill value={info.getValue<number>()} tone="rose" />),
-    },
-    // Transferred was the other invisible bucket. Small, but without it the
-    // columns cannot partition Total for anyone who has handed work on.
-    {
-      accessorKey: "transferred",
-      header: "Transferred",
-      // Plain count, no hover preview and no Pill: the transform never calls
-      // addTo() for transferred, so there are no preview tasks to show, and
-      // Pill's tones resolve to --color-<tone> tokens that have no slate
-      // member. A fake-empty popover would be worse than none.
-      cell: (info) => {
-        const n = info.getValue<number>();
-        return n === 0 ? (
-          <span className="text-ink-subtle text-mono">0</span>
-        ) : (
-          <span className="text-[15px] font-bold tabular-nums text-ink-soft">{n}</span>
-        );
-      },
-    },
-    // TOTAL = every task in the filter for this person. It now equals
-    //   Done(+Approved) + Pending + Not Approved + Cancelled + Transferred
-    // because those five buckets are a partition of the lifecycle: the
-    // transform's exhaustiveness guard makes the compiler prove every status
-    // lands in exactly one of them.
-    //
-    // CRITICAL IS NOT IN THAT SUM and must not be added to it. It counts
-    // `priority = imp_urgent`, which cuts ACROSS the lifecycle — an urgent task
-    // is also Done or Pending — so adding it would double-count the same rows.
+    })),
+    // TOTAL = every task in the filter for this person, and the eleven status
+    // columns above partition it exactly.
     {
       accessorKey: "total",
       header: "Total",
@@ -211,6 +174,138 @@ function buildColumns(
           </span>),
     },
   ];
+}
+
+/**
+ * The transposed view: statuses become rows, people become columns.
+ *
+ * It is a hand-rolled table rather than a second TanStack instance because
+ * TanStack's model is column-oriented — transposing it would mean generating a
+ * column def per EMPLOYEE on every filter change and re-deriving the row model
+ * from a matrix, which is more machinery than the twelve-by-N grid needs.
+ *
+ * Sorting still works, and means what it should in this orientation: clicking a
+ * person's header ranks the STATUSES by that person's counts. Clicking Status
+ * sorts the rows back into lifecycle order.
+ */
+function TransposedTable({
+  rows,
+  view,
+  avatarById,
+  sortBy,
+  onSort,
+}: {
+  rows: EmployeeStatusRow[];
+  view: ViewMode;
+  avatarById: Record<string, string | null>;
+  /** Employee id whose column is ranking the status rows, or null for schema order. */
+  sortBy: { employeeId: string; desc: boolean } | null;
+  onSort: (employeeId: string) => void;
+}) {
+  const statusRows = React.useMemo(() => {
+    const base = STATUS_COLUMNS.map((c) => ({
+      col: c,
+      counts: rows.map((r) => Number(r[c.key] ?? 0)),
+      total: rows.reduce((sum, r) => sum + Number(r[c.key] ?? 0), 0),
+    }));
+    if (!sortBy) return base;
+    const idx = rows.findIndex((r) => r.employeeId === sortBy.employeeId);
+    if (idx < 0) return base;
+    const at = (c: number[]) => c[idx] ?? 0;
+    return [...base].sort((a, b) =>
+      sortBy.desc ? at(b.counts) - at(a.counts) : at(a.counts) - at(b.counts),
+    );
+  }, [rows, sortBy]);
+
+  const grand = rows.reduce((sum, r) => sum + r.total, 0);
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full" style={{ minWidth: Math.max(640, 200 + rows.length * 120) }}>
+        <thead>
+          <tr className="border-b border-hairline">
+            <th
+              className="sticky left-0 z-10 bg-surface-card px-5 py-4 text-left text-table-head whitespace-nowrap"
+              style={{ boxShadow: "inset 0 -1px 0 var(--color-hairline)" }}
+            >
+              Status
+            </th>
+            {rows.map((r) => {
+              const active = sortBy?.employeeId === r.employeeId;
+              return (
+                <th
+                  key={r.employeeId}
+                  aria-sort={active ? (sortBy!.desc ? "descending" : "ascending") : "none"}
+                  className="bg-surface-card px-3 py-4 text-right text-table-head whitespace-nowrap"
+                  style={{ boxShadow: "inset 0 -1px 0 var(--color-hairline)" }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSort(r.employeeId)}
+                    title={`Sort statuses by ${r.employeeName}`}
+                    className={`group/sort inline-flex cursor-pointer items-center gap-1.5 select-none transition-colors hover:text-ink-strong ${
+                      active ? "text-ink-strong" : ""
+                    }`}
+                  >
+                    <span className="max-w-[110px] truncate">{r.employeeName}</span>
+                    {active ? (
+                      sortBy!.desc ? (
+                        <ArrowDown size={13} strokeWidth={2.6} />
+                      ) : (
+                        <ArrowUp size={13} strokeWidth={2.6} />
+                      )
+                    ) : (
+                      <ChevronsUpDown
+                        size={13}
+                        strokeWidth={2.4}
+                        className="text-ink-subtle opacity-45 transition-opacity group-hover/sort:opacity-100"
+                      />
+                    )}
+                  </button>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {statusRows.map(({ col, counts }) => (
+            <tr key={String(col.key)} className="border-b border-hairline last:border-b-0">
+              <td className="sticky left-0 z-10 bg-surface-card px-5 py-3 text-left text-body-lg font-bold text-ink-strong whitespace-nowrap">
+                {col.label}
+              </td>
+              {rows.map((r, i) => {
+                const n = counts[i] ?? 0;
+                const node = col.tone ? <Pill value={n} tone={col.tone} /> : <PlainCount value={n} />;
+                return (
+                  <td key={r.employeeId} className="px-3 py-3 text-right whitespace-nowrap">
+                    {/* Previews survive the transpose — same bucket, same row,
+                        just read from the other axis. */}
+                    {col.preview && n > 0
+                      ? withPreview(r, col.preview, n, view, node)
+                      : node}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+          <tr className="border-t-2 border-hairline-strong">
+            <td className="sticky left-0 z-10 bg-surface-card px-5 py-3 text-left text-body-lg font-black text-ink-strong">
+              Total
+            </td>
+            {rows.map((r) => (
+              <td key={r.employeeId} className="px-3 py-3 text-right">
+                {withPreview(r, "total", r.total, view,
+                  <span className="text-display-3xs text-ink-strong">{r.total}</span>)}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+      <p className="px-5 py-2 text-[11.5px] font-semibold text-ink-subtle">
+        {rows.length} {rows.length === 1 ? "person" : "people"} · {grand} tasks
+      </p>
+    </div>
+  );
 }
 
 export function StatusTable({
@@ -224,6 +319,22 @@ export function StatusTable({
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(true);
+  // Orientation. Kept OUTSIDE the TanStack instance and outside the transposed
+  // table's own sort, so flipping back and forth never discards the other
+  // view's sort — and popovers are per-cell, so they are unaffected either way.
+  const [isTransposed, setIsTransposed] = React.useState(false);
+  const [transposedSort, setTransposedSort] = React.useState<
+    { employeeId: string; desc: boolean } | null
+  >(null);
+  const toggleTransposedSort = React.useCallback((employeeId: string) => {
+    setTransposedSort((cur) =>
+      cur?.employeeId === employeeId
+        ? cur.desc
+          ? null // third click clears, back to lifecycle order
+          : { employeeId, desc: true }
+        : { employeeId, desc: false },
+    );
+  }, []);
   const [query, setQuery] = React.useState("");
   const [selectedDepts, setSelectedDepts] = React.useState<string[]>([]);
   // Paged 10 people at a time, with the shared top-right pager (was a
@@ -317,7 +428,10 @@ export function StatusTable({
       as="section"
       width="full"
       py={false}
-      className="mt-12"
+      /* No top margin. This sat under the Status Distribution card and needed
+         the separation; it now leads the Overview tab, whose `flex flex-col
+         gap-6` already spaces the sections. Keeping mt-12 would push the first
+         widget down by a gap that has nothing above it. */
       style={{
         opacity: 0,
         // Was a 700ms delay, staggered against its position in one long scroll.
@@ -387,6 +501,20 @@ export function StatusTable({
               pageSize={PAGE}
               label="Status by doer"
             />
+            {/* ⇄ Transpose. Sits with the collapse control because both change
+                how the section is SHAPED rather than what it contains. */}
+            <button
+              type="button"
+              onClick={() => setIsTransposed((v) => !v)}
+              aria-pressed={isTransposed}
+              title={isTransposed ? "Back to people as rows" : "Transpose: statuses as rows"}
+              className={`inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[13px] font-bold transition-colors ${
+                isTransposed ? "text-altus-red" : "text-ink-muted hover:text-ink-strong"
+              }`}
+            >
+              <ArrowLeftRight className="size-3.5" strokeWidth={2.6} />
+              Transpose
+            </button>
             <CollapseToggle
               expanded={open}
               onToggle={() => setOpen((v) => !v)}
@@ -427,18 +555,31 @@ export function StatusTable({
           className="bg-surface-card rounded-section border border-hairline"
           style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
         >
-          {/* NOTE: no `overflow-x-auto` here. It was originally left off because
-              an overflow ancestor changes what a sticky <thead> sticks TO; the
-              <thead> is no longer sticky (see below), so that reason is spent —
-              but the table still has `min-w-[640px]`, so adding an overflow
-              container now would be a real layout change, not a tidy-up. Left
-              as-is deliberately. */}
-          {/* min-w drops 720 -> 640 with the Department column. `w-full` already
-              spreads the remaining eight across the container; the floor only
-              exists to stop the count columns collapsing, and leaving it at the
-              nine-column figure would force a horizontal squeeze that no longer
-              has a reason to exist. */}
-          <table className="w-full min-w-[640px]">
+          {isTransposed ? (
+            /* Transposed reads the SAME filtered set, but not the paged one:
+               people are columns here, and paging columns would hide a person
+               mid-comparison rather than shortening a list. */
+            <TransposedTable
+              rows={filtered}
+              view={view}
+              avatarById={avatarById}
+              sortBy={transposedSort}
+              onSort={toggleTransposedSort}
+            />
+          ) : (
+          <>
+          {/* `overflow-x-auto` IS here now. It was originally left off because an
+              overflow ancestor changes what a sticky <thead> sticks to — but
+              the <thead> stopped being sticky (see below), so that objection is
+              spent, and twelve columns genuinely do not fit a laptop viewport.
+              The Employee cell stays frozen with `sticky left-0`, so names
+              remain readable while the status columns scroll under them. */}
+          <div className="overflow-x-auto">
+          {/* min-w carries the twelve columns: one name column plus eleven
+              statuses and Total. Below this the numeric columns collapse into
+              each other, so the floor is what forces the scrollbar instead of
+              a squeeze. */}
+          <table className="w-full min-w-[1180px]">
             {/* NOT vertically sticky — deliberately (Sir, 2026-08-20).
                 The header used to be `sticky top-[64px]`, which is what put a
                 tall blank band between the card's top edge and the column
@@ -482,7 +623,7 @@ export function StatusTable({
                                 : undefined
                         }
                         className={`px-5 py-4 text-table-head whitespace-nowrap bg-surface-card ${
-                          i <= 1 ? "text-left" : "text-right"
+                          i === 0 ? "text-left" : "text-right"
                         } ${i === 0 ? "sticky left-0 z-10" : ""}`}
                         style={{
                           boxShadow: "inset 0 -1px 0 var(--color-hairline)",
@@ -553,9 +694,7 @@ export function StatusTable({
                         className={`px-5 py-4 text-body-lg whitespace-nowrap ${
                           i === 0
                             ? "text-ink-strong sticky left-0 z-10 bg-surface-card"
-                            : i === 1
-                              ? "text-ink-muted"
-                              : "text-right"
+                            : "text-right"
                         }`}
                       >
                         {flexRender(
@@ -577,6 +716,9 @@ export function StatusTable({
               })}
             </tbody>
           </table>
+          </div>
+          </>
+          )}
 
         </div>
       )}

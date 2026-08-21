@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   computeKpiTotals,
-  computeStatusDistribution,
 } from "@/lib/transforms/status-counts";
 import { fixtureTasks } from "../fixtures/tasks";
 
@@ -19,17 +18,3 @@ describe("computeKpiTotals", () => {
   });
 });
 
-describe("computeStatusDistribution", () => {
-  it("counts sum to total tasks", () => {
-    const dist = computeStatusDistribution(fixtureTasks);
-    const total = dist.reduce((s, d) => s + d.count, 0);
-    expect(total).toBe(fixtureTasks.length);
-  });
-
-  it("includes done=8, approved=2, cancelled=1", () => {
-    const dist = computeStatusDistribution(fixtureTasks);
-    expect(dist).toContainEqual({ status: "done", count: 8 });
-    expect(dist).toContainEqual({ status: "approved", count: 2 });
-    expect(dist).toContainEqual({ status: "cancelled", count: 1 });
-  });
-});
