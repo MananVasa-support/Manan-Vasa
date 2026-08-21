@@ -35,11 +35,6 @@ import {
   type RankedPerson,
 } from "@/lib/daily-goals/types";
 import { Empty, GOALS_ACCENT, Panel, PctPill, ScoreCard, StatTile, band } from "./parts";
-import {
-  ReorderableTh,
-  useColumnOrder,
-  type ColumnOrderControl,
-} from "@/components/ui/reorderable-columns";
 
 /**
  * The threshold-table columns, declared once so the header and every row read
@@ -56,7 +51,6 @@ const THRESHOLD_COLUMNS: { id: string; label: string; align?: "left" | "right" }
   { id: "transferred", label: "Transferred", align: "right" },
 ];
 
-const THRESHOLD_COLUMN_IDS = THRESHOLD_COLUMNS.map((c) => c.id);
 
 /**
  * DAILY GOALS -> DASHBOARD.
@@ -616,12 +610,9 @@ function ThresholdTable({
   rangeName: string;
   onPick: (id: string) => void;
 }) {
-  // Drag-to-reorder, remembered for THIS user across sessions and devices.
-  const cols = useColumnOrder({
-    tableKey: "wms.my-day.threshold-table",
-    columns: THRESHOLD_COLUMN_IDS,
-  });
-  const orderedColumns = cols.ordered(THRESHOLD_COLUMNS, (c) => c.id);
+  // Rendered in the declared order — the header and every row read the same
+  // list, so a column can never drift out of step with its cells.
+  const orderedColumns = THRESHOLD_COLUMNS;
 
   return (
     <div className="overflow-x-auto">
@@ -629,13 +620,7 @@ function ThresholdTable({
         <thead>
           <tr className="border-b border-hairline-strong">
             {orderedColumns.map((c) => (
-              <Th
-                key={c.id}
-                id={c.id}
-                ctl={cols}
-                label={c.id === "range" ? rangeName : c.label}
-                align={c.align}
-              >
+              <Th key={c.id} align={c.align}>
                 {c.id === "range" ? rangeName : c.label}
               </Th>
             ))}
@@ -686,29 +671,20 @@ function ThresholdTable({
 }
 
 function Th({
-  id,
-  ctl,
-  label,
   children,
   align = "left",
 }: {
-  id: string;
-  ctl: ColumnOrderControl;
-  label: string;
   children: React.ReactNode;
   align?: "left" | "right";
 }) {
   return (
-    <ReorderableTh
-      id={id}
-      ctl={ctl}
-      label={label || id}
+    <th
       className={`pb-2 text-[10.5px] font-black uppercase tracking-[0.07em] text-ink-muted ${
         align === "right" ? "text-right" : ""
       }`}
     >
       {children}
-    </ReorderableTh>
+    </th>
   );
 }
 
