@@ -150,7 +150,7 @@ export function DayReview({
               letterSpacing: "-0.02em",
             }}
           >
-            Your day is planned
+            Your Day Is Planned
           </h2>
           <p className="mx-auto mt-1.5 max-w-[52ch] text-[15px] font-medium text-ink-muted">
             You&apos;re set to clock in. {items.length} commitment{items.length === 1 ? "" : "s"} lined up for today
@@ -233,8 +233,8 @@ export function DayReview({
           </ul>
 
           <div className="mt-7 flex items-center justify-center gap-3 max-md:flex-col">
-            {/* Adjust FIRST (Sir) — it reads left-to-right as "go back and change
-                it, or go on and close it". Back to the board WITHOUT un-starting
+            {/* Change Plan FIRST (Sir) — it reads left-to-right as "go back and
+                change it, or go on and review it". Back to the board WITHOUT un-starting
                 the day: the header there carries "Review My Day", so the plan
                 stays committed and the review is one click away. */}
             <button
@@ -242,7 +242,7 @@ export function DayReview({
               onClick={onAdjust}
               className="inline-flex h-12 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong max-md:w-full"
             >
-              <ArrowLeft size={16} /> Adjust plan
+              <ArrowLeft size={16} /> Change Plan
             </button>
             <button
               type="button"
@@ -250,7 +250,7 @@ export function DayReview({
               className="wg-btn inline-flex h-12 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] max-md:w-full"
               style={{ background: GOALS_GRADIENT }}
             >
-              <ClipboardCheck size={18} /> Close out my day
+              <ClipboardCheck size={18} /> Review My Day
             </button>
           </div>
         </div>
@@ -273,7 +273,7 @@ export function DayReview({
             className="text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 17 }}
           >
-            {isClosed ? "Day closed" : "Review today"}
+            {isClosed ? "Day closed" : "Review Today"}
           </h2>
           {/* A count, never a percentage (rule 5). */}
           <p className="text-[13px] font-medium text-ink-muted">
@@ -356,7 +356,8 @@ export function DayReview({
                 {!isClosed ? (
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                     <ReviewButton
-                      label={it.done ? "Undo" : "Mark Done"}
+                      label={it.done ? "Undo" : "Done"}
+                      name={it.done ? "Undo" : "Mark done"}
                       tone={it.done ? "muted" : "green"}
                       busy={busyId === it.id}
                       onClick={() => onToggleDone(it)}

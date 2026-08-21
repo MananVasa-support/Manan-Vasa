@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import * as React from "react";
 import { motion } from "motion/react";
-import { CalendarCheck2, XCircle, Users, ChevronUp } from "lucide-react";
+import { XCircle, Users, ChevronUp } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { FineBucketBars } from "@/components/dashboard/task-report/fine-bucket-bars";
@@ -14,7 +14,6 @@ import { ManagerInitiatorTable } from "@/components/dashboard/exec/manager-initi
 import { ManagerDrilldown } from "@/components/dashboard/exec/manager-drilldown";
 import { useReducedMotion } from "@/lib/motion-utils";
 import type {
-  DoneFineDistribution,
   NotApprovedPersonRow,
   TaskReportData,
 } from "@/lib/queries/task-report";
@@ -52,24 +51,12 @@ export function TaskReportView({ data, avatarById, isAdmin, meId }: TaskReportVi
 
   return (
     <PageShell as="div" width="full" py={false} className="pb-20">
-      {/* ── Section 1 + 2: the two DONE distributions, side by side ── */}
-      <motion.section {...rise(0)} aria-label="Done on time by due-date basis">
-        <ReportSection
-          icon={<CalendarCheck2 size={22} strokeWidth={2.4} />}
-          kicker="Done on time"
-          title="Delivery vs due date — the 12-bucket spread"
-          subtitle="Completed tasks categorized by delivery timing relative to their committed due dates."
-          label="the delivery spread"
-        >
-        {/* ONE distribution now. The "By REVISED due date" panel is removed —
-            the split below reuses the width it occupied to separate late from
-            on-time/early, which is the comparison people actually read this
-            chart for. `data.doneByRevised` is still computed upstream; nothing
-            renders it. */}
-        <DoneCard dist={data.doneByOriginal} label="By ORIGINAL due date" />
-        </ReportSection>
-      </motion.section>
-
+      {/* Section 1 (the 12-bucket delivery spread) MOVED to the main WMS
+          dashboard — see components/dashboard/delivery-spread-section.tsx. It
+          sits directly under the Delivered-on-Time overview there, which is the
+          number it breaks down. `DoneCard` and its GlassCard shell went with
+          it; `data.doneByOriginal` is still computed by the report query and no
+          longer rendered here. */}
       {/* ── Section 3: Not Approved ── */}
       <motion.section {...rise(0.08)} className="mt-12" aria-label="Not-approved tasks">
         <ReportSection
@@ -306,6 +293,8 @@ function IconAction({
  * "On Due Date" tier is defined as white, and on a beige ground it read as
  * another filled band rather than the neutral pivot.
  */
+/** Shared card shell. STAYS HERE: the Not-approved and Initiator sections below
+ *  both use it. Only DoneCard moved out. */
 function GlassCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div
@@ -313,76 +302,6 @@ function GlassCard({ children, className }: { children: React.ReactNode; classNa
     >
       {children}
     </div>
-  );
-}
-
-/* ──────────────────────── ① + ② DONE distribution card ─────────────────── */
-
-function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }) {
-  const rate = dist.dated > 0 ? Math.round((dist.onTime / dist.dated) * 100) : 0;
-  // One denominator across BOTH halves, taken from the full distribution, so a
-  // bar's length means the same thing on either side of the split.
-  const barScale = Math.max(...dist.buckets.map((b) => b.count), 1);
-  return (
-    <GlassCard>
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">
-            {label}
-          </p>
-          <div className="mt-1 flex items-end gap-2.5">
-            <span
-              className="tabular-nums leading-none"
-              style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontWeight: 900,
-                fontSize: 46,
-                letterSpacing: "-0.02em",
-                color: GREEN,
-              }}
-            >
-              {rate}%
-            </span>
-            <span className="mb-1.5 text-[12.5px] font-bold text-ink-soft">on time</span>
-          </div>
-        </div>
-        <div className="text-right text-[12.5px] font-bold">
-          <p style={{ color: GREEN }}>
-            <span className="tabular-nums text-ink-strong">{dist.onTime}</span> On / Before
-          </p>
-          <p style={{ color: RED }}>
-            <span className="tabular-nums text-ink-strong">{dist.late}</span> Late
-          </p>
-        </div>
-      </div>
-
-      {/* Side-by-side split. The buckets are already ordered most-overdue first
-          through earliest-delivery last, so `fineBucketIsLate` cuts the list
-          cleanly in two at the "On Due Date" boundary — no re-ordering and no
-          second source of truth for which band is which.
-          On Due Date sits on the RIGHT: delivering exactly on the committed day
-          is hitting the deadline, not missing it. */}
-      <div className="mt-5 grid grid-cols-2 gap-6 max-lg:grid-cols-1">
-        <FineBucketBars
-          buckets={dist.buckets.filter((b) => b.late)}
-          heading="Overdue"
-          scaleMax={barScale}
-          percentBase={dist.dated}
-        />
-        <FineBucketBars
-          buckets={dist.buckets.filter((b) => !b.late)}
-          heading="On time & early"
-          scaleMax={barScale}
-          percentBase={dist.dated}
-        />
-      </div>
-
-      {dist.undated > 0 && (
-        <p className="mt-3 text-[12px] font-semibold text-ink-subtle">
-          {dist.undated} Done Without a Comparable Date — Not Counted.
-        </p>
-      )}
-    </GlassCard>
   );
 }
 

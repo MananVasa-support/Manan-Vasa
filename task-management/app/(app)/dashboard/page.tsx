@@ -5,6 +5,7 @@ import { DashboardHeader } from "@/components/layout/header";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { KpiStrip } from "@/components/dashboard/kpi-strip";
 import { ManagerActivityTable } from "@/components/dashboard/exec/manager-activity-table";
+import { DeliverySpreadSection } from "@/components/dashboard/delivery-spread-section";
 import { StatusTable } from "@/components/dashboard/status-table";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
 import {
@@ -260,7 +261,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     and nothing carries its own top margin. `mt-6` is the column's
                     own clearance from the KpiStrip above — gap only spaces
                     siblings INSIDE the column. */}
-                <div className="mt-6 flex flex-col gap-6">
+                {/* ONE gap rule for the whole stack. Sections used to add their own
+                    top margins on top of this, so the spacing between any two
+                    of them depended on which two they were. */}
+                <div className="mt-6 flex flex-col gap-6 md:gap-8">
                   {/* 1 — Overdue Tasks by Person. PageShell: outside the tabs box
                       these sections no longer inherit the panel's padding, so each
                       needs the page gutter itself. AgingHeatmap renders its own. */}
@@ -281,10 +285,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     <ExecOnTimeSection />
                   </PageShell>
 
+                  {/* 3b — The 12-bucket delivery spread, immediately after the
+                      on-time overview it elaborates. Moved here from the Task
+                      Analytics report; the card itself is unchanged. */}
+                  <DeliverySpreadSection dist={data.doneSpread} />
+
                   {/* 4 — Insights, last. */}
                   <DashboardTabs
                     overview={
-                      <div className="flex flex-col gap-6">
+                      <div className="flex flex-col gap-6 md:gap-8">
                         <StatusTable
                           rows={data.statusTable}
                           view={filters.view}
@@ -302,7 +311,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                       </div>
                     }
                     performance={
-                      <div className="flex flex-col gap-6">
+                      <div className="flex flex-col gap-6 md:gap-8">
                         <TopPerformersSection
                           performers={data.topPerformers}
                           avatarById={avatarById}

@@ -21,7 +21,7 @@ import {
   DEFAULT_ACTIVITY_PERIOD,
 } from "@/lib/dashboard/manager-activity-contract";
 import { ActivityCellPopover, activityHref } from "./activity-cell-popover";
-import { CollapseToggle, CollapsibleBody } from "../section-chrome";
+import { CollapseToggle, CollapsibleBody, DASHBOARD_CARD } from "../section-chrome";
 
 /* ────────────────────────────────────────────────────────────────────────
    ManagerActivityTable — one row per manager across the three activity
@@ -593,8 +593,7 @@ export function ManagerActivityTable({
     <section className="relative min-w-0" aria-label="Manager activity board">
       {header}
       <div
-        className="wms-card w-full max-w-none overflow-hidden rounded-2xl bg-white shadow-xs"
-        style={{ border: "1px solid var(--color-hairline)" }}
+        className={`wms-card w-full max-w-none overflow-hidden ${DASHBOARD_CARD} p-6 md:p-8`}
       >
         {/* CARD OUTSIDE, body inside — the nesting matters. Collapsed, this
             leaves the card shell as a thin empty bar under the header rather

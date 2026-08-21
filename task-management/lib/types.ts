@@ -308,6 +308,9 @@ export interface DashboardData {
   notApprovedAging: NotApprovedAging;
   initiator: { d3: InitiatorBoard; d7: InitiatorBoard };
   pullQuote: string;
+  /** The 12-bucket delivery spread, over every non-archived done task (not the
+   *  filtered period) — see the note beside its computation in queries/dashboard. */
+  doneSpread: import("@/lib/queries/task-report").DoneFineDistribution;
   statusTable: EmployeeStatusRow[];
   topPerformers: TopPerformer[];
   agingTable: AgingRow[];

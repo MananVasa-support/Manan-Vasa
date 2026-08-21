@@ -30,6 +30,7 @@ import {
   ListTodo,
   Loader2,
   Sunrise,
+  Plus,
 } from "lucide-react";
 import { PRIORITY_LABELS, TASK_PRIORITIES } from "@/db/enums";
 import { fireToast } from "@/lib/toast";
@@ -131,7 +132,7 @@ export function PlanBoard({ target, payload }: Props) {
   // The pull rail folds away like the app sidebar does, giving the three day
   // columns the whole width when you're only reading the plan (Sir).
   const [railOpen, setRailOpen] = React.useState(true);
-  // "Adjust plan" from the day-started screen: show the BOARD again while the
+  // "Change Plan" from the day-started screen: show the BOARD again while the
   // day keeps running, so the header offers Review My Day rather than Start.
   const [adjusting, setAdjusting] = React.useState(false);
   // Free-text filter over everything on screen. Client-side on purpose: the
@@ -404,10 +405,23 @@ export function PlanBoard({ target, payload }: Props) {
         fireToast({ message: res.error });
         return;
       }
-      // An unfinished item was MOVED onto the day — it must leave "Unfinished"
-      // for good, whether the server moved it (res.item) or deleted a redundant
-      // duplicate (res.item == null).
-      if (kind === "unfinished") removeSource("unfinished", sourceId);
+      // GONE FROM THE RAIL, not dimmed (Sir).
+      //
+      // An unfinished item was MOVED onto the day, so it must leave
+      // "Unfinished" for good — whether the server moved it (res.item) or
+      // deleted a redundant duplicate (res.item == null).
+      //
+      // A WMS task leaves for a different reason: the server already drops it.
+      // `listOpenTasksForChecklist` is called with `excludePlannedAnyDay`, so a
+      // planned task is absent from the very next payload. Leaving the card
+      // greyed with a PLANNED chip therefore showed a row that no longer
+      // existed server-side, and it vanished on the next refresh anyway —
+      // pulled work should just be gone.
+      //
+      // Weekly and cascade GOALS stay, deliberately: the server still lists
+      // them (`added: plannedGoalIds.has(...)`), so removing them here would
+      // only make them reappear on the next read.
+      if (kind === "unfinished" || kind === "task") removeSource(kind, sourceId);
       if (!res.item) {
         // No-op (already on that day) — drop the optimistic row silently and
         // re-read, since the truth lives on a row we didn't create.
@@ -812,6 +826,9 @@ export function PlanBoard({ target, payload }: Props) {
       maxWindowStart={maxWindowStart}
       minWindowStart={minWindowStart}
       windowDays={windowDays}
+      // The review is TODAY-only, so a "how many columns" control has nothing
+      // to act on there (Sir) — it would change a board that isn't on screen.
+      showSpan={!reviewing}
       railOpen={railOpen}
       onToggleRail={() => setRailOpen((v) => !v)}
       onPick={(off) => goToWindow(Math.min(off, maxWindowStart))}
@@ -1051,7 +1068,7 @@ function PlannerBar({
           onChange={(e) => onQuery(e.target.value)}
           placeholder="Search tasks..."
           aria-label="Search tasks"
-          className="h-9 w-[480px] min-w-0 max-w-full rounded-xl border border-hairline bg-surface-card pl-9 pr-8 text-[13.5px] text-ink-strong outline-none placeholder:text-ink-muted/70 hover:border-hairline-strong focus:border-altus-red max-xl:w-[340px] max-lg:w-[230px] max-md:w-[160px]"
+          className="h-9 w-[560px] min-w-0 max-w-full rounded-xl border border-hairline bg-surface-card pl-9 pr-8 text-[13px] text-ink-strong outline-none placeholder:text-ink-muted/70 hover:border-hairline-strong focus:border-altus-red max-xl:w-[380px] max-lg:w-[250px] max-md:w-[160px]"
         />
         {query ? (
           <button
@@ -1080,9 +1097,12 @@ function PlannerBar({
         </a>
       ) : null}
 
-      {/* ADD A COMMITMENT — the key alone (Sir). It opens no dialog: it drops
-          the cursor straight into the day column's own composer, which is where
-          the commitment actually lands. Pressing C does the same. */}
+      {/* ADD COMMITMENT — says what it does (Sir). A lone "C" only meant
+          anything to someone who already knew the keyboard shortcut, which is
+          the one person who did not need the button. It opens no dialog: it
+          drops the cursor straight into the day column's own composer, which is
+          where the commitment actually lands. Pressing C still does the same,
+          and the key is named on the button so it can be discovered. */}
       {reviewing ? null : (
         <button
           type="button"
@@ -1090,7 +1110,7 @@ function PlannerBar({
           title="Add a commitment (C)"
           aria-label="Add a commitment"
           aria-keyshortcuts="C"
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-chip border text-[13px] font-black transition-colors focus-visible:outline-2"
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-chip border px-2.5 text-[11.5px] font-bold transition-colors focus-visible:outline-2"
           style={{
             borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 32%, transparent)`,
             color: GOALS_ACCENT_DEEP,
@@ -1098,7 +1118,7 @@ function PlannerBar({
             outlineColor: GOALS_ACCENT,
           }}
         >
-          C
+          <Plus size={13} /> Add
         </button>
       )}
 
@@ -1108,10 +1128,10 @@ function PlannerBar({
           onClick={onStart}
           disabled={!met || starting}
           title={met ? "Start my day" : `Plan at least ${minItems} items on Today to start`}
-          className="brand-btn wg-btn inline-flex h-9 shrink-0 items-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.24)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
+          className="brand-btn wg-btn inline-flex h-8 shrink-0 items-center gap-1.5 rounded-chip px-3 text-[11.5px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.24)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
           style={{ background: GOALS_GRADIENT, outlineColor: GOALS_ACCENT }}
         >
-          {starting ? <Loader2 size={15} className="animate-spin" /> : <Sunrise size={15} />} Start My Day
+          {starting ? <Loader2 size={13} className="animate-spin" /> : <Sunrise size={13} />} Start My Day
         </button>
       ) : (
         /* REVIEW MY DAY — the words are back (Sir). It is the day's closing
@@ -1120,10 +1140,10 @@ function PlannerBar({
         <button
           type="button"
           onClick={onCloseout}
-          className="brand-btn wg-btn inline-flex h-9 shrink-0 items-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.24)] focus-visible:outline-2"
+          className="brand-btn wg-btn inline-flex h-8 shrink-0 items-center gap-1.5 rounded-chip px-3 text-[11.5px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.24)] focus-visible:outline-2"
           style={{ background: GOALS_GRADIENT, outlineColor: GOALS_ACCENT }}
         >
-          <ClipboardCheck size={15} /> Review My Day
+          <ClipboardCheck size={13} /> Review My Day
         </button>
       )}
       </div>
@@ -1208,6 +1228,7 @@ function DaySwitcher({
   maxWindowStart,
   minWindowStart,
   windowDays,
+  showSpan,
   railOpen,
   onPick,
   onSpan,
@@ -1222,7 +1243,9 @@ function DaySwitcher({
   /** Negative — the strip pages four weeks back as well as forward. */
   minWindowStart: number;
   windowDays: number;
-  /** The pull rail's state — "Pull work" only shows while it is folded away. */
+  /** Hidden during the review, which shows one day and no columns to span. */
+  showSpan: boolean;
+  /** The pull rail's state — "Pull Work" only shows while it is folded away. */
   railOpen: boolean;
   onPick: (off: number) => void;
   onSpan: (days: number) => void;
@@ -1237,7 +1260,7 @@ function DaySwitcher({
     onPick(Math.max(minWindowStart, Math.min(maxWindowStart, windowStart + delta)));
 
   return (
-    <div className="mb-2.5 flex items-center gap-1.5">
+    <div className="mb-2.5 flex items-stretch gap-1.5">
       <StripNavButton
         label="Previous week"
         disabled={!canPrev}
@@ -1270,35 +1293,43 @@ function DaySwitcher({
         icon={<ChevronRight size={15} />}
       />
 
-      {/* OUTSIDE the strip, set apart from the arrow (Sir) — it controls how
-          many columns the board draws, not which day the strip points at, so it
-          should not look like part of the tab group. */}
-      <select
-        value={windowDays}
-        onChange={(e) => onSpan(Number(e.target.value))}
-        aria-label="How many days to show"
-        className="ml-4 h-8 shrink-0 rounded-xl border border-hairline bg-surface-card px-2 text-[12px] font-bold text-ink-soft outline-none hover:border-hairline-strong focus:border-altus-red"
-      >
-        <option value={1}>1 day</option>
-        <option value={2}>2 days</option>
-        <option value={3}>3 days</option>
-        <option value={4}>4 days</option>
-        <option value={7}>7 days</option>
-      </select>
+      {/* OUTSIDE the strip, set apart from the arrow (Sir) — they control how
+          many columns the board draws and what it points at, not which day the
+          strip is on, so they should not look like part of the tab group.
+
+          One flex-1 group: it fills whatever the strip leaves and runs to the
+          end of the page, and `items-stretch` on the row above gives all three
+          the strip's own height. Nothing here is a fixed size — a longer strip
+          simply takes more of the row and these take less. */}
+      <div className="ml-4 flex min-w-0 flex-1 items-stretch gap-1.5">
+      {showSpan ? (
+        <select
+          value={windowDays}
+          onChange={(e) => onSpan(Number(e.target.value))}
+          aria-label="How many days to show"
+          className="min-w-0 flex-1 rounded-xl border border-hairline bg-surface-card px-3 text-center text-[15px] font-bold text-ink-strong outline-none hover:border-hairline-strong focus:border-altus-red"
+        >
+          <option value={1}>1 day</option>
+          <option value={2}>2 days</option>
+          <option value={3}>3 days</option>
+          <option value={4}>4 days</option>
+          <option value={7}>7 days</option>
+        </select>
+      ) : null}
 
       <button
         type="button"
         onClick={() => onPick(0)}
         disabled={windowStart === 0}
         title="Back to today"
-        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-[12px] font-bold transition-colors disabled:opacity-40"
+        className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-[15px] font-bold transition-colors disabled:opacity-40"
         style={{
           borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 30%, transparent)`,
           color: GOALS_ACCENT_DEEP,
           background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
         }}
       >
-        <CalendarDays size={13} /> Today
+        <CalendarDays size={16} /> Today
       </button>
 
       {/* PULL WORK — beside Today (Sir). It used to be a vertical spine pinned
@@ -1313,14 +1344,15 @@ function DaySwitcher({
         aria-expanded={railOpen}
         title={railOpen ? "Hide the work panel" : "Show WMS To-Do, Goals and Unfinished"}
         className={
-          "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition-colors " +
+          "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-[15px] font-bold transition-colors " +
           (railOpen
             ? "border-hairline-strong bg-surface-soft text-ink-strong"
             : "border-hairline bg-surface-card text-ink-soft hover:border-hairline-strong hover:text-ink-strong")
         }
       >
-        <PanelRightOpen size={13} /> Pull work
+        <PanelRightOpen size={16} /> Pull Work
       </button>
+      </div>
     </div>
   );
 }
@@ -1362,6 +1394,23 @@ type RailTab = "task" | "goal" | "unfinished";
  * pull from ONE of them at a time, and the space the other two were holding
  * goes back to the kanban (rule 16).
  */
+/**
+ * The Goals column's own filter (Sir): the four cascade levels the Goals rail
+ * in the sidebar lists, so "show me the monthly goals" is one click rather than
+ * scrolling a merged pile of all four.
+ *
+ * Ordered widest-horizon first — Yearly → Quarterly → Monthly → Weekly — which
+ * is the order the sidebar uses and the direction the cascade actually flows.
+ */
+const GOAL_LEVELS = [
+  { key: "yearly", label: "Yearly" },
+  { key: "quarterly", label: "Quarterly" },
+  { key: "monthly", label: "Monthly" },
+  { key: "weekly", label: "Weekly" },
+] as const;
+
+type GoalLevel = (typeof GOAL_LEVELS)[number]["key"];
+
 function SourceRail({
   sources,
   today,
@@ -1385,11 +1434,19 @@ function SourceRail({
 }) {
   const [tab, setTab] = React.useState<RailTab>("task");
   const [filter, setFilter] = React.useState<WmsFilter>(DEFAULT_WMS_FILTER);
+  // Weekly by default — the nearest horizon, and the one a day is actually
+  // planned against.
+  const [goalLevel, setGoalLevel] = React.useState<GoalLevel>("weekly");
 
+  // Widest horizon first, matching the level buttons below. Still needed for
+  // the tab's own count, which is every goal across the four levels.
   const goalItems = React.useMemo(
-    () => [...sources.monthly, ...sources.quarterly, ...sources.yearly, ...sources.weekly],
+    () => [...sources.yearly, ...sources.quarterly, ...sources.monthly, ...sources.weekly],
     [sources],
   );
+  const shownGoals = sources[goalLevel];
+  /** Per-level counts, so a level with nothing in it says so before you click. */
+  const goalCount = (key: GoalLevel) => sources[key].filter((i) => !i.added).length;
   const wmsItems = React.useMemo(
     () => sortByAttention(applyWmsFilter(sources.task, filter, today), today),
     [sources.task, filter, today],
@@ -1407,7 +1464,7 @@ function SourceRail({
     },
   ];
 
-  const base = tab === "task" ? wmsItems : tab === "goal" ? goalItems : sources.unfinished;
+  const base = tab === "task" ? wmsItems : tab === "goal" ? shownGoals : sources.unfinished;
   // A rail card matches on its title OR its full description — the card only
   // shows three lines, so the words you remember may be further down.
   const shown = searching ? base.filter((i) => matches(i.title, i.description)) : base;
@@ -1418,7 +1475,7 @@ function SourceRail({
         ? "No tasks match these filters."
         : "Nothing open in WMS."
       : tab === "goal"
-        ? "No goals to pull in."
+        ? `No ${goalLevel} goals to pull in.`
         : "Nothing left unfinished.";
 
   return (
@@ -1454,6 +1511,41 @@ function SourceRail({
           <PanelRightClose size={14} />
         </button>
       </div>
+
+      {/* THE CASCADE LEVELS, and only on the Goals column (Sir) — click Monthly
+          and the column is the monthly goals, nothing else. "All" keeps the
+          merged view that used to be the only one. Wraps to two rows rather
+          than shrinking: a 340px rail cannot hold five chips across. */}
+      {tab === "goal" ? (
+        <div className="mb-2 flex flex-wrap gap-1 rounded-xl bg-surface-soft/60 p-1.5">
+          {GOAL_LEVELS.map((lv) => {
+            const on = lv.key === goalLevel;
+            return (
+              <button
+                key={lv.key}
+                type="button"
+                onClick={() => setGoalLevel(lv.key)}
+                aria-pressed={on}
+                className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-bold transition-colors"
+                style={
+                  on
+                    ? {
+                        borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 40%, transparent)`,
+                        background: `color-mix(in srgb, ${GOALS_ACCENT} 10%, transparent)`,
+                        color: GOALS_ACCENT_DEEP,
+                      }
+                    : { borderColor: "transparent", color: "var(--color-ink-soft)" }
+                }
+              >
+                {lv.label}
+                <span className={"tabular-nums " + (on ? "opacity-75" : "text-ink-muted")}>
+                  {goalCount(lv.key)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       {/* TWO FILTERS, and only on the WMS column: OVERDUE | PRIORITY (rule 2). */}
       {tab === "task" ? (

@@ -28,8 +28,10 @@ export interface DashboardSectionHeaderProps {
   /** Right-aligned controls (pager, toggles). */
   actions?: React.ReactNode;
   /**
-   * Gap to the card below. `mb-4` is the default; pass `mb-3` for the tighter
-   * widgets (the two-up grid cards, where vertical room is scarcer).
+   * Gap to the card below. `mb-6` is the standard across the dashboard — it
+   * was `mb-3`, which read tight against the taller section cards and differed
+   * from the gap BETWEEN sections, so the header looked attached to the wrong
+   * thing. Callers can still override per-section.
    */
   className?: string;
 }
@@ -41,7 +43,7 @@ export function DashboardSectionHeader({
   title,
   subtitle,
   actions,
-  className = "mb-3",
+  className = "mb-6",
 }: DashboardSectionHeaderProps) {
   return (
     // items-center (not items-end): the right-hand control cluster is a single

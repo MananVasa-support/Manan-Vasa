@@ -183,6 +183,38 @@ export function displayTitle(title: string | null, description: string | null, c
 }
 
 /**
+ * The title to render for a row ALREADY on a plan.
+ *
+ * Normally that is simply the stored title — it is what the person typed, or
+ * what they renamed the card to, and it must win.
+ *
+ * The exception repairs a bug: `addTaskToPlan` used to copy `tasks.title`
+ * verbatim, and many WMS tasks keep the CLIENT in that column, so pulling one in
+ * produced a card reading "Altus Corp" while the rail beside it showed the real
+ * sentence. The write path is fixed, but rows saved before that keep the bad
+ * title, and there is no honest way to tell a stored title from a renamed one.
+ *
+ * So the fallback is deliberately narrow: only when the row came from a task AND
+ * its title is EXACTLY its client does it defer to the task's description. That
+ * is the broken case precisely, and it cannot swallow a real rename — renaming a
+ * card to the bare client name says nothing the client chip does not already.
+ */
+function plannedTitle(r: {
+  title: string;
+  client: string | null;
+  taskId: string | null;
+  taskDescription: string | null;
+}): string {
+  const title = r.title?.trim() ?? "";
+  const client = r.client?.trim() ?? "";
+  if (r.taskId && client && title === client) {
+    const desc = r.taskDescription?.trim();
+    if (desc) return desc;
+  }
+  return r.title;
+}
+
+/**
  * Previously-unfinished commitments → the "Unfinished" pull box. Dedupe by
  * origin (goal/task/title), drop anything already re-planned, and cap so a long
  * tail can't flood the column.
@@ -396,6 +428,9 @@ async function planRowsForDays(employeeId: string, ymds: string[]) {
       priority: tasks.priority,
       taskDueAt: tasks.dueAt,
       taskRevisedTargetDate: tasks.revisedTargetDate,
+      // Only for repairing rows saved before the title bug was fixed — see
+      // `plannedTitle`. Never shown as the card's own text.
+      taskDescription: tasks.description,
     })
     .from(dailyChecklist)
     .leftJoin(tasks, eq(tasks.id, dailyChecklist.taskId))
@@ -545,7 +580,7 @@ export async function getPlanDayPayload(
         const time = effectiveTime(r);
         return {
           id: r.id,
-          title: r.title,
+          title: plannedTitle(r),
           subtitle: null,
           origin: r.origin === "goal_related" ? ("goal_related" as const) : ("standalone" as const),
           kind: (r.goalId

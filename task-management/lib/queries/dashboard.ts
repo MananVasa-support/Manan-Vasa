@@ -3,6 +3,8 @@ import { db, employees, tasks, taskEvents, holidays } from "@/lib/db";
 import type { Task } from "@/lib/db";
 import type { DashboardData, DashboardFilters, KpiSet, InitiatorBoard } from "@/lib/types";
 import { isFounderEmail } from "@/lib/auth/founder";
+import { distributeDoneFine } from "@/lib/transforms/aging-buckets-fine";
+import type { DoneFineDistribution } from "@/lib/queries/task-report";
 import {
   computeKpiTotals,
   computeAgingByDate,
@@ -394,7 +396,66 @@ async function loadDashboardDataUncached(
       .map((t) => ({ initiatorId: t.initiatorId, doerId: t.doerId }));
     return { windowDays, workingDays: wd, managers: computeInitiatorScorecard(windowTasks, initEmployees, wd, isFounderEmail) };
   };
+  // DESCRIPTIONS FOR THE DRILL-DOWNS.
+  //
+  // The main scan drops `description` on purpose (see TASK_COLS_BASE above) —
+  // it is a large column and no transform needed it. The heatmap's drill-down
+  // and its hover preview DO now, and reading `t.description` off the stripped
+  // projection silently yielded null for every row, so every task rendered as
+  // its placeholder.
+  //
+  // Rather than un-drop the column for every dashboard scan, fetch it for
+  // exactly the pending tasks that reached a cell — a bounded set, one extra
+  // round trip — and attach it. The big scan stays lean; the drill-down gets
+  // real text.
+  const cellTaskIds = Object.values(byCell)
+    .flatMap((buckets) => Object.values(buckets))
+    .flat()
+    .map((t) => t.id);
+
+  if (cellTaskIds.length > 0) {
+    const descRows = await db
+      .select({ id: tasks.id, description: tasks.description })
+      .from(tasks)
+      .where(inArray(tasks.id, cellTaskIds))
+      .catch(() => [] as { id: string; description: string | null }[]);
+    const descById = new Map(descRows.map((r) => [r.id, r.description] as const));
+    for (const buckets of Object.values(byCell)) {
+      for (const list of Object.values(buckets)) {
+        for (const t of list) t.description = descById.get(t.id) ?? null;
+      }
+    }
+  }
+
   const initiator = { d3: board(threeAgo, 3), d7: board(sevenAgo, 7) };
+
+  // DELIVERY SPREAD — moved onto this dashboard from the Task Analytics report.
+  //
+  // Computed over EVERY non-archived done task, deliberately NOT over
+  // `periodTasks`. The report built it from the same unfiltered set, and the
+  // brief was to move the widget without changing its numbers; scoping it to
+  // the dashboard's date filter would silently restate the on-time percentage
+  // the moment anyone narrowed the range.
+  const doneForSpread = await db
+    .select({ completedAt: tasks.completedAt, originalDueAt: tasks.dueAt })
+    .from(tasks)
+    .where(and(sql`${tasks.status} = 'done'`, sql`${tasks.archived} = false`))
+    .catch(() => [] as { completedAt: Date | null; originalDueAt: Date | null }[]);
+
+  const spreadParts = distributeDoneFine(
+    doneForSpread.map((r) => ({ effectiveDue: r.originalDueAt, completedAt: r.completedAt })),
+  );
+  const spreadLate = spreadParts.buckets
+    .filter((b) => b.late)
+    .reduce((sum, b) => sum + b.count, 0);
+  const doneSpread: DoneFineDistribution = {
+    basis: "original",
+    buckets: spreadParts.buckets,
+    dated: spreadParts.dated,
+    undated: spreadParts.undated,
+    onTime: spreadParts.dated - spreadLate,
+    late: spreadLate,
+  };
 
   return {
     kpis,
@@ -407,6 +468,7 @@ async function loadDashboardDataUncached(
       topPerformerName: globalRanking[0]?.employeeName ?? "the team",
       topPerformerCount: globalRanking[0]?.doneCount ?? 0,
     }),
+    doneSpread,
     statusTable: computeEmployeeStatusTable(
       periodTasks,
       allEmployees,
