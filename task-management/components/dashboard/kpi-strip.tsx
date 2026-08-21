@@ -19,7 +19,6 @@ import { PageShell } from "@/components/layout/page-shell";
 import { CardGrid } from "@/components/layout/card-grid";
 import { CollapseToggle, CollapsibleBody } from "./section-chrome";
 import { DashboardSectionHeader } from "./section-header";
-import { DashboardViewTabs } from "./dashboard-view";
 
 interface Entry {
   key: keyof KpiSet;
@@ -143,7 +142,9 @@ export function KpiStrip({
            folded away. */
         actions={
           <>
-            <DashboardViewTabs />
+            {/* The Overview | Performance switcher lived here. It is gone: the
+                dashboard is one continuous page now, navigated by the section
+                pill bar below the KPI cards rather than by swapping panels. */}
             <CollapseToggle
               expanded={isKpiExpanded}
               onToggle={() => setIsKpiExpanded((v) => !v)}

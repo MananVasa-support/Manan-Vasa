@@ -13,8 +13,7 @@ import {
   ExecDelegationSection,
   ExecOnTimeSection,
 } from "@/components/dashboard/exec/exec-dashboard";
-import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
-import { DashboardViewProvider } from "@/components/dashboard/dashboard-view";
+import { DashboardSectionNav } from "@/components/dashboard/section-nav";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
@@ -179,13 +178,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               </div>
             )}
             <div className={mobileToday ? "max-md:hidden" : undefined}>
-              {/* The Overview/Performance selection is shared between the
-                  switcher (in the Task Summary header, just below) and the
-                  analytics panel at the bottom of the column. They are far
-                  apart in the tree and this page is a SERVER component, so the
-                  state lives in a client provider wrapped around both. */}
-              <DashboardViewProvider>
               <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
+
+              {/* Section nav, directly beneath the KPI cards. Inside PageShell
+                  so it lines up with the sections it points at. */}
+              <PageShell as="div" width="full" py={false}>
+                <DashboardSectionNav />
+              </PageShell>
               {/* Fixed vertical order below the Task Summary:
                     1 Overdue Tasks by Person
                     2 Aging Heatmap
@@ -223,13 +222,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   {/* 1 — Overdue Tasks by Person. PageShell: outside the tabs box
                       these sections no longer inherit the panel's padding, so each
                       needs the page gutter itself. AgingHeatmap renders its own. */}
-                  <PageShell as="div" width="full" py={false}>
-                    <ExecOverdueSection />
-                  </PageShell>
+                  <div id="overdue-by-person" className="scroll-mt-20">
+                    <PageShell as="div" width="full" py={false}>
+                      <ExecOverdueSection />
+                    </PageShell>
+                  </div>
 
                   {/* 1b — Sent-back work, directly under the overdue card. Both
                       answer "who is carrying work that has gone wrong", so they
                       read as a pair. Moved here from Task Analytics. */}
+                  <div id="sent-back-work" className="scroll-mt-20">
                   <SentBackSection
                     total={data.sentBack.total}
                     byPerson={data.sentBack.byPerson}
@@ -239,57 +241,60 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     meId={me?.id ?? null}
                     resolveAvatar={(id) => avatarById[id] ?? null}
                   />
+                  </div>
 
                   {/* 2 — Aging Heatmap */}
+                  <div id="aging-heatmap" className="scroll-mt-20">
                   <AgingHeatmap
                     rows={data.agingTable}
                     cellTasks={data.agingHeatmapData.byCell}
                     avatarById={avatarById}
                     me={{ id: me?.id ?? "", isAdmin: Boolean(me?.isAdmin) }}
                   />
+                  </div>
 
                   {/* 3 — Delivered on Time */}
-                  <PageShell as="div" width="full" py={false}>
-                    <ExecOnTimeSection />
-                  </PageShell>
+                  <div id="delivered-on-time" className="scroll-mt-20">
+                    <PageShell as="div" width="full" py={false}>
+                      <ExecOnTimeSection />
+                    </PageShell>
+                  </div>
 
                   {/* 3b — The 12-bucket delivery spread, immediately after the
                       on-time overview it elaborates. Moved here from the Task
                       Analytics report; the card itself is unchanged. */}
-                  <DeliverySpreadSection dist={data.doneSpread} />
+                  <div id="delivery-vs-due" className="scroll-mt-20">
+                    <DeliverySpreadSection dist={data.doneSpread} />
+                  </div>
 
-                  {/* 4 — Insights, last. */}
-                  <DashboardTabs
-                    overview={
-                      <div className="flex flex-col gap-6 md:gap-8">
-                        <StatusTable
-                          rows={data.statusTable}
-                          view={filters.view}
-                          avatarById={avatarById}
-                        />
-                        <ExecDelegationSection />
-                        {/* Sits directly under the initiation scorecards: the
-                            two read the same manager hierarchy, one asking who
-                            DELEGATES tasks and this one asking what each team
-                            is actually CARRYING across goals, tasks and daily
-                            commitments. Fetches its own data on mount so the
-                            dashboard payload does not grow three aggregations
-                            for a widget below the fold. */}
-                        <ManagerActivityTable avatarById={avatarById} />
-                      </div>
-                    }
-                    performance={
-                      <div className="flex flex-col gap-6 md:gap-8">
-                        <TopPerformersSection
-                          performers={data.topPerformers}
-                          avatarById={avatarById}
-                        />
-                      </div>
-                    }
+                  {/* 4 — Insights. No longer a TABBED box: the
+                      Overview | Performance switcher kept half of this hidden
+                      behind a tab, and the section nav above navigates one
+                      continuous page instead. Top Performers therefore moves
+                      into the flow rather than being orphaned with its tab. */}
+                  <div id="status-by-doer" className="scroll-mt-20">
+                    <StatusTable
+                      rows={data.statusTable}
+                      view={filters.view}
+                      avatarById={avatarById}
+                    />
+                  </div>
+
+                  <div id="delegation-scorecard" className="scroll-mt-20 flex flex-col gap-6 md:gap-8">
+                    <ExecDelegationSection />
+                    {/* Sits directly under the initiation scorecards: the two
+                        read the same manager hierarchy, one asking who DELEGATES
+                        tasks and this one asking what each team is actually
+                        CARRYING across goals, tasks and daily commitments. */}
+                    <ManagerActivityTable avatarById={avatarById} />
+                  </div>
+
+                  <TopPerformersSection
+                    performers={data.topPerformers}
+                    avatarById={avatarById}
                   />
                 </div>
               </ExecDashboard>
-              </DashboardViewProvider>
             </div>
           </>
         )}
