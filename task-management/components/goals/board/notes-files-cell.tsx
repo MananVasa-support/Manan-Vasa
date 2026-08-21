@@ -27,21 +27,15 @@ export interface NotesFilesCellProps {
   hasNotes: boolean;
   expanded: boolean;
   onToggle: () => void;
-  /** Full screen mode: left-align the empty-state dash (matches Team %)
-   *  instead of centering it. */
-  leftAlign?: boolean;
 }
 
 /** Notes column — the expand toggle, shown only when a note actually exists
  *  (an empty goal edits its notes via the goal edit dialog instead), colored
  *  solid red to flag "this goal has a note" at a glance. */
-export function NotesCell({ goalId, hasNotes, expanded, onToggle, leftAlign }: NotesFilesCellProps) {
+export function NotesCell({ goalId, hasNotes, expanded, onToggle }: NotesFilesCellProps) {
   if (!hasNotes) {
     return (
-      <span
-        className={cn("block w-full text-[12px] font-semibold", leftAlign ? "text-left" : "text-center")}
-        style={{ color: "var(--color-ink-subtle)" }}
-      >
+      <span className="block w-full text-left text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
         —
       </span>
     );
