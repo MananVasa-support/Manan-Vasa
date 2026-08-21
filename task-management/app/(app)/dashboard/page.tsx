@@ -1,10 +1,9 @@
-import Link from "next/link";
-import type { Route } from "next";
-import { BarChart3, ArrowRight } from "lucide-react";
+
 import { DashboardHeader } from "@/components/layout/header";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { KpiStrip } from "@/components/dashboard/kpi-strip";
 import { ManagerActivityTable } from "@/components/dashboard/exec/manager-activity-table";
+import { SentBackSection } from "@/components/dashboard/sent-back-section";
 import { DeliverySpreadSection } from "@/components/dashboard/delivery-spread-section";
 import { StatusTable } from "@/components/dashboard/status-table";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
@@ -186,52 +185,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   apart in the tree and this page is a SERVER component, so the
                   state lives in a client provider wrapped around both. */}
               <DashboardViewProvider>
-              {/* Task Analytics deep-dive — on-demand route (load-neutral),
-                  surfaced for admins + managers (anyone with a downline).
-                  Passed INTO KpiStrip as children so the summary's single
-                  maximize/minimize toggle folds the banner away with the cards.
-                  No PageShell of its own: KpiStrip already renders one, and
-                  nesting them would apply the page gutter twice. */}
-              <KpiStrip kpis={data.kpis} summary={data.wmsSummary}>
-              {(me?.isAdmin || allEmployees.some((e) => e.managerId === me?.id)) && (
-                <div className="mt-4">
-                  {/* Minimalist white surface with a red accent border — the
-                      solid red fill it replaced competed with the KPI cards
-                      directly above it for the eye, and read as an alert rather
-                      than a link. `shadow-sm → hover:shadow-md` carries the
-                      affordance the fill used to. */}
-                  <Link
-                    href={"/dashboard/task-report" as Route}
-                    className="wg-rise group flex items-center justify-between gap-4 rounded-2xl border-2 border-red-500/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md active:scale-[0.997] max-md:p-4"
-                  >
-                    <span className="flex min-w-0 items-center gap-3.5">
-                      <span className="inline-flex shrink-0 items-center justify-center rounded-xl bg-red-50 p-3 text-red-600">
-                        <BarChart3 size={22} strokeWidth={2.4} />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-xs font-bold uppercase tracking-wider text-red-600">
-                          Task Analytics
-                        </span>
-                        <span className="mt-0.5 block text-xl font-bold leading-tight text-gray-900">
-                          Open the full Task Report
-                        </span>
-                        <span className="mt-0.5 block text-sm font-normal text-gray-500">
-                          Done-on-time spread · not-approved aging · initiator target-vs-actual
-                        </span>
-                      </span>
-                    </span>
-                    <span className="inline-flex shrink-0 items-center justify-center rounded-xl bg-red-50 p-3 text-red-600">
-                      <ArrowRight
-                        size={22}
-                        strokeWidth={2.6}
-                        className="transition-transform group-hover:translate-x-1"
-                      />
-                    </span>
-                  </Link>
-                </div>
-              )}
-              </KpiStrip>
-              {/* Fixed vertical order below the Task Report banner:
+              <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
+              {/* Fixed vertical order below the Task Summary:
                     1 Overdue Tasks by Person
                     2 Aging Heatmap
                     3 Delivered on Time
@@ -271,6 +226,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   <PageShell as="div" width="full" py={false}>
                     <ExecOverdueSection />
                   </PageShell>
+
+                  {/* 1b — Sent-back work, directly under the overdue card. Both
+                      answer "who is carrying work that has gone wrong", so they
+                      read as a pair. Moved here from Task Analytics. */}
+                  <SentBackSection
+                    total={data.sentBack.total}
+                    byPerson={data.sentBack.byPerson}
+                    buckets={data.sentBack.buckets}
+                    undated={data.sentBack.undated}
+                    isAdmin={Boolean(me?.isAdmin)}
+                    meId={me?.id ?? null}
+                    resolveAvatar={(id) => avatarById[id] ?? null}
+                  />
 
                   {/* 2 — Aging Heatmap */}
                   <AgingHeatmap

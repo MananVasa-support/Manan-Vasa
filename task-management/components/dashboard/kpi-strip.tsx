@@ -74,7 +74,6 @@ export function KpiStrip({
   kpis,
   summary,
   rangeDays = 7,
-  children,
 }: {
   kpis: KpiSet;
   summary: WmsSummary;
@@ -82,7 +81,6 @@ export function KpiStrip({
   rangeDays?: number;
   /** Folded away with the cards — the Task Analytics banner is passed in from
    *  the page so ONE toggle governs the whole summary block. */
-  children?: React.ReactNode;
 }) {
   const vsLabel = React.useMemo(() => `vs ${comparisonLabel(rangeDays)}`, [rangeDays]);
   const [expanded, setExpanded] = React.useState<keyof KpiSet | null>(null);
@@ -123,8 +121,6 @@ export function KpiStrip({
           already outside the cards here; this just puts it on the shared
           typography so it reads as a peer of the headings below. */}
       <DashboardSectionHeader
-        eyebrow="Tasks"
-        eyebrowTone="muted"
         title="Task Summary"
         subtitle={
           <>
@@ -314,8 +310,9 @@ export function KpiStrip({
         </div>
       </div>
 
-      {/* Task Analytics banner (passed in by the dashboard page). */}
-      {children}
+      {/* The Task Analytics banner used to be slotted in here by the dashboard
+          page. It is gone, and the slot with it — an empty `{children}` left a
+          prop that nothing filled and invited the next person to refill it. */}
       </CollapsibleBody>
      </PageShell>
     </section>
