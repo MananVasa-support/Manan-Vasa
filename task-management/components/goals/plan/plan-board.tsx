@@ -14,44 +14,53 @@ import {
   type DragOverEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
 import {
-  SortableContext,
-  verticalListSortingStrategy,
-  sortableKeyboardCoordinates,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import {
-  CalendarCheck2,
-  ChevronDown,
+  CalendarDays,
+  ChevronLeft,
+  Search,
+  X,
+  ChevronRight,
+  ClipboardCheck,
+  PanelRightClose,
+  PanelRightOpen,
+  Trash2,
   History,
   Layers,
   ListTodo,
   Loader2,
-  Plus,
-  Sparkles,
   Sunrise,
-  Users,
 } from "lucide-react";
 import { PRIORITY_LABELS, TASK_PRIORITIES } from "@/db/enums";
 import { fireToast } from "@/lib/toast";
+import { blockLabel } from "@/lib/goals/plan-time";
 import { SourceCard } from "./source-card";
-import { PlanItemCard } from "./plan-item-card";
+import { DayColumn, DAY_DROP } from "./day-column";
 import { DayReview } from "./day-review";
 import { SourceTag } from "./source-tag";
+import { HoverTip } from "@/components/ui/hover-tip";
 import {
   DEFAULT_WMS_FILTER,
-  DUE_LABEL,
-  STATUS_LABEL,
+  OVERDUE_LABEL,
+  OVERDUE_OPTIONS,
   applyWmsFilter,
   isFilterActive,
   sortByAttention,
-  type DueFilter,
+  type OverdueFilter,
   type PriorityFilter,
-  type StatusFilter,
   type WmsFilter,
 } from "./wms-filters";
-import { GHOST_ID, type PlanItem, type PlanPhase, type PlanSources, type SourceItem, type SourceKind } from "./types";
+import {
+  GHOST_ID,
+  PLAN_DEFAULT_SPAN,
+  type PlanDayColumn,
+  type PlanDayPayload,
+  type PlanDayTab,
+  type PlanItem,
+  type PlanSources,
+  type SourceItem,
+  type SourceKind,
+} from "./types";
 import {
   addWeeklyGoalToPlan,
   addCascadeGoalToPlan,
@@ -60,16 +69,19 @@ import {
   addAdhocToPlan,
   abandonTask,
   reorderPlan,
-  removePlanItem,
+  abandonPlanItem,
+  duplicatePlanItem,
   renamePlanItem,
   setItemProgress,
+  setPlanItemPending,
+  setPlanItemTime,
   startMyDay,
   transferPlanItem,
 } from "@/app/(app)/goals/plan/actions";
 import { useRouter, usePathname } from "next/navigation";
 import type { Route } from "next";
 
-/** Sources that de-dupe against today's plan (flip to "added" once pulled). */
+/** Sources that de-dupe against the plan (flip to "planned" once pulled). */
 const DEDUPE_KINDS: SourceKind[] = ["weekly", "task", "unfinished"];
 
 /** Who this board is planning for — see lib/goals/plan-target.ts. */
@@ -83,43 +95,51 @@ export interface PlanTargetProp {
 interface Props {
   /** Whose day is on screen + everyone the viewer may plan for. */
   target: PlanTargetProp;
-  initialPlan: PlanItem[];
-  sources: PlanSources;
-  minItems: number;
-  isManager: boolean;
-  initialPhase: PlanPhase;
-  /** The plan date (YYYY-MM-DD) this board shows — what every due mark and due
-   *  filter compares against. Comes from the server payload, so the client can
-   *  never disagree with the server about which day this is. */
-  ymd: string;
-  /** Which planner day is shown — 0 = today … 6 = six days out. */
-  dayOffset: number;
-  /** The page title, rendered INLINE with the day tabs so the planner opens at
-   *  the top of the viewport instead of a title row stacked above a control
-   *  row. The page owns the markup and styling; the board owns placement. */
-  heading?: React.ReactNode;
+  /** The whole planning window, assembled server-side. */
+  payload: PlanDayPayload;
 }
 
-// Goals module identity (amber-gold) — mirrors MODULE_THEME.goals. The planner
-// lives in the amber room, so every accent (drop zone, pips, CTA, focus rings)
-// reads amber, not WMS red.
 const GOALS_ACCENT = "#E10600";
 const GOALS_ACCENT_DEEP = "#A80400";
 const GOALS_GRADIENT = `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})`;
 
-const PLAN_DROP_ID = "plan-drop";
 /** Drop-target id prefix for the day tabs — `daytab:<offset>`. */
 const DAY_TAB_DROP = "daytab:";
+
+/** The span the board opens on — one shared definition, see types.ts. */
+const DEFAULT_SPAN = PLAN_DEFAULT_SPAN;
+
 const nonGhost = (items: PlanItem[]) => items.filter((i) => i.id !== GHOST_ID);
 
-export function PlanBoard({ target, initialPlan, sources, minItems, isManager, initialPhase, ymd, dayOffset, heading }: Props) {
-  const [phase, setPhase] = React.useState<PlanPhase>(initialPhase);
+/**
+ * PLAN MY DAY — a 3-day kanban with the work you can pull into it on the right.
+ *
+ * The screen answers four questions and nothing else (Sir):
+ *   What do I have to do? · When do I have to do it? · Did I complete it? ·
+ *   If not, where should it move?
+ *
+ * Everything on it is therefore either a day column, a piece of work, or one of
+ * the four decisions (Done / → tomorrow / → day after / Pending). There is no
+ * percentage anywhere: a commitment was delivered or it wasn't.
+ */
+export function PlanBoard({ target, payload }: Props) {
+  const [phase, setPhase] = React.useState(payload.initialPhase);
   const [starting, setStarting] = React.useState(false);
-  const [plan, setPlan] = React.useState<PlanItem[]>(initialPlan);
-  const [src, setSrc] = React.useState<PlanSources>(sources);
+  const [days, setDays] = React.useState<PlanDayColumn[]>(payload.days);
+  const [src, setSrc] = React.useState<PlanSources>(payload.sources);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  // The pull rail folds away like the app sidebar does, giving the three day
+  // columns the whole width when you're only reading the plan (Sir).
+  const [railOpen, setRailOpen] = React.useState(true);
+  // "Adjust plan" from the day-started screen: show the BOARD again while the
+  // day keeps running, so the header offers Review My Day rather than Start.
+  const [adjusting, setAdjusting] = React.useState(false);
+  // Free-text filter over everything on screen. Client-side on purpose: the
+  // board already holds the whole window, so typing filters instantly with no
+  // round-trip and no spinner.
+  const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState<
-    | { type: "source"; title: string; subtitle: string | null; kind: SourceKind }
+    | { type: "source"; title: string; kind: SourceKind }
     | { type: "plan"; item: PlanItem }
     | null
   >(null);
@@ -127,29 +147,164 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
   const router = useRouter();
   const pathname = usePathname();
 
-  /** Switch the whole board to today / tomorrow / day-after (server re-fetch). */
-  const goToDay = React.useCallback(
-    (off: number) => router.push((off === 0 ? pathname : `${pathname}?d=${off}`) as Route),
-    [router, pathname],
+  /**
+   * ROUTER ACTIONS ONLY WHILE WE'RE STILL HERE.
+   *
+   * Nearly every write on this board finishes with a refresh so the server's
+   * truth replaces the optimistic copy. Those land asynchronously — and if the
+   * page went away in the meantime (the idle-timer hard-navigates to /login, or
+   * the user clicked through to another route), the refresh arrives to find no
+   * router mounted and Next throws "Router action dispatched before
+   * initialization". Guarding on a mounted ref makes a late refresh a no-op
+   * instead of an uncaught error.
+   */
+  const mounted = React.useRef(true);
+  React.useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
+  const refresh = React.useCallback(() => {
+    if (mounted.current) router.refresh();
+  }, [router]);
+
+  // A FRESH SERVER PAYLOAD WINS. Day navigation, a person switch or a
+  // router.refresh() hands us new truth, and the optimistic copy is discarded.
+  // Done during render (React's "adjusting state when a prop changes" pattern)
+  // rather than in an effect, so there is no extra paint of stale columns.
+  const [seen, setSeen] = React.useState(payload);
+  if (seen !== payload) {
+    setSeen(payload);
+    setDays(payload.days);
+    setSrc(payload.sources);
+    // Follow the server's lifecycle only when it actually CHANGED — otherwise
+    // sliding the day window would knock the user out of the review they just
+    // opened (the review always concerns today, whatever days are on screen).
+    if (seen.initialPhase !== payload.initialPhase) setPhase(payload.initialPhase);
+  }
+
+  const { windowStart, maxWindowStart, minWindowStart, windowDays, todayYmd, minItems, hierarchy } = payload;
+  const firstDay = days[0];
+
+  /* ── search ──────────────────────────────────────────────────────────── */
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  const matches = React.useCallback(
+    (...text: (string | null | undefined)[]) =>
+      !q || text.some((t) => (t ?? "").toLowerCase().includes(q)),
+    [q],
+  );
+  /** The kanban, filtered. Untouched when the box is empty. */
+  const shownDays = React.useMemo(
+    () => (searching ? days.map((d) => ({ ...d, items: d.items.filter((i) => matches(i.title)) })) : days),
+    [days, searching, matches],
   );
 
-  /** Move a plan/review item to ANOTHER planner day (0-6). It leaves THIS day's
-   *  view immediately; a failure refreshes to restore truth. An item lives on
-   *  exactly one day, so this is a move, never a copy. */
+  /**
+   * Jump to writing a commitment — used by the toolbar button AND the "C"
+   * shortcut. It targets the FIRST visible day (Today, unless the window has
+   * been moved on), scrolls the composer into view and puts the cursor in it.
+   */
+  const focusAddCommitment = React.useCallback(() => {
+    const offset = days[0]?.offset ?? 0;
+    const el = document.getElementById(`plan-add-${offset}`) as HTMLInputElement | null;
+    if (!el) return;
+    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    el.focus();
+  }, [days]);
+
+  // "C" = add a commitment. Ignored while you're already typing somewhere, and
+  // while a dialog owns the screen — otherwise typing "c" into a task would
+  // fling the cursor across the board.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "c" && e.key !== "C") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      e.preventDefault();
+      focusAddCommitment();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [focusAddCommitment]);
+
+  /* ── navigation ──────────────────────────────────────────────────────── */
+
+  const goToWindow = React.useCallback(
+    (start: number, empId: string = target.employeeId, days: number = payload.windowDays) => {
+      const qs = new URLSearchParams();
+      // `!== 0`, not `> 0` — the window can start in the PAST now.
+      if (start !== 0) qs.set("d", String(start));
+      if (days !== DEFAULT_SPAN) qs.set("v", String(days));
+      if (empId && target.roster.length > 1) qs.set("emp", empId);
+      const q = qs.toString();
+      router.push((q ? `${pathname}?${q}` : pathname) as Route);
+    },
+    [router, pathname, target.employeeId, target.roster.length, payload.windowDays],
+  );
+
+  /* ── day mutations ───────────────────────────────────────────────────── */
+
+  /** Replace the items of one day column. */
+  const setDayItems = React.useCallback(
+    (offset: number, fn: (items: PlanItem[]) => PlanItem[]) =>
+      setDays((prev) => prev.map((d) => (d.offset === offset ? { ...d, items: fn(d.items) } : d))),
+    [],
+  );
+
+  /** Drop an item from whichever column currently holds it. */
+  const dropItemEverywhere = React.useCallback(
+    (id: string) => setDays((prev) => prev.map((d) => ({ ...d, items: d.items.filter((i) => i.id !== id) }))),
+    [],
+  );
+
+  const findItem = React.useCallback(
+    (id: string): { day: PlanDayColumn; item: PlanItem } | null => {
+      for (const d of days) {
+        const item = d.items.find((i) => i.id === id);
+        if (item) return { day: d, item };
+      }
+      return null;
+    },
+    [days],
+  );
+
+  /**
+   * MOVE a commitment to another planner day. It leaves its old column and
+   * appears in the new one immediately; a failure refreshes to restore truth.
+   * An item lives on exactly one day, so this is a move, never a copy (rule 11).
+   */
   const onTransfer = React.useCallback(
     (id: string, toOffset: number) => {
-      setPlan((prev) => prev.filter((i) => i.id !== id));
+      const found = findItem(id);
+      if (!found || found.day.offset === toOffset) return;
+      const moved = { ...found.item, pending: false };
+      setDays((prev) =>
+        prev.map((d) =>
+          d.offset === found.day.offset
+            ? { ...d, items: d.items.filter((i) => i.id !== id) }
+            : d.offset === toOffset
+              ? { ...d, items: [...d.items, moved] }
+              : d,
+        ),
+      );
       void transferPlanItem(id, toOffset).then((r) => {
         if (!r.ok) {
           fireToast({ message: r.error, type: "error" });
-          router.refresh();
+          refresh();
         } else {
-          const d = planDays()[toOffset];
-          fireToast({ message: `Moved to ${d ? `${d.word} · ${d.date}` : "that day"}.` });
+          const tab = payload.tabs.find((x) => x.offset === toOffset);
+          fireToast({ message: `Moved to ${tab ? `${tab.word} · ${tab.date}` : "that day"}.` });
+          // Off-window destination: the row is gone from every visible column,
+          // which is exactly what the optimistic update already did.
+          if (!days.some((d) => d.offset === toOffset)) refresh();
         }
       });
     },
-    [router],
+    [findItem, days, router, payload.tabs],
   );
 
   const sensors = useSensors(
@@ -160,63 +315,59 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
   // `aria-describedby` (module-global counter drifts server↔client).
   const dndId = React.useId();
 
-  const committed = React.useMemo(() => nonGhost(plan), [plan]);
-  const count = committed.length;
-  const doneCount = React.useMemo(() => committed.filter((i) => i.done).length, [committed]);
-  const met = count >= minItems;
-  const dayLabel =
-    dayOffset === 0 ? "Today" : dayOffset === 1 ? "Tomorrow" : (planDays()[dayOffset]?.word ?? "That day");
-
   /** "Start my day" — persist the started stamp, then flip to the active phase. */
+  const plannedToday = days.find((d) => d.offset === 0)?.items.length ?? 0;
+  const met = plannedToday >= minItems;
   const onStartDay = React.useCallback(() => {
     if (!met || starting) return;
     setStarting(true);
     void startMyDay()
       .then((r) => {
-        if (r.ok) setPhase("active");
+        if (r.ok) {
+          setAdjusting(false);
+          setPhase("active");
+        }
         else fireToast({ message: r.error, type: "error" });
       })
       .finally(() => setStarting(false));
   }, [met, starting]);
 
-  /** Persist the current visual order (fire-and-forget, toast on failure). */
-  const persistOrder = React.useCallback((items: PlanItem[]) => {
-    const ids = nonGhost(items).map((i) => i.id);
-    startTransition(async () => {
-      const res = await reorderPlan(ids, dayOffset, target.employeeId);
-      if (!res.ok) fireToast({ message: res.error });
-    });
-  }, [dayOffset, target.employeeId]);
+  /** Persist one day's visual order (fire-and-forget, toast on failure). */
+  const persistOrder = React.useCallback(
+    (offset: number, items: PlanItem[]) => {
+      const ids = nonGhost(items)
+        .map((i) => i.id)
+        .filter((id) => !id.startsWith("temp:"));
+      if (ids.length === 0) return;
+      startTransition(async () => {
+        const res = await reorderPlan(ids, offset, target.employeeId);
+        if (!res.ok) fireToast({ message: res.error });
+      });
+    },
+    [target.employeeId],
+  );
 
-  /** Flip a dedupe-able source (weekly/task/unfinished) to "added". */
+  /** Flip a dedupe-able source (weekly/task/unfinished) to "planned". */
   const markSource = React.useCallback((kind: SourceKind, id: string, added: boolean) => {
-    setSrc((prev) => ({
-      ...prev,
-      [kind]: prev[kind].map((s) => (s.id === id ? { ...s, added } : s)),
-    }));
+    setSrc((prev) => ({ ...prev, [kind]: prev[kind].map((s) => (s.id === id ? { ...s, added } : s)) }));
   }, []);
 
-  /** Remove a source card entirely from its column (bug-fix #5: an unfinished
-   *  item is MOVED to the plan, so it must leave "Unfinished", not just dim). */
+  /** Remove a source card entirely from its column (an unfinished item is MOVED
+   *  onto a day, so it must leave "Unfinished", not just dim). */
   const removeSource = React.useCallback((kind: SourceKind, id: string) => {
     setSrc((prev) => ({ ...prev, [kind]: prev[kind].filter((s) => s.id !== id) }));
   }, []);
 
-  /** Shared add path — used by BOTH drag-drop and the "+ Add to Today" buttons. */
+  /** Shared add path — used by BOTH drag-drop and the `+` buttons. */
   const commitAdd = React.useCallback(
     async (
       kind: SourceKind,
       sourceId: string,
       title: string,
       subtitle: string | null,
+      toOffset: number,
       atIndex?: number,
-      /** Which day to file it on — defaults to the day currently on screen.
-       *  Set when a source card is dropped straight onto another day's tab. */
-      toOffset?: number,
     ) => {
-      const off = toOffset ?? dayOffset;
-      // Filing onto ANOTHER day must not leave a phantom card on this one.
-      const otherDay = off !== dayOffset;
       const tempId = `temp:${crypto.randomUUID()}`;
       const optimistic: PlanItem = {
         id: tempId,
@@ -226,84 +377,189 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
         kind,
         done: false,
       };
-      let inserted: PlanItem[] = [];
-      // Only show it on THIS day's plan when that's where it's being filed.
-      if (!otherDay) {
-        setPlan((prev) => {
-          const base = nonGhost(prev);
+      setDays((prev) =>
+        prev.map((d) => {
+          const base = nonGhost(d.items);
+          if (d.offset !== toOffset) return { ...d, items: base };
           const idx = atIndex == null ? base.length : Math.min(atIndex, base.length);
-          base.splice(idx, 0, optimistic);
-          inserted = base;
-          return base;
-        });
-      } else {
-        setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
-      }
+          const next = [...base];
+          next.splice(idx, 0, optimistic);
+          return { ...d, items: next };
+        }),
+      );
       if (DEDUPE_KINDS.includes(kind)) markSource(kind, sourceId, true);
 
       const res =
         kind === "weekly"
-          ? await addWeeklyGoalToPlan(sourceId, off, target.employeeId)
+          ? await addWeeklyGoalToPlan(sourceId, toOffset, target.employeeId)
           : kind === "task"
-            ? await addTaskToPlan(sourceId, off, target.employeeId)
+            ? await addTaskToPlan(sourceId, toOffset, target.employeeId)
             : kind === "unfinished"
-              ? await addUnfinishedToPlan(sourceId, off)
-              : await addCascadeGoalToPlan(sourceId, off, target.employeeId);
+              ? await addUnfinishedToPlan(sourceId, toOffset)
+              : await addCascadeGoalToPlan(sourceId, toOffset, target.employeeId);
 
       if (!res.ok) {
-        setPlan((prev) => prev.filter((i) => i.id !== tempId));
+        setDayItems(toOffset, (items) => items.filter((i) => i.id !== tempId));
         if (DEDUPE_KINDS.includes(kind)) markSource(kind, sourceId, false);
         fireToast({ message: res.error });
         return;
       }
-      if (otherDay) {
-        const d = planDays()[off];
-        fireToast({ message: `Added to ${d ? `${d.word} · ${d.date}` : "that day"}.` });
-        return;
-      }
-      // An unfinished item was MOVED onto the plan — it must leave the
-      // "Unfinished" column for good (bug-fix #5), whether the server moved it
-      // (res.item) or deleted a redundant duplicate (res.item == null).
+      // An unfinished item was MOVED onto the day — it must leave "Unfinished"
+      // for good, whether the server moved it (res.item) or deleted a redundant
+      // duplicate (res.item == null).
       if (kind === "unfinished") removeSource("unfinished", sourceId);
       if (!res.item) {
-        // No-op (already on this day) — drop the optimistic row silently.
-        setPlan((prev) => prev.filter((i) => i.id !== tempId));
+        // No-op (already on that day) — drop the optimistic row silently and
+        // re-read, since the truth lives on a row we didn't create.
+        setDayItems(toOffset, (items) => items.filter((i) => i.id !== tempId));
+        refresh();
+        return;
+      }
+      // Filed onto a day the kanban isn't showing (a drop on an out-of-window
+      // day tab). There is no column to settle it into, so say where it went.
+      const column = days.find((d) => d.offset === toOffset);
+      if (!column) {
+        const tab = payload.tabs.find((t) => t.offset === toOffset);
+        fireToast({ message: `Added to ${tab ? `${tab.word} · ${tab.date}` : "that day"}.` });
         return;
       }
       const real = res.item;
-      const next = inserted.map((i) => (i.id === tempId ? real : i));
-      setPlan(next);
-      persistOrder(next);
+      let settled: PlanItem[] = [];
+      setDays((prev) =>
+        prev.map((d) => {
+          if (d.offset !== toOffset) return d;
+          settled = d.items.map((i) => (i.id === tempId ? real : i));
+          return { ...d, items: settled };
+        }),
+      );
+      persistOrder(toOffset, settled);
     },
-    [markSource, removeSource, persistOrder, dayOffset],
+    [markSource, removeSource, persistOrder, setDayItems, target.employeeId, router, days, payload.tabs],
   );
 
+  /** `+` on a source card → file it onto the FIRST column of the window (Today,
+   *  unless the user has navigated the window forward). */
   const onAddSource = React.useCallback(
-    (item: SourceItem) => void commitAdd(item.kind, item.id, item.title, item.subtitle),
-    [commitAdd],
+    (item: SourceItem) => void commitAdd(item.kind, item.id, item.title, item.subtitle, firstDay?.offset ?? 0),
+    [commitAdd, firstDay?.offset],
   );
 
   /**
-   * Complete / un-complete a commitment straight from the plan. Uses the SAME
-   * `setItemProgress` the close-out screen and My Day use, so ticking anywhere
-   * runs one reflect-to-source pipeline (origin WMS task flips done, origin
-   * weekly goal hits 100%) rather than three divergent completion paths.
+   * COMPLETE — the only path that sets `done`. Explicit, labelled, and never
+   * fired by a drag (rule 10). Uses the SAME `setItemProgress` the close-out
+   * screen and My Day use, so ticking anywhere runs one reflect-to-source
+   * pipeline (origin WMS task flips done, origin weekly goal hits 100%).
    */
-  const onToggleDone = React.useCallback((item: PlanItem) => {
-    if (item.id.startsWith("temp:")) return; // not persisted yet
-    const done = !item.done;
-    const pct = done ? 100 : 0;
-    setPlan((prev) => prev.map((i) => (i.id === item.id ? { ...i, done, donePct: pct } : i)));
+  const onToggleDone = React.useCallback(
+    (item: PlanItem) => {
+      if (item.id.startsWith("temp:")) return; // not persisted yet
+      const done = !item.done;
+      setDays((prev) =>
+        prev.map((d) => ({
+          ...d,
+          items: d.items.map((i) => (i.id === item.id ? { ...i, done, pending: false } : i)),
+        })),
+      );
+      setBusyId(item.id);
+      void setItemProgress(item.id, { done, pct: done ? 100 : 0 })
+        .then((r) => {
+          if (!r.ok) {
+            setDays((prev) =>
+              prev.map((d) => ({
+                ...d,
+                items: d.items.map((i) => (i.id === item.id ? { ...i, done: !done } : i)),
+              })),
+            );
+            fireToast({ message: r.error, type: "error" });
+          }
+        })
+        .finally(() => setBusyId(null));
+    },
+    [],
+  );
+
+  /** PENDING — not done, not moved: it stays on its day and joins Unfinished. */
+  const onPending = React.useCallback((item: PlanItem) => {
+    if (item.id.startsWith("temp:")) return;
+    setDays((prev) =>
+      prev.map((d) => ({
+        ...d,
+        items: d.items.map((i) => (i.id === item.id ? { ...i, pending: true, done: false } : i)),
+      })),
+    );
     setBusyId(item.id);
-    void setItemProgress(item.id, { done, pct })
+    void setPlanItemPending(item.id)
       .then((r) => {
         if (!r.ok) {
-          setPlan((prev) => prev.map((i) => (i.id === item.id ? { ...i, done: !done, donePct: done ? 0 : 100 } : i)));
+          setDays((prev) =>
+            prev.map((d) => ({
+              ...d,
+              items: d.items.map((i) => (i.id === item.id ? { ...i, pending: false } : i)),
+            })),
+          );
           fireToast({ message: r.error, type: "error" });
+        } else {
+          fireToast({ message: "Kept as pending — it's in Unfinished." });
+          refresh();
         }
       })
       .finally(() => setBusyId(null));
-  }, []);
+  }, [router]);
+
+  /**
+   * WHEN a commitment happens. Optimistic, and it re-labels the card in the same
+   * breath so the person sees the time they just typed. A failure reverts.
+   *
+   * Writes ONLY the planner's own time — the linked WMS task's own calendar
+   * block is left alone (see setPlanItemTime).
+   */
+  const onSetTime = React.useCallback(
+    (item: PlanItem, time: { startMin: number | null; durationMin: number | null }) => {
+      if (item.id.startsWith("temp:")) return; // not persisted yet
+      const before = { startMin: item.startMin ?? null, durationMin: item.durationMin ?? null };
+      const apply = (t: { startMin: number | null; durationMin: number | null }) =>
+        setDays((prev) =>
+          prev.map((d) => ({
+            ...d,
+            items: d.items.map((i) =>
+              i.id === item.id
+                ? { ...i, ...t, timeLabel: blockLabel(t.startMin, t.durationMin) }
+                : i,
+            ),
+          })),
+        );
+      apply(time);
+      void setPlanItemTime(item.id, time).then((r) => {
+        if (!r.ok) {
+          apply(before);
+          fireToast({ message: r.error, type: "error" });
+        }
+      });
+    },
+    [],
+  );
+
+  /**
+   * DUPLICATE a commitment onto the same day. The copy is standalone — see
+   * duplicatePlanItem for why the goal/task link is deliberately not cloned.
+   */
+  const onDuplicate = React.useCallback(
+    (item: PlanItem) => {
+      const found = findItem(item.id);
+      if (!found) return;
+      startTransition(async () => {
+        const res = await duplicatePlanItem(item.id);
+        if (!res.ok) {
+          fireToast({ message: res.error, type: "error" });
+          return;
+        }
+        setDayItems(found.day.offset, (list) => [...list, res.item]);
+        fireToast({ message: "Duplicated." });
+        refresh();
+      });
+    },
+    [findItem, setDayItems, router],
+  );
 
   /** Abandon a task → Recycle Bin. Optimistically drop it from its source list. */
   const onAbandon = React.useCallback((item: SourceItem) => {
@@ -315,220 +571,299 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
     });
   }, []);
 
-  const onRemove = React.useCallback((id: string) => {
-    setPlan((prev) => prev.filter((i) => i.id !== id));
-    startTransition(async () => {
-      const res = await removePlanItem(id);
-      if (!res.ok) fireToast({ message: res.error });
-    });
-  }, []);
+  /**
+   * The card's × — off the plan, and into the RECYCLE BIN when a WMS task backs
+   * it (Sir). Only task-linked rows can actually be recycled, so the toast
+   * reports what the server really did rather than promising a bin entry that
+   * a typed commitment could never have.
+   */
+  const onRemove = React.useCallback(
+    (item: PlanItem) => {
+      dropItemEverywhere(item.id);
+      startTransition(async () => {
+        const res = await abandonPlanItem(item.id);
+        if (!res.ok) {
+          fireToast({ message: res.error });
+          refresh();
+          return;
+        }
+        fireToast({
+          message: res.abandoned ? "Moved to the Recycle Bin." : "Removed from the plan.",
+        });
+        refresh();
+      });
+    },
+    [dropItemEverywhere, router],
+  );
 
   // Rename a commitment (fix a typo). Optimistic; reverts on failure. A still-
   // saving optimistic row (temp: id) can't be renamed server-side yet, so skip.
   const onRename = React.useCallback((id: string, title: string) => {
     if (id.startsWith("temp:")) return;
     let prevTitle = "";
-    setPlan((prev) =>
-      prev.map((i) => {
-        if (i.id === id) prevTitle = i.title;
-        return i.id === id ? { ...i, title } : i;
-      }),
+    setDays((prev) =>
+      prev.map((d) => ({
+        ...d,
+        items: d.items.map((i) => {
+          if (i.id === id) prevTitle = i.title;
+          return i.id === id ? { ...i, title } : i;
+        }),
+      })),
     );
     startTransition(async () => {
       const res = await renamePlanItem(id, title);
       if (!res.ok) {
-        setPlan((prev) => prev.map((i) => (i.id === id ? { ...i, title: prevTitle } : i)));
+        setDays((prev) =>
+          prev.map((d) => ({ ...d, items: d.items.map((i) => (i.id === id ? { ...i, title: prevTitle } : i)) })),
+        );
         fireToast({ message: res.error });
       }
     });
   }, []);
 
-  const onAddAdhoc = React.useCallback(async (title: string) => {
-    const tempId = `temp:${crypto.randomUUID()}`;
-    setPlan((prev) => [...nonGhost(prev), { id: tempId, title, subtitle: null, origin: "standalone", kind: "adhoc", done: false }]);
-    const res = await addAdhocToPlan(title, dayOffset, target.employeeId);
-    if (!res.ok) {
-      setPlan((prev) => prev.filter((i) => i.id !== tempId));
-      fireToast({ message: res.error });
-      return;
-    }
-    setPlan((prev) => prev.map((i) => (i.id === tempId ? res.item : i)));
-  }, []);
+  /** DAILY COMMITMENT typed onto a specific day, optionally at a time (rule 8). */
+  const onAddCommitment = React.useCallback(
+    async (offset: number, title: string, time?: { startMin: number | null; durationMin: number | null }) => {
+      const tempId = `temp:${crypto.randomUUID()}`;
+      setDayItems(offset, (items) => [
+        ...nonGhost(items),
+        {
+          id: tempId,
+          title,
+          subtitle: null,
+          origin: "standalone",
+          kind: "adhoc",
+          done: false,
+          startMin: time?.startMin ?? null,
+          durationMin: time?.durationMin ?? null,
+          timeLabel: blockLabel(time?.startMin ?? null, time?.durationMin ?? null),
+        },
+      ]);
+      const res = await addAdhocToPlan(title, offset, target.employeeId, time);
+      if (!res.ok) {
+        setDayItems(offset, (items) => items.filter((i) => i.id !== tempId));
+        fireToast({ message: res.error });
+        return;
+      }
+      setDayItems(offset, (items) => items.map((i) => (i.id === tempId ? res.item : i)));
+    },
+    [setDayItems, target.employeeId],
+  );
 
-  // ---- Drag lifecycle ----------------------------------------------------
+  /* ── drag lifecycle ──────────────────────────────────────────────────── */
+
+  /**
+   * Which planner day an over-id means — a kanban column, a card sitting on one,
+   * or a tab in the day strip. Tabs can name a day that is NOT one of the three
+   * columns, which is exactly why they're worth dropping onto.
+   */
+  const dayOffsetOfOver = React.useCallback(
+    (overId: string): number | null => {
+      const prefix = overId.startsWith(DAY_DROP)
+        ? DAY_DROP
+        : overId.startsWith(DAY_TAB_DROP)
+          ? DAY_TAB_DROP
+          : null;
+      if (prefix) {
+        const n = Number(overId.slice(prefix.length));
+        return Number.isFinite(n) ? n : null;
+      }
+      const found = days.find((d) => d.items.some((i) => i.id === overId));
+      return found ? found.offset : null;
+    },
+    [days],
+  );
+
   function onDragStart(e: DragStartEvent) {
     const data = e.active.data.current;
     if (data?.type === "source") {
-      setActive({ type: "source", title: data.title, subtitle: data.subtitle ?? null, kind: data.kind });
+      setActive({ type: "source", title: data.title, kind: data.kind });
     } else {
-      const item = plan.find((i) => i.id === e.active.id);
-      if (item) setActive({ type: "plan", item });
+      const found = findItem(String(e.active.id));
+      if (found) setActive({ type: "plan", item: found.item });
     }
   }
 
+  /** Live placeholder while a SOURCE card hovers a day column. */
   function onDragOver(e: DragOverEvent) {
     const { active: a, over } = e;
-    if (a.data.current?.type !== "source") return; // reorder handled on end
-    if (!over) {
-      setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
+    if (a.data.current?.type !== "source") return; // plan moves settle on end
+    const offset = over ? dayOffsetOfOver(String(over.id)) : null;
+    if (offset == null) {
+      setDays((prev) => prev.map((d) => ({ ...d, items: nonGhost(d.items) })));
       return;
     }
-    const overId = String(over.id);
-    setPlan((prev) => {
-      const base = nonGhost(prev);
-      let idx = base.length;
-      if (overId !== PLAN_DROP_ID) {
-        const i = base.findIndex((x) => x.id === overId);
-        if (i >= 0) idx = i;
-      }
-      const ghost: PlanItem = {
-        id: GHOST_ID,
-        ghost: true,
-        title: a.data.current?.title ?? "New commitment",
-        subtitle: a.data.current?.subtitle ?? null,
-        origin: "standalone",
-        kind: a.data.current?.kind ?? "adhoc",
-        done: false,
-      };
-      base.splice(idx, 0, ghost);
-      return base;
-    });
+    setDays((prev) =>
+      prev.map((d) => {
+        const base = nonGhost(d.items);
+        if (d.offset !== offset) return { ...d, items: base };
+        const overId = String(over!.id);
+        // Over a column or a day TAB ⇒ append; over a specific card ⇒ insert there.
+        const at =
+          overId.startsWith(DAY_DROP) || overId.startsWith(DAY_TAB_DROP)
+            ? base.length
+            : Math.max(0, base.findIndex((x) => x.id === overId));
+        const ghost: PlanItem = {
+          id: GHOST_ID,
+          ghost: true,
+          title: a.data.current?.title ?? "New commitment",
+          subtitle: null,
+          origin: "standalone",
+          kind: a.data.current?.kind ?? "adhoc",
+          done: false,
+        };
+        const next = [...base];
+        next.splice(at, 0, ghost);
+        return { ...d, items: next };
+      }),
+    );
   }
 
   function onDragEnd(e: DragEndEvent) {
     const { active: a, over } = e;
     setActive(null);
-
-    // Dropped on a DAY TAB → re-date this item onto that day.
     const overId = over ? String(over.id) : "";
-    if (overId.startsWith(DAY_TAB_DROP)) {
-      const toOffset = Number(overId.slice(DAY_TAB_DROP.length));
-      // A SOURCE card dropped on a tab is filed straight onto that day.
-      if (a.data.current?.type === "source") {
-        setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
-        if (Number.isFinite(toOffset)) {
-          void commitAdd(
-            a.data.current.kind,
-            a.data.current.sourceId,
-            a.data.current.title,
-            a.data.current.subtitle ?? null,
-            undefined,
-            toOffset,
-          );
-        }
-        return;
-      }
-      if (Number.isFinite(toOffset) && toOffset !== dayOffset) {
-        onTransfer(String(a.id), toOffset);
-      }
-      return;
-    }
+    const toOffset = overId ? dayOffsetOfOver(overId) : null;
 
+    // A SOURCE card dropped on a day → file it onto that day.
     if (a.data.current?.type === "source") {
-      const ghostIndex = plan.findIndex((i) => i.id === GHOST_ID);
-      setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
-      if (ghostIndex >= 0) {
+      const ghostAt = days
+        .map((d) => ({ offset: d.offset, idx: d.items.findIndex((i) => i.id === GHOST_ID) }))
+        .find((x) => x.idx >= 0);
+      setDays((prev) => prev.map((d) => ({ ...d, items: nonGhost(d.items) })));
+      if (toOffset != null) {
         void commitAdd(
           a.data.current.kind,
           a.data.current.sourceId,
           a.data.current.title,
           a.data.current.subtitle ?? null,
-          ghostIndex,
+          toOffset,
+          ghostAt?.offset === toOffset ? ghostAt.idx : undefined,
         );
       }
       return;
     }
-    if (over && a.id !== over.id) {
-      const oldIndex = plan.findIndex((i) => i.id === a.id);
-      const newIndex = plan.findIndex((i) => i.id === over.id);
+
+    // A PLANNED card: another day → re-date it; same day → reorder.
+    const found = findItem(String(a.id));
+    if (!found || toOffset == null) return;
+    if (toOffset !== found.day.offset) {
+      onTransfer(String(a.id), toOffset);
+      return;
+    }
+    if (overId !== String(a.id) && !overId.startsWith(DAY_DROP) && !overId.startsWith(DAY_TAB_DROP)) {
+      const items = found.day.items;
+      const oldIndex = items.findIndex((i) => i.id === a.id);
+      const newIndex = items.findIndex((i) => i.id === overId);
       if (oldIndex >= 0 && newIndex >= 0) {
-        const next = arrayMove(plan, oldIndex, newIndex);
-        setPlan(next);
-        persistOrder(next);
+        const next = arrayMove(items, oldIndex, newIndex);
+        setDayItems(found.day.offset, () => next);
+        persistOrder(found.day.offset, next);
       }
     }
   }
 
   function onDragCancel() {
     setActive(null);
-    setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
+    setDays((prev) => prev.map((d) => ({ ...d, items: nonGhost(d.items) })));
   }
 
-  /** Switch whose plan is on screen — a server re-fetch, like the day tabs. */
-  const goToPerson = React.useCallback(
-    (empId: string) => {
-      const qs = new URLSearchParams();
-      if (dayOffset !== 0) qs.set("d", String(dayOffset));
-      if (empId) qs.set("emp", empId);
-      const q = qs.toString();
-      router.push((q ? `${pathname}?${q}` : pathname) as Route);
-    },
-    [router, pathname, dayOffset],
+  /* ── render ──────────────────────────────────────────────────────────── */
+
+  // Past "plan" the DAY owns the page: active shows "your day is planned",
+  // close-out shows the review list. The board is for arranging a day, not for
+  // sitting behind the screen that says you've committed to it.
+  const started = phase !== "plan";
+  // The day strip stays up on the active screen (you can still look ahead), but
+  // steps aside during close-out, which is strictly about today.
+  const reviewing = phase === "closeout" || phase === "closed";
+  const header = (
+    <PlannerBar
+      target={target}
+      hierarchy={hierarchy}
+      windowStart={windowStart}
+      onPerson={(empId) => goToWindow(windowStart, empId)}
+      phase={phase}
+      // The review is strictly about TODAY, so the day window controls step
+      // aside while it's open — sliding the view underneath a review would
+      // silently change which day's list you were ticking off.
+      reviewing={reviewing}
+      isManager={payload.isManager}
+      starting={starting}
+      met={met}
+      minItems={minItems}
+      onStart={onStartDay}
+      query={query}
+      onQuery={setQuery}
+      onAddCommitment={focusAddCommitment}
+      onCloseout={() => setPhase("closeout")}
+    />
   );
 
-  const daySwitcher = (
-    // Title, day tabs and the "planning for" picker share ONE row. They used
-    // to stack (title row, then control row), which cost ~60px of vertical
-    // space above the fold for no added meaning.
-    <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-      {heading}
-      <DaySwitcher current={dayOffset} onPick={goToDay} />
-      {/* Plan for someone else — only rendered when the viewer actually has
-          people they may plan for (admins: everyone; managers: their downline). */}
-      {target.roster.length > 1 && (
-        <label className="inline-flex items-center gap-1.5 rounded-2xl border border-hairline bg-surface-card px-2.5 py-2">
-          <Users size={14} className="shrink-0 text-ink-muted" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">Planning for</span>
-          <select
-            value={target.employeeId}
-            onChange={(e) => goToPerson(e.target.value)}
-            aria-label="Whose day to plan"
-            className="max-w-[190px] rounded-lg border border-hairline-strong bg-surface-card px-2 py-1 text-[12.5px] font-bold text-ink-strong outline-none focus:border-altus-red"
-          >
-            {target.roster.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      {target.isDelegated && (
-        <span
-          className="rounded-pill px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em]"
-          style={{ background: "var(--color-amber-bg)", color: "var(--color-amber-deep)" }}
-          title="You are editing someone else's plan"
-        >
-          {target.name}&apos;s plan
-        </span>
-      )}
-    </div>
+  // The day strip sits INSIDE the DndContext on purpose: every tab is a drop
+  // target, so a card can be dragged straight onto a day the kanban isn't
+  // currently showing. It steps aside during the review, which is today-only.
+  const dayStrip = (
+    <DaySwitcher
+      tabs={payload.tabs}
+      windowStart={windowStart}
+      windowOffsets={days.map((d) => d.offset)}
+      stripDays={payload.stripDays}
+      maxWindowStart={maxWindowStart}
+      minWindowStart={minWindowStart}
+      windowDays={windowDays}
+      railOpen={railOpen}
+      onToggleRail={() => setRailOpen((v) => !v)}
+      onPick={(off) => goToWindow(Math.min(off, maxWindowStart))}
+      // Switching span re-clamps the start, so going 3 → 7 near the far end
+      // can't leave the board beginning past the last planner day.
+      // Switching span re-clamps the start, so widening near the far end can
+      // not leave the board beginning past the last planner day.
+      onSpan={(d) => goToWindow(Math.min(windowStart, Math.max(0, 28 - d)), target.employeeId, d)}
+    />
   );
 
-  // Non-plan phases (active / close-out / closed) show the review half — same
-  // commitments, no pull panels — on the SAME page. Carry-forward / →day-after
-  // per item lives here too (Sir).
-  if (phase !== "plan") {
-    return (
-      <>
-        {daySwitcher}
-        <DayReview
+  // A started day shows its own screen — UNLESS you asked to adjust the plan,
+  // in which case the board comes back with the day still running.
+  const onReviewScreen = started && !(phase === "active" && adjusting);
+
+  const reviewScreen =
+    phase === "plan" ? null : (
+    <DayReview
           phase={phase}
-          items={committed}
+          items={days.find((d) => d.offset === 0)?.items ?? []}
+          onBackToPlan={() => {
+            setAdjusting(false);
+            setPhase("plan");
+          }}
           onToCloseout={() => setPhase("closeout")}
-          onBackToPlan={() => setPhase("plan")}
+          onAdjust={() => setAdjusting(true)}
           onClosed={() => setPhase("closed")}
           onReopened={() => setPhase("plan")}
+          onToggleDone={onToggleDone}
+          onPending={onPending}
           onTransfer={onTransfer}
+          onDuplicate={onDuplicate}
           onRemove={onRemove}
-          employeeName={target.name}
-        />
-      </>
+      onAddCommitment={(title, time) => void onAddCommitment(0, title, time)}
+      busyId={busyId}
+    />
     );
-  }
 
+  /**
+   * ONE DndContext for BOTH screens.
+   *
+   * There used to be two — a 1-handler one for the review and a 4-handler one
+   * for the board. Sitting at the same position in the tree, React reconciles
+   * them as the SAME instance, and dnd-kit builds a layout-effect dependency
+   * array out of its handler props. Swapping one context for the other changed
+   * that array's LENGTH between renders, which React refuses:
+   * "The final argument passed to useLayoutEffect changed size between renders."
+   *
+   * The review never needed its own handler: `onDragEnd` already re-dates a
+   * planned card dropped on a day tab, which is exactly the review's gesture.
+   */
   return (
-    <>
     <DndContext
       id={dndId}
       sensors={sensors}
@@ -538,670 +873,660 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-    {/* Inside the DndContext on purpose: each day tab is a DROP TARGET, so a
-        planned card can be dragged straight onto "Tomorrow" to re-date it. */}
-    {daySwitcher}
-      {/* Four verticals: the plan on the left, then the three pull boxes —
-          Goals & Goal Tasks, Unfinished, and the WMS To-Do (filtered). Drag a
-          card left, or press "+ Add to Today". Stacks to 2 then 1 column. */}
-      <div className="grid gap-4 grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] max-lg:grid-cols-2 max-sm:grid-cols-1">
-        {/* 1 — Today's Plan (compact) */}
-        <PlanColumn
-          plan={plan}
-          count={count}
-          doneCount={doneCount}
-          minItems={minItems}
-          met={met}
-          isManager={isManager}
-          starting={starting}
-          busyId={busyId}
-          onToggleDone={onToggleDone}
-          onRemove={onRemove}
-          onRename={onRename}
-          onAddAdhoc={onAddAdhoc}
-          onStart={onStartDay}
-          onTransfer={onTransfer}
-          dayOffset={dayOffset}
-        />
+      {header}
+      {dayStrip}
+      {onReviewScreen ? (
+        reviewScreen
+      ) : (
+        // The kanban is the page. The pull panels sit in a narrow right rail so
+        // the three days get the width they need (rule 16).
+          <div
+            className={
+              "grid gap-4 max-lg:grid-cols-1 " +
+            (railOpen ? "grid-cols-[minmax(0,1fr)_340px]" : "grid-cols-1")
+          }
+        >
+          {/* One column per chosen day. Up to 3 they share the width evenly; at
+              4 and 7 each column keeps a 210px floor and the row SCROLLS sideways
+              (Sir), so a wide view stays readable instead of shrinking every card
+              to a sliver. */}
+          <div
+            className="grid min-w-0 gap-3 max-md:grid-cols-1"
+            style={{
+              gridTemplateColumns:
+                shownDays.length > 3
+                  ? `repeat(${shownDays.length}, minmax(210px, 1fr))`
+                  : `repeat(${Math.max(1, shownDays.length)}, minmax(0, 1fr))`,
+              overflowX: shownDays.length > 3 ? "auto" : undefined,
+            }}
+          >
+            {shownDays.map((d) => (
+              <DayColumn
+                key={d.ymd}
+                day={d}
+                isToday={d.ymd === todayYmd}
+                busyId={busyId}
+                onToggleDone={onToggleDone}
+                onPending={onPending}
+                onDuplicate={onDuplicate}
+                onRemove={onRemove}
+                onRename={onRename}
+                onTransfer={onTransfer}
+                onSetTime={onSetTime}
+                searching={searching}
+                onAddCommitment={onAddCommitment}
+              />
+            ))}
+          </div>
 
-        {/* 2 — Goals & Goal Tasks: the cascade goals you've adopted, and the
-            weekly rows that execute them. Kept as two labelled sections so the
-            difference between a GOAL and a GOAL TASK stays obvious. */}
-        <SourceWindow
-          title="Goals & Goal Tasks"
-          subtitle="Your goals and this week's goal tasks"
-          icon={<Layers size={16} />}
-          delay={60}
-          today={ymd}
-          dayLabel={dayLabel}
-          sections={[
-            { key: "monthly", label: "Goals", items: [...src.monthly, ...src.quarterly, ...src.yearly] },
-            { key: "weekly", label: "Goal Tasks", items: src.weekly },
-          ]}
-          onAdd={onAddSource}
-        />
+          {railOpen ? (
+            <SourceRail
+              sources={src}
+              today={todayYmd}
+              addDayLabel={firstDay?.offset === 0 ? "Today" : (firstDay?.date ?? "Today")}
+              onAdd={onAddSource}
+              onAbandon={onAbandon}
+              onCollapse={() => setRailOpen(false)}
+              matches={matches}
+              searching={searching}
+            />
+          ) : null}
+        </div>
+      )}
 
-        {/* 3 — Previously Unfinished */}
-        <SourceWindow
-          title="Unfinished"
-          subtitle="Carried over from earlier days"
-          icon={<History size={16} />}
-          delay={100}
-          today={ymd}
-          dayLabel={dayLabel}
-          sections={[{ key: "unfinished", label: "Not Done Yet", items: src.unfinished }]}
-          onAdd={onAddSource}
-          onAbandon={onAbandon}
-        />
-
-        {/* 4 — WMS To-Do, with due / priority / status filters */}
-        <WmsWindow today={ymd} items={src.task} onAdd={onAddSource} onAbandon={onAbandon} dayLabel={dayLabel} />
-      </div>
-
-      <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.2,0,0,1)" }}>
+      <DragOverlay dropAnimation={{ duration: 160, easing: "cubic-bezier(0.2,0,0,1)" }}>
         {active ? (
-          <div className="flex items-center gap-2 rounded-chip border border-hairline-strong bg-surface-card px-3 py-3 shadow-[0_16px_40px_rgba(15,23,42,0.22)]">
+          <div className="flex max-w-[280px] items-center gap-2 rounded-chip border border-hairline-strong bg-surface-card px-3 py-2.5 shadow-[0_16px_40px_rgba(15,23,42,0.22)]">
             <SourceTag kind={active.type === "source" ? active.kind : active.item.kind} />
-            <span className="text-sm font-medium text-ink-strong">
+            <span className="truncate text-[13px] font-medium text-ink-strong">
               {active.type === "source" ? active.title : active.item.title}
             </span>
           </div>
         ) : null}
       </DragOverlay>
     </DndContext>
-    </>
   );
 }
 
 /* ----------------------------------------------------------------------- */
-/* Day switcher — the next 7 days, each with its weekday + date             */
+/* The one control bar: who · which days · the day's lifecycle             */
 /* ----------------------------------------------------------------------- */
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"] as const;
 
-/**
- * The 7 planner days as {offset, weekday, date} — computed from the LOCAL date
- * so the labels match the user's calendar. Offsets 0/1 keep their familiar
- * "Today"/"Tomorrow" words; the rest read as the weekday, and every tab carries
- * its date so there is no counting.
- */
-function planDays(): { off: number; word: string; date: string }[] {
-  const base = new Date();
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
-    return {
-      off: i,
-      word: i === 0 ? "Today" : i === 1 ? "Tomorrow" : (WEEKDAYS[d.getDay()] ?? ""),
-      date: `${String(d.getDate()).padStart(2, "0")} ${MONTHS[d.getMonth()] ?? ""}`,
-    };
-  });
+function PlannerBar({
+  target,
+  hierarchy,
+  windowStart,
+  onPerson,
+  phase,
+  reviewing,
+  isManager,
+  starting,
+  met,
+  minItems,
+  onStart,
+  query,
+  onQuery,
+  onAddCommitment,
+  onCloseout,
+}: {
+  target: PlanTargetProp;
+  hierarchy: PlanDayPayload["hierarchy"];
+  /** Which day the kanban starts on — the lifecycle button is today-only. */
+  windowStart: number;
+  onPerson: (empId: string) => void;
+  phase: PlanDayPayload["initialPhase"];
+  /** True while the end-of-day review owns the page. */
+  reviewing: boolean;
+  /** Managers get the Recycle Bin link (it used to sit on the page header). */
+  isManager: boolean;
+  starting: boolean;
+  met: boolean;
+  minItems: number;
+  onStart: () => void;
+  /** The header search box. */
+  query: string;
+  onQuery: (q: string) => void;
+  /** Put the cursor in the first visible day's composer. */
+  onAddCommitment: () => void;
+  /** Header route into the close-out, once the day is running. */
+  onCloseout: () => void;
+}) {
+  const reportsTo = [hierarchy.manager, hierarchy.managerManager].filter(Boolean) as string[];
+  return (
+    <div className="mb-2 flex flex-nowrap items-center gap-x-3">
+      {/* The page title lives HERE, not on a row of its own: the eyebrow badge +
+          title + controls used to cost three stacked rows before any work was
+          visible. One bar carries all of it now. */}
+      <h1
+        className="shrink-0 text-ink-strong"
+        style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 900,
+          fontSize: "clamp(17px, 1.5vw, 20px)",
+          letterSpacing: "-0.025em",
+          lineHeight: 1.1,
+        }}
+      >
+        Daily Goals &amp; Commitments
+      </h1>
+      {/* WHOSE day. The caption is gone — the selected name says it, and the
+          "Reports to …" line beside it gives the org context (rule 9). */}
+      {target.roster.length > 1 ? (
+        <select
+          value={target.employeeId}
+          onChange={(e) => onPerson(e.target.value)}
+          aria-label="Whose day to plan"
+          className="max-w-[190px] shrink-0 rounded-xl border border-hairline bg-surface-card px-2 py-1.5 text-[12.5px] font-bold text-ink-strong outline-none hover:border-hairline-strong focus:border-altus-red"
+        >
+          {target.roster.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      ) : null}
+
+      {reportsTo.length > 0 ? (
+        // The first thing to give way when the header gets tight — so it needs
+        // a way to be read in full once it has given way (Sir). HoverTip is the
+        // app's own tooltip for truncated labels: it wraps, and it portals out
+        // so the header's overflow can't clip it.
+        <HoverTip text={`Reports to ${reportsTo.join(" → ")}`}>
+          <span className="hidden shrink-0 whitespace-nowrap text-[11.5px] font-semibold text-ink-muted xl:inline">
+            Reports to{" "}
+            <span className="text-ink-soft">
+              {reportsTo[0]}
+              {reportsTo.length > 1 ? " → …" : ""}
+            </span>
+          </span>
+        </HoverTip>
+      ) : null}
+
+      {/* SEARCH — filters the columns AND the pull rail as you type. Sits after
+          the reporting line and before the day's own buttons (Sir). */}
+      <label className="relative -top-[3px] inline-flex min-w-0 shrink items-center">
+        <Search size={14} className="pointer-events-none absolute left-2.5 shrink-0 text-ink-muted" aria-hidden />
+        <input
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder="Search tasks..."
+          aria-label="Search tasks"
+          className="h-9 w-[480px] min-w-0 max-w-full rounded-xl border border-hairline bg-surface-card pl-9 pr-8 text-[13.5px] text-ink-strong outline-none placeholder:text-ink-muted/70 hover:border-hairline-strong focus:border-altus-red max-xl:w-[340px] max-lg:w-[230px] max-md:w-[160px]"
+        />
+        {query ? (
+          <button
+            type="button"
+            onClick={() => onQuery("")}
+            aria-label="Clear search"
+            className="absolute right-1.5 inline-flex size-6 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink-strong"
+          >
+            <X size={13} />
+          </button>
+        ) : null}
+      </label>
+
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+
+      {/* The day's lifecycle — one button, whichever one applies now. Hidden
+          while the window is parked on future days (starting and reviewing are
+          both about TODAY, and a permanently-disabled button just reads broken)
+          and while the review already owns the page. */}
+      {isManager ? (
+        <a
+          href="/goals/recycle-bin"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-hairline bg-surface-card px-2 py-1 text-[11.5px] font-bold text-ink-soft transition-colors hover:border-hairline-strong"
+        >
+          <Trash2 size={12} /> Recycle Bin
+        </a>
+      ) : null}
+
+      {/* ADD A COMMITMENT — the key alone (Sir). It opens no dialog: it drops
+          the cursor straight into the day column's own composer, which is where
+          the commitment actually lands. Pressing C does the same. */}
+      {reviewing ? null : (
+        <button
+          type="button"
+          onClick={onAddCommitment}
+          title="Add a commitment (C)"
+          aria-label="Add a commitment"
+          aria-keyshortcuts="C"
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-chip border text-[13px] font-black transition-colors focus-visible:outline-2"
+          style={{
+            borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 32%, transparent)`,
+            color: GOALS_ACCENT_DEEP,
+            background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
+            outlineColor: GOALS_ACCENT,
+          }}
+        >
+          C
+        </button>
+      )}
+
+      {reviewing || windowStart !== 0 ? null : phase === "plan" ? (
+        <button
+          type="button"
+          onClick={onStart}
+          disabled={!met || starting}
+          title={met ? "Start my day" : `Plan at least ${minItems} items on Today to start`}
+          className="brand-btn wg-btn inline-flex h-9 shrink-0 items-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.24)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
+          style={{ background: GOALS_GRADIENT, outlineColor: GOALS_ACCENT }}
+        >
+          {starting ? <Loader2 size={15} className="animate-spin" /> : <Sunrise size={15} />} Start My Day
+        </button>
+      ) : (
+        /* REVIEW MY DAY — the words are back (Sir). It is the day's closing
+           action and the one thing on this header you must not have to guess at,
+           so it says what it does rather than relying on the icon alone. */
+        <button
+          type="button"
+          onClick={onCloseout}
+          className="brand-btn wg-btn inline-flex h-9 shrink-0 items-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.24)] focus-visible:outline-2"
+          style={{ background: GOALS_GRADIENT, outlineColor: GOALS_ACCENT }}
+        >
+          <ClipboardCheck size={15} /> Review My Day
+        </button>
+      )}
+      </div>
+    </div>
+  );
 }
 
+/* ----------------------------------------------------------------------- */
+/* The day strip — every planner day, and a drop target for each            */
+/* ----------------------------------------------------------------------- */
+
 /**
- * One day tab — also a DROP TARGET. Dragging a planned card onto "Tomorrow"
- * re-dates it, which is the same single-row move the ⋯ menu performs, so the two
- * gestures can never disagree. The tab lights up while a card hovers it.
+ * One day tab — also a DROP TARGET, exactly as it has always been. Dragging a
+ * card onto "Fri 21 AUG" files or re-dates it there, which matters most for the
+ * days BEYOND the three kanban columns: the strip is the only way to reach them
+ * without moving the window first.
+ *
+ * `lead` is the day the kanban starts on (the solid tab — the original "on"
+ * look); `inWindow` marks the other two columns currently on screen.
  */
 function DayTab({
   t,
-  on,
+  lead,
+  inWindow,
   onPick,
 }: {
-  t: { off: number; word: string; date: string };
-  on: boolean;
+  t: PlanDayTab;
+  lead: boolean;
+  inWindow: boolean;
   onPick: (off: number) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `${DAY_TAB_DROP}${t.off}` });
+  const { setNodeRef, isOver } = useDroppable({ id: `${DAY_TAB_DROP}${t.offset}` });
   return (
     <button
       ref={setNodeRef}
       type="button"
       role="tab"
-      aria-selected={on}
-      onClick={() => !on && onPick(t.off)}
-      className={`flex min-w-[68px] shrink-0 flex-col items-center rounded-xl px-3 py-1.5 leading-tight transition-colors ${
-        on ? "text-white" : "text-ink-soft hover:bg-surface-soft hover:text-ink-strong"
+      aria-selected={lead}
+      onClick={() => onPick(t.offset)}
+      className={`flex min-w-[62px] shrink-0 flex-col items-center rounded-lg px-2.5 py-1 leading-tight transition-colors ${
+        lead ? "text-white" : "text-ink-soft hover:bg-surface-soft hover:text-ink-strong"
       }`}
       style={
-        isOver && !on
+        isOver && !lead
           ? {
               background: `color-mix(in srgb, ${GOALS_ACCENT} 14%, transparent)`,
               outline: `2px dashed ${GOALS_ACCENT}`,
               outlineOffset: -2,
             }
-          : on
+          : lead
             ? { background: GOALS_GRADIENT }
-            : undefined
+            : inWindow
+              ? {
+                  background: `color-mix(in srgb, ${GOALS_ACCENT} 7%, transparent)`,
+                  color: GOALS_ACCENT_DEEP,
+                }
+              : undefined
       }
     >
       <span className="text-[12.5px] font-bold">{t.word}</span>
-      <span className={`text-[10.5px] font-semibold tabular-nums ${on ? "opacity-85" : "text-ink-subtle"}`}>
+      <span className={`text-[10.5px] font-semibold tabular-nums ${lead ? "opacity-85" : "text-ink-subtle"}`}>
         {t.date}
       </span>
     </button>
   );
 }
 
-function DaySwitcher({ current, onPick }: { current: number; onPick: (off: number) => void }) {
-  // Recomputed per render but stable within a day — cheap, and it means a tab
-  // open across midnight re-labels itself instead of showing yesterday.
-  const days = React.useMemo(() => planDays(), []);
-  return (
-    <div
-      className="flex items-center gap-1 overflow-x-auto rounded-2xl border border-hairline bg-surface-card p-1"
-      role="tablist"
-      aria-label="Choose a day to plan"
-    >
-      {days.map((t) => {
-        const on = t.off === current;
-        return <DayTab key={t.off} t={t} on={on} onPick={onPick} />;
-      })}
-    </div>
-  );
-}
-
-/* ----------------------------------------------------------------------- */
-/* Left column — the droppable, ordered plan                               */
-/* ----------------------------------------------------------------------- */
-function PlanColumn(props: {
-  plan: PlanItem[];
-  count: number;
-  doneCount: number;
-  minItems: number;
-  met: boolean;
-  isManager: boolean;
-  starting: boolean;
-  busyId: string | null;
-  onToggleDone: (item: PlanItem) => void;
-  onRemove: (id: string) => void;
-  onRename: (id: string, title: string) => void;
-  onAddAdhoc: (title: string) => void;
-  onStart: () => void;
-  onTransfer: (id: string, off: number) => void;
-  /** Which planner day this column shows — the per-item move menu omits it. */
-  dayOffset: number;
-}) {
-  const { plan, count, doneCount, minItems, met, isManager, starting, busyId, onToggleDone, onRemove, onRename, onAddAdhoc, onStart, onTransfer, dayOffset } = props;
-  const { setNodeRef, isOver } = useDroppable({ id: PLAN_DROP_ID });
-  const [draft, setDraft] = React.useState("");
-  const reduce = useReducedMotion();
-
-  const ids = React.useMemo(() => plan.map((i) => i.id), [plan]);
-  const isEmpty = count === 0;
-  // Breathe the drop zone in amber until the daily minimum is met (mirrors the
-  // weekly-goals "add N more" nudge language). GPU shadow only, reduced-motion off.
-  const nudge = !met && !isOver;
-
-  function submitDraft(e: React.FormEvent) {
-    e.preventDefault();
-    const t = draft.trim();
-    if (t.length < 2) return;
-    onAddAdhoc(t);
-    setDraft("");
-  }
-
-  return (
-    <section className="flex flex-col wg-rise">
-      <header className="mb-3 flex items-end justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white shadow-[0_4px_12px_rgba(124,45,18,0.28)]"
-            style={{ background: GOALS_GRADIENT }}
-          >
-            <CalendarCheck2 size={16} />
-          </span>
-          <div className="min-w-0">
-            <h2
-              className="truncate text-ink-strong"
-              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 15.5, letterSpacing: "-0.01em" }}
-            >
-              Today&apos;s Plan
-            </h2>
-            <p className="truncate text-[11px] text-ink-muted">
-              {count > 0 ? `${doneCount} of ${count} done` : "What will you deliver today?"}
-            </p>
-          </div>
-        </div>
-        <PipMeter count={count} minItems={minItems} met={met} reduce={!!reduce} />
-      </header>
-
-      <motion.div
-        ref={setNodeRef}
-        animate={
-          nudge && !reduce
-            ? { boxShadow: ["0 0 0 0 rgba(225,6,0,0)", "0 0 0 5px rgba(225,6,0,0.12)", "0 0 0 0 rgba(225,6,0,0)"] }
-            : { boxShadow: "0 0 0 0 rgba(225,6,0,0)" }
-        }
-        transition={nudge && !reduce ? { duration: 2.6, repeat: Infinity, ease: "easeInOut" } : { duration: 0.25 }}
-        className="min-h-[190px] rounded-2xl border p-2.5 transition-colors"
-        style={{
-          borderStyle: isEmpty && !isOver ? "dashed" : "solid",
-          borderColor: isOver
-            ? `color-mix(in srgb, ${GOALS_ACCENT} 45%, transparent)`
-            : isEmpty
-              ? `color-mix(in srgb, ${GOALS_ACCENT} 32%, transparent)`
-              : "var(--color-hairline)",
-          background: isOver
-            ? `color-mix(in srgb, ${GOALS_ACCENT} 5%, transparent)`
-            : "color-mix(in srgb, var(--color-surface-soft) 60%, transparent)",
-        }}
-      >
-        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          <ul className="flex flex-col gap-2">
-            <AnimatePresence initial={false}>
-              {plan.map((item, i) => (
-                <PlanItemCard
-                  key={item.id}
-                  item={item}
-                  index={item.ghost ? i : nonGhostIndex(plan, item.id)}
-                  busy={busyId === item.id}
-                  onToggleDone={onToggleDone}
-                  onRemove={onRemove}
-                  onRename={onRename}
-                  onTransfer={onTransfer}
-                  dayOffset={dayOffset}
-                />
-              ))}
-            </AnimatePresence>
-          </ul>
-        </SortableContext>
-
-        {isEmpty ? (
-          <div className="grid place-items-center gap-1.5 py-7 text-center">
-            <span
-              className="grid h-10 w-10 place-items-center rounded-xl"
-              style={{
-                background: `color-mix(in srgb, ${GOALS_ACCENT} 10%, transparent)`,
-                color: GOALS_ACCENT_DEEP,
-              }}
-            >
-              <Sunrise size={19} />
-            </span>
-            <p className="max-w-[32ch] text-[13px] font-medium text-ink-soft">
-              Drag a goal or task in from the right, or add a commitment below.
-            </p>
-            <p className="text-[11px] text-ink-muted">{minItems} to unlock your day.</p>
-          </div>
-        ) : null}
-
-        <form onSubmit={submitDraft} className="mt-2.5 flex items-center gap-2">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Add a commitment…"
-            aria-label="Add a commitment for today"
-            maxLength={280}
-            className="h-9 flex-1 rounded-chip border border-hairline bg-surface-card px-3 text-[13px] text-ink-strong placeholder:text-ink-muted/60 focus-visible:outline-2"
-            style={{ outlineColor: GOALS_ACCENT }}
-          />
-          <button
-            type="submit"
-            disabled={draft.trim().length < 2}
-            aria-label="Add commitment"
-            className="wg-btn inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-chip bg-ink-strong text-white disabled:opacity-40 focus-visible:outline-2"
-            style={{ outlineColor: GOALS_ACCENT }}
-          >
-            <Plus size={16} />
-          </button>
-        </form>
-      </motion.div>
-
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <p className="text-[11px] text-ink-muted">
-          {met ? (
-            <span className="inline-flex items-center gap-1.5 font-semibold" style={{ color: GOALS_ACCENT_DEEP }}>
-              <Sparkles size={13} /> You&apos;re ready — have a focused day.
-            </span>
-          ) : (
-            <>
-              Plan at least{" "}
-              <span className="font-bold tabular-nums" style={{ color: GOALS_ACCENT_DEEP }}>{minItems}</span>{" "}
-              {isManager ? "items (manager minimum)" : "items"} to start.
-            </>
-          )}
-        </p>
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={!met || starting}
-          className="brand-btn wg-btn wg-sheen inline-flex h-10 shrink-0 items-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.28)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
-          style={{ background: GOALS_GRADIENT, outlineColor: GOALS_ACCENT }}
-        >
-          {starting ? <Loader2 size={15} className="animate-spin" /> : <Sunrise size={15} />} Start My Day
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function nonGhostIndex(plan: PlanItem[], id: string): number {
-  return nonGhost(plan).findIndex((i) => i.id === id);
-}
-
-/** A pip meter for the daily minimum — each planned item lights an amber pip, so
- *  filling the minimum feels rewarding (the just-filled pip pops). */
-function PipMeter({
-  count,
-  minItems,
-  met,
-  reduce,
+/**
+ * The strip of planner days. Picking one starts the 3-day kanban there, so
+ * stepping a single day forward or back is just the neighbouring tab, and
+ * "Today" is always the first tab (rule 14's Today shortcut).
+ *
+ * The last two tabs can't LEAD a 3-day window without running past the horizon,
+ * so picking them clamps to the final window — they still light up as in-view,
+ * and they remain drop targets in their own right.
+ */
+function DaySwitcher({
+  tabs,
+  windowStart,
+  windowOffsets,
+  stripDays,
+  maxWindowStart,
+  minWindowStart,
+  windowDays,
+  railOpen,
+  onPick,
+  onSpan,
+  onToggleRail,
 }: {
-  count: number;
-  minItems: number;
-  met: boolean;
-  reduce: boolean;
+  tabs: PlanDayTab[];
+  windowStart: number;
+  windowOffsets: number[];
+  /** How many days one page of the strip covers — ‹ / › move by this. */
+  stripDays: number;
+  maxWindowStart: number;
+  /** Negative — the strip pages four weeks back as well as forward. */
+  minWindowStart: number;
+  windowDays: number;
+  /** The pull rail's state — "Pull work" only shows while it is folded away. */
+  railOpen: boolean;
+  onPick: (off: number) => void;
+  onSpan: (days: number) => void;
+  onToggleRail: () => void;
 }) {
-  const filledCount = Math.min(count, minItems);
+  // The strip starts on the board's leftmost day, so paging it a week at a time
+  // is just moving that day — which is what the arrows do (Sir). Today snaps the
+  // whole thing home from wherever you've wandered to.
+  const canPrev = windowStart > minWindowStart;
+  const canNext = windowStart < maxWindowStart;
+  const page = (delta: number) =>
+    onPick(Math.max(minWindowStart, Math.min(maxWindowStart, windowStart + delta)));
+
   return (
-    <span
-      className="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface-card px-2.5 py-1"
-      role="img"
-      aria-label={`${count} of ${minItems} planned`}
-    >
-      <span className="inline-flex items-center gap-1" aria-hidden>
-        {Array.from({ length: minItems }).map((_, i) => {
-          const filled = i < filledCount;
-          return (
-            <span
-              key={`${i}-${filled}`}
-              className={"h-1.5 rounded-full transition-all " + (filled ? "w-5" : "w-2.5") + (filled && !reduce ? " wg-pip-pop" : "")}
-              style={{
-                background: filled ? GOALS_GRADIENT : "var(--color-surface-track)",
-                animationDelay: filled && !reduce ? `${i * 60}ms` : undefined,
-              }}
-            />
-          );
-        })}
-      </span>
-      <span
-        className="text-xs font-bold tabular-nums"
-        style={{ color: met ? GOALS_ACCENT_DEEP : "var(--color-ink-muted)" }}
+    <div className="mb-2.5 flex items-center gap-1.5">
+      <StripNavButton
+        label="Previous week"
+        disabled={!canPrev}
+        onClick={() => page(-stripDays)}
+        icon={<ChevronLeft size={15} />}
+      />
+
+      {/* w-fit, NOT flex-1 — the strip used to stretch the full width and left
+          a dead gap after the last tab, pushing › to the far edge (Sir). */}
+      <div
+        className="flex w-fit min-w-0 max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-hairline bg-surface-card p-0.5"
+        role="tablist"
+        aria-label="Choose which days to plan"
       >
-        {count}/{minItems}
-      </span>
-    </span>
-  );
-}
-
-/* ----------------------------------------------------------------------- */
-/* Right columns — a source window with collapsible sections               */
-/* ----------------------------------------------------------------------- */
-
-function SourceWindow(props: {
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
-  delay?: number;
-  today: string;
-  /** Rendered between the header and the sections (the WMS filter block). */
-  controls?: React.ReactNode;
-  sections: { key: SourceKind; label: string; items: SourceItem[]; emptyText?: string }[];
-  onAdd: (item: SourceItem) => void;
-  onAbandon?: (item: SourceItem) => void;
-  dayLabel?: string;
-}) {
-  const { title, subtitle, icon, delay = 0, today, controls, sections, onAdd, onAbandon, dayLabel } = props;
-  return (
-    <section
-      className="wg-rise rounded-2xl border border-hairline bg-surface-card p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      <header className="mb-2.5 flex items-center gap-2">
-        <span
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-lg"
-          style={{
-            background: `color-mix(in srgb, ${GOALS_ACCENT} 12%, transparent)`,
-            color: GOALS_ACCENT_DEEP,
-          }}
-        >
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <h3
-            className="truncate text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 13.5 }}
-          >
-            {title}
-          </h3>
-          <p className="truncate text-[11px] text-ink-muted">{subtitle}</p>
-        </div>
-      </header>
-      {controls}
-      <div className="flex flex-col gap-2">
-        {sections.map((s) => (
-          <SourceSection
-            key={s.key}
-            label={s.label}
-            items={s.items}
-            emptyText={s.emptyText}
-            today={today}
-            onAdd={onAdd}
-            onAbandon={onAbandon}
-            dayLabel={dayLabel}
+        {tabs.map((t) => (
+          <DayTab
+            key={t.offset}
+            t={t}
+            lead={t.offset === windowStart}
+            inWindow={windowOffsets.includes(t.offset)}
+            onPick={onPick}
           />
         ))}
       </div>
-    </section>
-  );
-}
 
-function SourceSection({
-  label,
-  items,
-  today,
-  onAdd,
-  onAbandon,
-  dayLabel,
-  emptyText = "Nothing here right now.",
-}: {
-  label: string;
-  items: SourceItem[];
-  today: string;
-  onAdd: (item: SourceItem) => void;
-  onAbandon?: (item: SourceItem) => void;
-  dayLabel?: string;
-  emptyText?: string;
-}) {
-  const [open, setOpen] = React.useState(true);
-  const [showAll, setShowAll] = React.useState(false);
-  const remaining = items.filter((i) => !i.added).length;
-  const CAP = 6;
-  const shown = showAll ? items : items.slice(0, CAP);
-  const hidden = items.length - shown.length;
-  return (
-    <div className="rounded-xl border border-hairline/70">
+      <StripNavButton
+        label="Next week"
+        disabled={!canNext}
+        onClick={() => page(stripDays)}
+        icon={<ChevronRight size={15} />}
+      />
+
+      {/* OUTSIDE the strip, set apart from the arrow (Sir) — it controls how
+          many columns the board draws, not which day the strip points at, so it
+          should not look like part of the tab group. */}
+      <select
+        value={windowDays}
+        onChange={(e) => onSpan(Number(e.target.value))}
+        aria-label="How many days to show"
+        className="ml-4 h-8 shrink-0 rounded-xl border border-hairline bg-surface-card px-2 text-[12px] font-bold text-ink-soft outline-none hover:border-hairline-strong focus:border-altus-red"
+      >
+        <option value={1}>1 day</option>
+        <option value={2}>2 days</option>
+        <option value={3}>3 days</option>
+        <option value={4}>4 days</option>
+        <option value={7}>7 days</option>
+      </select>
+
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-2 rounded-xl"
-        style={{ outlineColor: GOALS_ACCENT }}
-        aria-expanded={open}
+        onClick={() => onPick(0)}
+        disabled={windowStart === 0}
+        title="Back to today"
+        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-[12px] font-bold transition-colors disabled:opacity-40"
+        style={{
+          borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 30%, transparent)`,
+          color: GOALS_ACCENT_DEEP,
+          background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
+        }}
       >
-        <span className="flex items-center gap-2 text-sm font-semibold text-ink-strong">
-          {label}
-          <span
-            className="rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
-            style={
-              remaining > 0
-                ? {
-                    background: `color-mix(in srgb, ${GOALS_ACCENT} 12%, transparent)`,
-                    color: GOALS_ACCENT_DEEP,
-                  }
-                : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)" }
-            }
-          >
-            {remaining}
-          </span>
-        </span>
-        <motion.span animate={{ rotate: open ? 0 : -90 }} transition={{ duration: 0.15 }} className="text-ink-muted">
-          <ChevronDown size={16} />
-        </motion.span>
+        <CalendarDays size={13} /> Today
       </button>
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden"
-          >
-            <div className="flex flex-col gap-1.5 px-2 pb-2.5">
-              {items.length === 0 ? (
-                <p className="mx-2 rounded-xl border border-hairline-strong px-3 py-3 text-center text-xs text-ink-muted/70">
-                  {emptyText}
-                </p>
-              ) : (
-                <>
-                  {shown.map((item) => (
-                    <SourceCard key={item.id} item={item} today={today} onAdd={onAdd} onAbandon={onAbandon} dayLabel={dayLabel} />
-                  ))}
-                  {items.length > CAP ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAll((v) => !v)}
-                      className="mx-1 mt-0.5 inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-[12px] font-bold transition-colors focus-visible:outline-2"
-                      style={{
-                        borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 32%, transparent)`,
-                        color: GOALS_ACCENT_DEEP,
-                        background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
-                        outlineColor: GOALS_ACCENT,
-                      }}
-                    >
-                      {showAll ? "Show less" : `Show ${hidden} more`}
-                    </button>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+
+      {/* PULL WORK — beside Today (Sir). It used to be a vertical spine pinned
+          to the far right edge, which read as page furniture rather than a
+          control. It is a TOGGLE: one click opens the rail, the next closes it,
+          so the same button you reached for is the one that puts it away.
+          Pressed state is shown, not just implied — the button stays lit while
+          the rail is open so you can see which way the switch is thrown. */}
+      <button
+        type="button"
+        onClick={onToggleRail}
+        aria-expanded={railOpen}
+        title={railOpen ? "Hide the work panel" : "Show WMS To-Do, Goals and Unfinished"}
+        className={
+          "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-bold transition-colors " +
+          (railOpen
+            ? "border-hairline-strong bg-surface-soft text-ink-strong"
+            : "border-hairline bg-surface-card text-ink-soft hover:border-hairline-strong hover:text-ink-strong")
+        }
+      >
+        <PanelRightOpen size={13} /> Pull work
+      </button>
     </div>
   );
 }
 
+/** A quiet square arrow for paging the strip. */
+function StripNavButton({
+  label,
+  disabled,
+  onClick,
+  icon,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl border border-hairline bg-surface-card text-ink-soft transition-colors hover:border-hairline-strong hover:text-ink-strong disabled:opacity-30 disabled:hover:border-hairline"
+    >
+      {icon}
+    </button>
+  );
+}
+
 /* ----------------------------------------------------------------------- */
-/* Column 4 — WMS To-Do, with due / priority / status filters              */
+/* Right rail — the work you can pull in, one panel at a time              */
 /* ----------------------------------------------------------------------- */
 
-const SELECT_CLASS =
-  "h-7 w-full min-w-0 rounded-lg border border-hairline bg-surface-card px-1 text-[11px] font-semibold text-ink-soft focus-visible:outline-2";
-
-const DUE_OPTIONS: DueFilter[] = ["all", "overdue", "today", "week"];
-const STATUS_OPTIONS: StatusFilter[] = ["all", "open", "in_progress", "blocked"];
+type RailTab = "task" | "goal" | "unfinished";
 
 /**
- * The WMS To-Do column. Filters narrow the list; the result is then re-ranked
- * attention-first, so a narrowed column still leads with what's at risk.
- *
- * Priority options are the app's REAL four-point scale (Critical · Important ·
- * Urgent · Normal — the `TASK_PRIORITIES` Eisenhower enum) rather than an
- * invented High/Medium/Low, so a filter always names a value the data holds.
+ * The three sources, as tabs rather than three permanently-open columns: you
+ * pull from ONE of them at a time, and the space the other two were holding
+ * goes back to the kanban (rule 16).
  */
-function WmsWindow({
+function SourceRail({
+  sources,
   today,
-  items,
+  addDayLabel,
   onAdd,
   onAbandon,
-  dayLabel,
+  onCollapse,
+  matches,
+  searching,
 }: {
+  sources: PlanSources;
   today: string;
-  items: SourceItem[];
+  addDayLabel: string;
   onAdd: (item: SourceItem) => void;
   onAbandon: (item: SourceItem) => void;
-  dayLabel?: string;
+  /** Fold the whole rail away. */
+  onCollapse: () => void;
+  /** The header search — the rail filters on the same query the board does. */
+  matches: (...text: (string | null | undefined)[]) => boolean;
+  searching: boolean;
 }) {
+  const [tab, setTab] = React.useState<RailTab>("task");
   const [filter, setFilter] = React.useState<WmsFilter>(DEFAULT_WMS_FILTER);
-  const set = <K extends keyof WmsFilter>(key: K, value: WmsFilter[K]) =>
-    setFilter((f) => ({ ...f, [key]: value }));
 
-  const shown = React.useMemo(
-    () => sortByAttention(applyWmsFilter(items, filter, today), today),
-    [items, filter, today],
+  const goalItems = React.useMemo(
+    () => [...sources.monthly, ...sources.quarterly, ...sources.yearly, ...sources.weekly],
+    [sources],
   );
-  const active = isFilterActive(filter);
+  const wmsItems = React.useMemo(
+    () => sortByAttention(applyWmsFilter(sources.task, filter, today), today),
+    [sources.task, filter, today],
+  );
+  const filtering = isFilterActive(filter);
+
+  const tabs: { key: RailTab; label: string; icon: React.ReactNode; count: number }[] = [
+    { key: "task", label: "WMS To-Do", icon: <ListTodo size={13} />, count: sources.task.length },
+    { key: "goal", label: "Goals", icon: <Layers size={13} />, count: goalItems.filter((i) => !i.added).length },
+    {
+      key: "unfinished",
+      label: "Unfinished",
+      icon: <History size={13} />,
+      count: sources.unfinished.length,
+    },
+  ];
+
+  const base = tab === "task" ? wmsItems : tab === "goal" ? goalItems : sources.unfinished;
+  // A rail card matches on its title OR its full description — the card only
+  // shows three lines, so the words you remember may be further down.
+  const shown = searching ? base.filter((i) => matches(i.title, i.description)) : base;
+  const empty = searching
+    ? "No tasks found"
+    : tab === "task"
+      ? filtering
+        ? "No tasks match these filters."
+        : "Nothing open in WMS."
+      : tab === "goal"
+        ? "No goals to pull in."
+        : "Nothing left unfinished.";
 
   return (
-    <SourceWindow
-      title="WMS To-Do"
-      subtitle="Your open WMS tasks"
-      icon={<ListTodo size={16} />}
-      delay={140}
-      today={today}
-      dayLabel={dayLabel}
-      controls={
-        <div className="mb-2.5 rounded-xl bg-surface-soft/60 p-2">
-          <div className="grid grid-cols-2 gap-1.5">
-            <label className="min-w-0">
-              <span className="mb-0.5 block text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-muted">Due</span>
-              <select
-                value={filter.due}
-                onChange={(e) => set("due", e.target.value as DueFilter)}
-                className={SELECT_CLASS}
-                style={{ outlineColor: GOALS_ACCENT }}
-              >
-                {DUE_OPTIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {DUE_LABEL[d]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="min-w-0">
-              <span className="mb-0.5 block text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-muted">Priority</span>
-              <select
-                value={filter.priority}
-                onChange={(e) => set("priority", e.target.value as PriorityFilter)}
-                className={SELECT_CLASS}
-                style={{ outlineColor: GOALS_ACCENT }}
-              >
-                <option value="all">All</option>
-                {TASK_PRIORITIES.map((p) => (
-                  <option key={p} value={p}>
-                    {PRIORITY_LABELS[p]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="col-span-2 min-w-0">
-              <span className="mb-0.5 block text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-muted">Status</span>
-              <select
-                value={filter.status}
-                onChange={(e) => set("status", e.target.value as StatusFilter)}
-                className={SELECT_CLASS}
-                style={{ outlineColor: GOALS_ACCENT }}
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABEL[s]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {active ? (
+    <aside className="flex min-w-0 flex-col rounded-2xl border border-hairline bg-surface-card p-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] max-lg:mt-1">
+      <div className="mb-2 flex items-center gap-1">
+        <div className="flex min-w-0 flex-1 items-center gap-1 rounded-xl bg-surface-soft/70 p-1">
+        {tabs.map((t) => {
+          const on = t.key === tab;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              aria-pressed={on}
+              className="inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-[11.5px] font-bold transition-colors"
+              style={on ? { background: GOALS_GRADIENT, color: "#fff" } : { color: "var(--color-ink-soft)" }}
+            >
+              {t.icon}
+              <span className="truncate">{t.label}</span>
+              <span className={"tabular-nums " + (on ? "opacity-85" : "text-ink-muted")}>{t.count}</span>
+            </button>
+          );
+        })}
+        </div>
+        <button
+          type="button"
+          onClick={onCollapse}
+          aria-expanded
+          title="Hide this panel"
+          aria-label="Hide the pull panel"
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg border border-hairline text-ink-muted transition-colors hover:border-hairline-strong hover:text-ink-strong"
+        >
+          <PanelRightClose size={14} />
+        </button>
+      </div>
+
+      {/* TWO FILTERS, and only on the WMS column: OVERDUE | PRIORITY (rule 2). */}
+      {tab === "task" ? (
+        <div className="mb-2 grid grid-cols-2 gap-1.5 rounded-xl bg-surface-soft/60 p-2">
+          <label className="min-w-0">
+            <span className="mb-0.5 block text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-muted">
+              Overdue
+            </span>
+            <select
+              value={filter.overdue}
+              onChange={(e) => setFilter((f) => ({ ...f, overdue: e.target.value as OverdueFilter }))}
+              className={SELECT_CLASS}
+              style={{ outlineColor: GOALS_ACCENT }}
+            >
+              {OVERDUE_OPTIONS.map((o) => (
+                <option key={o} value={o}>
+                  {OVERDUE_LABEL[o]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-0">
+            <span className="mb-0.5 block text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-muted">
+              Priority
+            </span>
+            <select
+              value={filter.priority}
+              onChange={(e) => setFilter((f) => ({ ...f, priority: e.target.value as PriorityFilter }))}
+              className={SELECT_CLASS}
+              style={{ outlineColor: GOALS_ACCENT }}
+            >
+              <option value="all">All</option>
+              {TASK_PRIORITIES.map((p) => (
+                <option key={p} value={p}>
+                  {PRIORITY_LABELS[p]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {filtering ? (
             <button
               type="button"
               onClick={() => setFilter(DEFAULT_WMS_FILTER)}
-              className="mt-1.5 text-[11px] font-bold focus-visible:outline-2"
+              className="col-span-2 text-left text-[11px] font-bold focus-visible:outline-2"
               style={{ color: GOALS_ACCENT_DEEP, outlineColor: GOALS_ACCENT }}
             >
               Clear filters
             </button>
           ) : null}
         </div>
-      }
-      sections={[
-        {
-          key: "task",
-          label: "Pending",
-          items: shown,
-          emptyText: active ? "No tasks match these filters." : "Nothing here right now.",
-        },
-      ]}
-      onAdd={onAdd}
-      onAbandon={onAbandon}
-    />
+      ) : null}
+
+      <div className="flex max-h-[calc(100vh-260px)] min-h-[180px] flex-col gap-1.5 overflow-y-auto pr-0.5 max-lg:max-h-[420px]">
+        {shown.length === 0 ? (
+          <p className="rounded-xl border border-hairline-strong px-3 py-6 text-center text-[12px] text-ink-muted/75">
+            {empty}
+          </p>
+        ) : (
+          shown.map((item) => (
+            <SourceCard
+              key={`${item.kind}:${item.id}`}
+              item={item}
+              today={today}
+              onAdd={onAdd}
+              onAbandon={item.taskId ? onAbandon : undefined}
+              addDayLabel={addDayLabel}
+            />
+          ))
+        )}
+      </div>
+    </aside>
   );
 }
+
+const SELECT_CLASS =
+  "h-7 w-full min-w-0 rounded-lg border border-hairline bg-surface-card px-1 text-[11px] font-semibold text-ink-soft focus-visible:outline-2";

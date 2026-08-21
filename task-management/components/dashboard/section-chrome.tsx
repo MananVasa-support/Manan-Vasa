@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Minimize2, Maximize2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   DashboardSectionHeader,
   type DashboardSectionHeaderProps,
@@ -42,20 +42,31 @@ export function CollapseToggle({
   label: string;
   tone?: string;
 }) {
-  // Minimize2 while open, Maximize2 while folded — the window-chrome pair,
-  // now on a neutral square so every section's control reads identically
-  // instead of each inheriting its widget's accent.
-  const Icon = expanded ? Minimize2 : Maximize2;
+  // CHEVRON, not the Minimize2/Maximize2 window-chrome pair this used to show.
+  // Those icons say "resize" — they are what a fullscreen control looks like —
+  // so a button that actually folds the section away read as one that would
+  // blow it up. A chevron points at what happens: up folds it, down unfolds it.
+  //
+  // One <ChevronUp> that rotates, rather than swapping two icon components:
+  // swapping remounts the SVG and kills the transition, so the flip would be
+  // instant while the body animated.
   return (
     <button
       type="button"
       onClick={onToggle}
       aria-expanded={expanded}
-      aria-label={`${expanded ? "Minimize" : "Maximize"} ${label}`}
-      title={expanded ? "Minimize" : "Maximize"}
+      aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
+      title={expanded ? "Collapse" : "Expand"}
       className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
     >
-      <Icon size={14} strokeWidth={2.6} aria-hidden />
+      <ChevronUp
+        size={15}
+        strokeWidth={2.6}
+        aria-hidden
+        className={`transition-transform duration-300 ease-in-out motion-reduce:transition-none ${
+          expanded ? "" : "rotate-180"
+        }`}
+      />
     </button>
   );
 }

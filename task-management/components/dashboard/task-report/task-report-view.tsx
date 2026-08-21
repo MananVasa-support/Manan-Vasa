@@ -1,13 +1,12 @@
 "use client";
 
-import { createPortal } from "react-dom";
 import { CollapsibleBody } from "@/components/dashboard/section-chrome";
 import { PER_REPORT_PER_DAY } from "@/lib/transforms/initiator-scorecard";
 import Link from "next/link";
 import type { Route } from "next";
 import * as React from "react";
 import { motion } from "motion/react";
-import { CalendarCheck2, XCircle, Users, Maximize2, Minimize2, ChevronUp } from "lucide-react";
+import { CalendarCheck2, XCircle, Users, ChevronUp } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { FineBucketBars } from "@/components/dashboard/task-report/fine-bucket-bars";
@@ -224,53 +223,32 @@ function ReportSection({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(true);
-  const [full, setFull] = React.useState(false);
 
-  // Esc exits, and the page behind must not scroll while the overlay is up.
-  React.useEffect(() => {
-    if (!full) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFull(false);
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [full]);
 
+  // ONE control, and it folds the section. This header used to carry two: a
+  // Maximize2 that portalled the widget into a fullscreen overlay, and a
+  // chevron that collapsed it. The fullscreen one sat FIRST, so the top-right
+  // "resize" button on this surface blew the section up while the identical
+  // button on every other section folded it away.
+  //
+  // The overlay is gone rather than rebound: it was a modal in everything but
+  // name (fixed inset-0, aria-modal, Esc trap, body scroll lock), and the same
+  // pattern was already removed from the activity board for the same reason.
   const controls = (
-    <>
-      <IconAction
-        onClick={() => setFull((v) => !v)}
-        label={full ? `Exit fullscreen for ${label}` : `Open ${label} fullscreen`}
-        title={full ? "Exit fullscreen (Esc)" : "Fullscreen"}
-      >
-        {full ? (
-          <Minimize2 size={15} strokeWidth={2.4} />
-        ) : (
-          <Maximize2 size={15} strokeWidth={2.4} />
-        )}
-      </IconAction>
-      {/* Collapse is hidden in fullscreen: folding a widget that fills the
-          viewport leaves an empty screen with a header floating in it. */}
-      {!full && (
-        <IconAction
-          onClick={() => setOpen((v) => !v)}
-          label={open ? `Collapse ${label}` : `Expand ${label}`}
-          title={open ? "Collapse" : "Expand"}
-          aria-expanded={open}
-        >
-          <ChevronUp
-            size={15}
-            strokeWidth={2.6}
-            className={`transition-transform duration-200 ${open ? "" : "rotate-180"}`}
-          />
-        </IconAction>
-      )}
-    </>
+    <IconAction
+      onClick={() => setOpen((v) => !v)}
+      label={open ? `Collapse ${label}` : `Expand ${label}`}
+      title={open ? "Collapse" : "Expand"}
+      aria-expanded={open}
+    >
+      <ChevronUp
+        size={15}
+        strokeWidth={2.6}
+        className={`transition-transform duration-300 ease-in-out motion-reduce:transition-none ${
+          open ? "" : "rotate-180"
+        }`}
+      />
+    </IconAction>
   );
 
   const header = (
@@ -283,30 +261,6 @@ function ReportSection({
       actions={controls}
     />
   );
-
-  if (full && typeof document !== "undefined") {
-    return createPortal(
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="fixed inset-0 z-[80] overflow-y-auto bg-white p-8 max-md:p-4"
-      >
-        {header}
-        {children}
-        <div className="mt-8 flex justify-center">
-          <button
-            type="button"
-            onClick={() => setFull(false)}
-            className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-white px-4 py-2.5 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
-          >
-            <Minimize2 size={15} strokeWidth={2.4} /> Exit Fullscreen
-          </button>
-        </div>
-      </div>,
-      document.body,
-    );
-  }
 
   return (
     <>

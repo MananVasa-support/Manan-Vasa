@@ -1,5 +1,3 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { and, asc, eq, gte, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { calendarEvents, obligations, obligationCompletions } from "@/db/schema";
@@ -163,13 +161,6 @@ export default async function ObligationsPage({ searchParams }: PageProps) {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-8 max-md:px-4 pt-8 pb-20">
-        <Link
-          href={"/events" as Route}
-          className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
-        >
-          ← Back to Monthly Events Master
-        </Link>
-
         <ObligationsClient
           fyStartYear={fyStartYear}
           fyLabel={fyLabel(fyStartYear)}

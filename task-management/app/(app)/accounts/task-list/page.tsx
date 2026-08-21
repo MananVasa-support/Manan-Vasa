@@ -1,6 +1,4 @@
-import Link from "next/link";
-import type { Route } from "next";
-import { ArrowLeft, ListChecks, Image as ImageIcon } from "lucide-react";
+import { ListChecks, Image as ImageIcon } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listAccountsTasks, listAccountsScreenshots } from "@/lib/queries/accounts";
@@ -30,14 +28,6 @@ export default async function AccountsTaskListPage() {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-8 max-md:px-4 pt-8 pb-20">
-        <Link
-          href={"/accounts" as Route}
-          className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"
-        >
-          <ArrowLeft size={15} strokeWidth={2.4} />
-          Back to Accounts Index
-        </Link>
-
         <header className="mt-3 mb-8 flex items-start justify-between gap-4 flex-wrap">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--color-altus-red-deep)" }}>

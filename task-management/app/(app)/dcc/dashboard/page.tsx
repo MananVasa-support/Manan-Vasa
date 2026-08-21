@@ -1,6 +1,4 @@
-import Link from "next/link";
-import type { Route } from "next";
-import { ArrowLeft, ClipboardCheck } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { requireUser } from "@/lib/auth/current";
 import { loadDccScope } from "@/lib/dcc/access";
@@ -46,9 +44,6 @@ export default async function DccDashboardPage() {
       <main className="mx-auto w-full max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
         {/* ── Page header ── */}
         <header className="wg-rise mb-6">
-          <Link href={"/dcc" as Route} className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-[#15803d]">
-            <ArrowLeft size={15} /> Back to My DCC
-          </Link>
           <div className="mt-3">
             <span
               className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"

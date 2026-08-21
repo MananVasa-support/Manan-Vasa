@@ -1,5 +1,5 @@
 import type { Task } from "@/db/schema";
-import type { KpiTotals, StatusDistribution } from "@/lib/types";
+import type { KpiTotals } from "@/lib/types";
 import { TASK_STATUSES, type TaskStatus } from "@/db/enums";
 
 export function computeKpiTotals(tasks: Task[]): KpiTotals {
@@ -46,21 +46,4 @@ export function computeKpiTotals(tasks: Task[]): KpiTotals {
     done,
     notApproved,
   };
-}
-
-export function computeStatusDistribution(
-  tasks: Task[],
-): StatusDistribution[] {
-  const counts = new Map<TaskStatus, number>(
-    TASK_STATUSES.map((s) => [s, 0]),
-  );
-
-  for (const t of tasks) {
-    counts.set(t.status, (counts.get(t.status) ?? 0) + 1);
-  }
-
-  return TASK_STATUSES.map((status) => ({
-    status,
-    count: counts.get(status) ?? 0,
-  })).filter((d) => d.count > 0);
 }

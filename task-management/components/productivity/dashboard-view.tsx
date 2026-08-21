@@ -1,16 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import {
-  ArrowLeft,
-  Download,
-  FileText,
-  Gauge,
-  GraduationCap,
-  ListChecks,
-  Target,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Download, FileText, Gauge, GraduationCap, ListChecks, Target, Users, type LucideIcon } from "lucide-react";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { GradeBadge } from "@/components/productivity/grade-badge";
 import { formatHours, formatMoney, formatPctCompact, type Grade } from "@/lib/productivity/calc";
@@ -80,15 +70,6 @@ export function ProductivityDashboardView({
 
   return (
     <div className="flex flex-col gap-8 max-md:gap-6">
-      {backHref && (
-        <Link
-          href={backHref}
-          className="inline-flex w-fit items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
-        >
-          <ArrowLeft size={15} strokeWidth={2.4} /> Back to Team Performance
-        </Link>
-      )}
-
       <EmployeeHeader employee={employee} period={period} viewingOther={viewingOther} />
 
       {/* ── 1 · KPI — incentive money, its share of salary, the grade it earns ── */}

@@ -22,14 +22,11 @@ function initialsOf(name: string): string {
 export function IntakeReviewStep({
   values,
   instances,
-  photo,
   onEdit,
 }: {
   sections: IntakeSection[];
   values: Record<string, string>;
   instances: Record<string, string[]>;
-  photo: { path?: string; preview?: string };
-  sign: { path?: string };
   onEdit: (i: number) => void;
 }) {
   const header = resumeHeader(values);
@@ -54,7 +51,7 @@ export function IntakeReviewStep({
       const res = await fetch("/api/hr/candidate-resume/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: values, instances, photoPath: photo.path }),
+        body: JSON.stringify({ data: values, instances }),
       });
       if (!res.ok) throw new Error(`PDF generation failed (${res.status})`);
       const blob = await res.blob();
@@ -85,21 +82,14 @@ export function IntakeReviewStep({
           style={{ background: `linear-gradient(90deg, ${ALTUS_RED}, ${ALTUS_RED}b3)` }}
         />
         <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:p-8">
-          {/* Photo */}
+          {/* Identity tile — INITIALS, always. The candidate photograph upload
+              was removed from the form (Sir, 2026-08-20), so there is no image
+              to show; this is the fallback that was already here. */}
           <div
             className="relative h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-hairline bg-neutral-50 shadow-sm"
             style={{ width: 112, height: 112 }}
           >
-            {photo.preview ? (
-              <Image
-                src={photo.preview}
-                alt={header.name}
-                fill
-                unoptimized
-                sizes="112px"
-                className="object-cover"
-              />
-            ) : (
+            {
               <div
                 className="grid h-full w-full place-items-center"
                 style={{ color: ALTUS_RED }}
@@ -112,7 +102,7 @@ export function IntakeReviewStep({
                   <User size={44} strokeWidth={1.6} />
                 )}
               </div>
-            )}
+            }
           </div>
 
           {/* Identity */}

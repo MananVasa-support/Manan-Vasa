@@ -80,6 +80,8 @@ export function computeEmployeeStatusTable(
         followUp: 0,
         initiated: 0,
         notStarted: 0,
+        dontKnow: 0,
+        onHold: 0,
         total: 0,
         criticalCount: 0,
         previews: {},
@@ -145,10 +147,16 @@ export function computeEmployeeStatusTable(
         addTo(rowKey, "pendingTotal", t);
         break;
       case "not_started":
-      // "I haven't assessed this yet" — open work nobody has picked up, which
-      // is what not_started means operationally.
-      case "dont_know":
         row.notStarted += 1;
+        row.pendingTotal += 1;
+        addTo(rowKey, "pendingTotal", t);
+        break;
+      // "I haven't assessed this yet". It used to be folded into not_started,
+      // which was fine while the table rendered one Pending column; now that
+      // every status has its own column, sharing a bucket would make Not
+      // Started count tasks that are actually Not Read.
+      case "dont_know":
+        row.dontKnow += 1;
         row.pendingTotal += 1;
         addTo(rowKey, "pendingTotal", t);
         break;
@@ -159,10 +167,12 @@ export function computeEmployeeStatusTable(
         row.pendingTotal += 1;
         addTo(rowKey, "pendingTotal", t);
         break;
-      // Paused, but still this person's open work. No dedicated sub-bucket —
-      // it lands in the Pending aggregate only, which is the column the table
-      // actually renders.
+      // Paused, but still this person's open work. It now has its own bucket:
+      // the table renders a column per status, and without one these tasks
+      // would count toward Total while appearing in no column — exactly the
+      // "columns sum short of the total" bug the default case below guards.
       case "on_hold":
+        row.onHold += 1;
         row.pendingTotal += 1;
         addTo(rowKey, "pendingTotal", t);
         break;

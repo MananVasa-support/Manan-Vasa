@@ -79,7 +79,9 @@ export function StatusCellPopover({
   // Scope to the person the row is about — by DOER or INITIATOR, matching the
   // dimension the table was aggregated on, or the link would open a list that
   // counts differently.
-  params.set(view === "doer" ? "emp" : "initiator", employeeId);
+  // `doer` is the assignee alias /tasks understands (lib/task-filters.ts folds
+  // it into `emp`), so the link reads the way the board describes it.
+  params.set(view === "doer" ? "doer" : "initiator", employeeId);
   const href = `/tasks?${params.toString()}` as Route;
 
   return (
@@ -96,8 +98,11 @@ export function StatusCellPopover({
             collisionPadding={16}
             className="z-50 rounded-lg border shadow-lg"
             style={{
-              width: 340,
-              maxWidth: "calc(100vw - 32px)",
+              width: 320,
+              // 380 is the ceiling, not the width: a long description gets room
+              // to breathe where the viewport allows, and the clamp still wins
+              // on a narrow screen.
+              maxWidth: "min(380px, calc(100vw - 32px))",
               background: "var(--color-surface-card)",
               borderColor: "var(--color-hairline-strong)",
             }}
@@ -112,44 +117,53 @@ export function StatusCellPopover({
             </div>
 
             <ul className="flex flex-col border-t" style={{ borderColor: "var(--color-hairline)" }}>
-              {tasks.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex items-start gap-2 px-3.5 py-2 border-b last:border-b-0"
-                  style={{ borderColor: "var(--color-hairline)" }}
-                >
-                  <span className="mt-px shrink-0 tabular-nums text-[10.5px] font-black text-ink-subtle">
-                    {t.taskNo != null ? `#${t.taskNo}` : "—"}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    {/* Description, not `title` — see StatusCellTask: `title`
-                        is the client name, which is already shown as the chip
-                        directly below this line. */}
-                    <span
-                      className="block truncate text-[12px] font-bold leading-snug text-ink-strong"
-                      title={t.description?.trim() || t.title}
+              {tasks.map((t) => {
+                // DESCRIPTION ONLY. This fell back through `subject` and then
+                // `title`, and BOTH fallbacks were the problem: `subject` is a
+                // category ("WMS App", "App"), so a run of rows reads
+                // identically, and `title` in this schema is the CLIENT NAME —
+                // the New Task form's "Client Name" field writes straight to
+                // tasks.title. Neither says what the work is. A task with no
+                // description says so rather than borrowing a label that lies.
+                const text = t.description?.trim() || "Untitled task";
+                // The identifiers that used to occupy the row -- the #number
+                // gutter and the client chip -- moved in here. Nothing is lost;
+                // they just stop competing with the description for the two
+                // lines the reader actually scans.
+                const hover = [
+                  text,
+                  t.taskNo != null ? `Task #${t.taskNo}` : null,
+                  t.client ? `Client: ${t.client}` : null,
+                ]
+                  .filter(Boolean)
+                  .join("\n");
+                return (
+                  <li key={t.id} className="border-b last:border-b-0" style={{ borderColor: "var(--color-hairline)" }}>
+                    {/* The ROW is a link now, to the same filtered list the
+                        footer opens — not to the single task. The reader is
+                        pointing at a COUNT, so the row is a sample of that set
+                        rather than a specific thing they picked. */}
+                    <Link
+                      href={href}
+                      className="flex items-start gap-2 rounded-lg p-2.5 transition-colors hover:bg-slate-50"
                     >
-                      {t.description?.trim() || t.subject?.trim() || t.title}
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-1.5">
-                      {(t.client || t.subject) && (
-                        <span
-                          className="truncate rounded-chip px-1.5 py-px text-[10px] font-bold"
-                          style={{
-                            maxWidth: 150,
-                            background:
-                              "color-mix(in srgb, var(--color-altus-red) 8%, transparent)",
-                            color: "var(--color-altus-red-deep)",
-                          }}
-                        >
-                          {t.client ?? t.subject}
-                        </span>
-                      )}
+                      {/* Two lines, not one: these are full task descriptions
+                          and a single-line truncate turned most of them into a
+                          stub. `break-words` keeps a long unbroken token from
+                          forcing a horizontal overflow. */}
+                      <span
+                        className="min-w-0 flex-1 line-clamp-2 break-words text-xs font-semibold leading-snug text-slate-900"
+                        title={hover}
+                      >
+                        {text}
+                      </span>
+                      {/* Urgency is the only metadata left, pinned right so the
+                          description gets the full width of the row. */}
                       <DueChip dueAt={t.dueAt} />
-                    </span>
-                  </span>
-                </li>
-              ))}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
 
             <div className="border-t px-3.5 py-2" style={{ borderColor: "var(--color-hairline)" }}>

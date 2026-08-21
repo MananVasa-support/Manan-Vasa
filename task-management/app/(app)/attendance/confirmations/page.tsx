@@ -1,7 +1,6 @@
-import Link from "next/link";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
-import { ArrowLeft, CalendarCheck2 } from "lucide-react";
+import { CalendarCheck2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { requireUser } from "@/lib/auth/current";
 import { getMondayConfirmQueue, mondayConfirmUiEnabled } from "@/lib/attendance/confirmations";
@@ -24,7 +23,6 @@ export default async function ConfirmationsPage() {
       <>
         <DashboardHeader generatedAt={new Date()} />
         <main className="mx-auto w-full max-w-[1100px] px-8 max-md:px-4 pt-10 pb-20">
-          <BackLink />
           <p
             className="mt-6 rounded-2xl bg-surface-card px-6 py-10 text-center text-[15px] font-bold text-ink-muted"
             style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
@@ -41,7 +39,6 @@ export default async function ConfirmationsPage() {
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[1100px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
         <header className="wg-rise mb-6">
-          <BackLink />
           <div className="mt-3">
             <span
               className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
@@ -76,13 +73,3 @@ export default async function ConfirmationsPage() {
   );
 }
 
-function BackLink() {
-  return (
-    <Link
-      href={"/attendance" as Route}
-      className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-[color:var(--color-altus-red-deep)]"
-    >
-      <ArrowLeft size={15} /> Back to Attendance
-    </Link>
-  );
-}

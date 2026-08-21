@@ -1,6 +1,4 @@
-import Link from "next/link";
-import type { Route } from "next";
-import { ArrowLeft, Palette } from "lucide-react";
+import { Palette } from "lucide-react";
 import { isNotNull, sql } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
 import { db } from "@/lib/db";
@@ -87,13 +85,6 @@ export default async function MastersPage() {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-8 max-md:px-4 pt-8 pb-20">
-        <Link
-          href={"/events" as Route}
-          className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"
-        >
-          <ArrowLeft size={15} strokeWidth={2.4} /> Back to Monthly Events
-        </Link>
-
         <header className="mt-3 mb-7 flex items-start gap-3 wg-rise">
           <span
             className="mt-1 inline-flex size-11 items-center justify-center rounded-xl"

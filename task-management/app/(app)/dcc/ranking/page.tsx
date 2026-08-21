@@ -1,7 +1,5 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { eq } from "drizzle-orm";
-import { ArrowLeft } from "lucide-react";
+
 import { DashboardHeader } from "@/components/layout/header";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
@@ -86,7 +84,6 @@ export default async function DccRankingPage() {
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[860px] px-6 max-md:px-4 pt-10 pb-24">
         <header className="mb-7 text-center">
-          <Link href={"/dcc" as Route} className="mb-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-muted transition-colors hover:text-altus-red"><ArrowLeft size={15} /> Back to DCC</Link>
           <span className="block text-[13px] font-extrabold uppercase tracking-[0.22em]" style={{ color: "var(--color-altus-red-deep)" }}>Employees · DCC</span>
           <h1 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(34px, 4.6vw, 52px)", letterSpacing: "-0.03em", lineHeight: 1.04, marginTop: 8 }}>
             Compliance Ranking

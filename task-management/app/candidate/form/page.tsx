@@ -48,8 +48,6 @@ export default async function CandidateFormPage() {
     draftId: rowId,
     values,
     instances: (row?.instances ?? {}) as Record<string, string[]>,
-    photoPath: row?.photoPath ?? null,
-    signaturePath: row?.signaturePath ?? null,
     startAtReview: false,
   };
 

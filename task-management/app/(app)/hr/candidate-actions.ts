@@ -144,7 +144,7 @@ export async function listCandidateDrafts(): Promise<CandidateDraft[]> {
       return {
         id: r.id,
         name: r.fullName || "Unnamed",
-        pct: intakeProgress(values, instances, Boolean(r.photoPath), Boolean(r.signaturePath)),
+        pct: intakeProgress(values, instances),
         updatedAt: r.updatedAt,
       };
     })
@@ -377,7 +377,7 @@ export async function listCandidateIntakes(): Promise<CandidateRow[]> {
       email: r.email,
       status: r.status,
       submitted: r.submittedAt != null,
-      pct: intakeProgress(values, instances, Boolean(r.photoPath), Boolean(r.signaturePath)),
+      pct: intakeProgress(values, instances),
       createdAt: r.createdAt,
       department: values["personal.department"] ?? null,
       gender: values["personal.gender"] ?? null,

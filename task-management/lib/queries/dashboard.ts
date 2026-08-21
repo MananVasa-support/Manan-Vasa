@@ -5,7 +5,6 @@ import type { DashboardData, DashboardFilters, KpiSet, InitiatorBoard } from "@/
 import { isFounderEmail } from "@/lib/auth/founder";
 import {
   computeKpiTotals,
-  computeStatusDistribution,
   computeAgingByDate,
   computeWeekOverWeekDelta,
   computeDailySparkline,
@@ -207,7 +206,6 @@ async function loadDashboardDataUncached(
   const totals = computeKpiTotals(periodTasks);
 
   const approvedCount = periodTasks.filter((t) => t.status === "approved").length;
-  const statusDistributionDenominator = totals.total - approvedCount;
 
   const sparklineFor = (predicate: (s: TaskStatus) => boolean) =>
     computeDailySparkline(
@@ -415,28 +413,6 @@ async function loadDashboardDataUncached(
       filters.view,
       departmentMap,
     ),
-    statusDistribution: {
-      rows: computeStatusDistribution(periodTasks).filter((r) => r.status !== "approved"),
-      denominator: statusDistributionDenominator,
-      summary: {
-        // Open work still awaiting a verdict (non-terminal, not archived,
-        // no approval decision recorded yet).
-        pending: periodTasks.filter(
-          (t) =>
-            !t.archived &&
-            PENDING_SET.has(t.status) &&
-            t.approvalStatus == null &&
-            t.status !== "done",
-        ).length,
-        // Declined — either the legacy status or the new approval column.
-        notApproved: periodTasks.filter(
-          (t) =>
-            !t.archived &&
-            (t.status === "not_approved" || t.approvalStatus === "not_approved"),
-        ).length,
-        archived: periodTasks.filter((t) => t.archived).length,
-      },
-    },
     topPerformers,
     agingTable: computeEmployeeAgingTable(periodTasks, allEmployees, now),
     agingHeatmap: [],

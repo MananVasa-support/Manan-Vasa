@@ -1,14 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Plus, X, UploadCloud, Search, Loader2, Mic } from "lucide-react";
+import { Plus, X, Search, Loader2, Mic } from "lucide-react";
 import { visibleFields, type FormFieldDef } from "@/lib/forms/field-types";
 import { vkey, ageFromDob, expFromRange, monthlyFromCtc, type IntakeSection } from "@/lib/hr/candidate/intake-schema";
 import { splitAddress } from "@/lib/hr/candidate/aadhaar-kyc";
 import { fireToast } from "@/lib/toast";
 import { IntakePositionSelect } from "@/components/hr/candidate/intake-position-select";
 import { IntakeField, IntakeReadonlyField } from "@/components/hr/candidate/intake-field";
-import { SelfieCapture } from "@/components/hr/candidate/selfie-capture";
 
 /**
  * Resolve a `compute` field's value from its sibling inputs. `prefix` is the
@@ -37,9 +36,6 @@ export function IntakeSectionStep({
   instances,
   onAdd,
   onRemove,
-  photo,
-  sign,
-  onUpload,
   invalid,
   positions,
   departments,
@@ -51,9 +47,6 @@ export function IntakeSectionStep({
   instances: string[];
   onAdd: () => void;
   onRemove: (uid: string) => void;
-  photo: { path?: string; preview?: string; busy?: boolean };
-  sign: { path?: string; preview?: string; busy?: boolean };
-  onUpload: (kind: "photo" | "signature", f: File) => void;
   invalid: Set<string>;
   positions: string[];
   departments: string[];
@@ -127,20 +120,14 @@ export function IntakeSectionStep({
       </h3>
       {section.subtitle && <p className="mt-2 text-[15px] leading-relaxed text-ink-muted">{section.subtitle}</p>}
 
-      {/* Declaration file tiles */}
-      {section.declaration && (
-        <>
-          <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 max-sm:grid-cols-1">
-            <div>
-              <FileTile label="Passport-size Photograph" state={photo} onPick={(f) => onUpload("photo", f)} accept="image/*" error={invalid.has(`${section.id}.__photo__`)} />
-              {/* Selfie capture — device camera, with the upload tile above as fallback. */}
-              <SelfieCapture onCapture={(f) => onUpload("photo", f)} />
-            </div>
-            <FileTile label="Candidate's Signature" state={sign} onPick={(f) => onUpload("signature", f)} accept="image/*" error={invalid.has(`${section.id}.__sign__`)} />
-          </div>
-          <DeclarationStatement />
-        </>
-      )}
+      {/* Declaration statement.
+          The Passport-size Photograph and Candidate's Signature upload tiles
+          (and the selfie capture beside them) were REMOVED on 2026-08-20 (Sir):
+          nothing is uploaded on this form any more. They were also the cause of
+          the "form won't save" bug — both counted as required, so a fully
+          completed form could never be submitted. See missingKeys() in
+          intake-wizard.tsx. */}
+      {section.declaration && <DeclarationStatement />}
 
       {/* Notes + Dictate section (final step) */}
       {section.notes ? (
@@ -397,65 +384,6 @@ function AadhaarField({
       >
         {busy ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} strokeWidth={2.4} />} Fetch
       </button>
-    </div>
-  );
-}
-
-function FileTile({
-  label,
-  state,
-  onPick,
-  accept,
-  error,
-}: {
-  label: string;
-  state: { path?: string; preview?: string; busy?: boolean };
-  onPick: (f: File) => void;
-  accept: string;
-  error?: boolean;
-}) {
-  const id = React.useId();
-  return (
-    <div data-invalid={error ? "true" : undefined}>
-      <label className="mb-2 block text-[15px] font-bold text-ink-strong">
-        {label}
-      </label>
-      <label
-        htmlFor={id}
-        className="flex h-48 cursor-pointer flex-col items-center justify-center gap-2.5 overflow-hidden rounded-2xl border-2 border-solid bg-white transition-colors hover:border-altus-red"
-        style={{ borderColor: error ? "var(--color-altus-red)" : "var(--color-hairline-strong)" }}
-      >
-        {state.preview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={state.preview} alt="" className="h-full w-full object-contain" />
-        ) : (
-          <>
-            <span
-              className="grid h-12 w-12 place-items-center rounded-full"
-              style={{ background: "color-mix(in srgb, var(--color-altus-red) 8%, white)" }}
-            >
-              <UploadCloud size={24} className="text-altus-red" />
-            </span>
-            <span className="text-[13px] font-semibold text-ink-muted">Click to upload</span>
-          </>
-        )}
-      </label>
-      <input
-        id={id}
-        type="file"
-        accept={accept}
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onPick(f);
-        }}
-      />
-      <p
-        className="mt-1.5 text-[12px] font-semibold"
-        style={{ color: state.busy ? "var(--color-ink-subtle)" : state.path ? "#16a34a" : error ? "var(--color-altus-red)" : "var(--color-ink-subtle)" }}
-      >
-        {state.busy ? "Uploading…" : state.path ? "Uploaded ✓" : error ? "Required" : "PNG / JPG, up to 8 MB"}
-      </p>
     </div>
   );
 }

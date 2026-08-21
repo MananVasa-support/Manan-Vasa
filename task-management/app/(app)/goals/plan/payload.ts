@@ -1,8 +1,8 @@
 import "server-only";
 
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dailyChecklist, dailyPlanDay, tasks, weeklyGoals } from "@/db/schema";
+import { dailyChecklist, dailyPlanDay, employees, tasks, weeklyGoals } from "@/db/schema";
 import { getPeriodGoals } from "@/lib/goals/queries";
 import { MIN_ATTENDANCE_ITEMS } from "@/lib/daily-checklist/constants";
 import {
@@ -13,13 +13,23 @@ import {
   listGoalsForPlanner,
   listOpenTasksForChecklist,
   getOverdueItems,
+  PLAN_HORIZON_DAYS,
+  PLAN_MAX_DAY_OFFSET,
+  PLAN_MIN_DAY_OFFSET,
   type OverdueItem,
 } from "@/lib/queries/daily-checklist";
+import { effectiveDueAtSql, pickEffectiveDue } from "@/lib/tasks/effective-due";
 import { istYmd } from "@/lib/weekly-goals/week";
+import { blockLabel, effectiveTime, timeColumnToMin } from "@/lib/goals/plan-time";
+import { carryForwardUnreviewed } from "@/lib/goals/carry-forward";
 import { yearKey, quarterKey, monthKey } from "@/lib/goals/types";
 import { isManagerWithReports } from "@/lib/manager-gates";
+import { PLAN_DEFAULT_SPAN } from "@/components/goals/plan/types";
 import type {
+  PlanDayColumn,
   PlanDayPayload,
+  PlanDayTab,
+  PlanHierarchy,
   PlanItem,
   PlanKind,
   PlanPhase,
@@ -28,28 +38,64 @@ import type {
 import type { Goal } from "@/lib/goals/types";
 
 /**
- * Plan-Your-Day payload assembler — the ONE place the person-day data set is
- * built. Consumed by BOTH surfaces so they can never drift (Phase 5, design
- * §2.1: "the /goals/plan route stays as a deep-link alias but renders the same
- * component"):
+ * Plan-Your-Day payload assembler — the ONE place the person-window data set is
+ * built. Consumed by BOTH surfaces so they can never drift:
  *   · app/(app)/goals/plan/page.tsx        — the full-page route (production)
- *   · loadPlanDay (plan/actions.ts)        — the canvas Day zoom stage, lazily
- *                                            fetched behind GOALS_CANVAS_ON.
+ *   · loadPlanDay (plan/actions.ts)        — the canvas Day zoom stage.
+ *
+ * It now assembles a WINDOW of days (the 3-column daily kanban), not a single
+ * day, so "Today | Tomorrow | Day After" is one server read and the Next /
+ * Previous controls just slide the window.
  *
  * ⚠ Runs on the PRODUCTION path regardless of the canvas flag — it must never
  * reference `daily_checklist.cascade_goal_id` (migration 0141 may be
  * unapplied). Every select below uses an explicit column list.
  */
 
+/** How many day columns the kanban shows by default. Re-exported from the
+ *  shared types so the server and the board read the SAME number. */
+export const PLAN_WINDOW_DAYS = PLAN_DEFAULT_SPAN;
+
+/** The spans the view dropdown offers: 1, 2, 3, 4 days or a week (Sir).
+ *
+ *  There is deliberately NO zero-column span. "—" in the dropdown is a RESET —
+ *  it puts the board back to the default view — because a board with no columns
+ *  is just an empty screen, which is what it gave (Sir). Anything unrecognised,
+ *  including 0, falls back to the 3-day default here. */
+export const PLAN_WINDOW_CHOICES = [1, 2, 3, 4, 7] as const;
+
+/** Only the offered spans are honoured — a hand-crafted ?v= can't ask for 40
+ *  columns. Anything else falls back to the familiar 3-day board. */
+export function clampWindowDays(raw: unknown): number {
+  const n = Math.trunc(Number(raw));
+  return (PLAN_WINDOW_CHOICES as readonly number[]).includes(n) ? n : PLAN_WINDOW_DAYS;
+}
+
+/** Every day the planner can file work on — today through +27. */
+export const PLAN_PLANNING_DAYS = PLAN_MAX_DAY_OFFSET + 1;
+
+/** How many day tabs the strip shows at once — one week, paged by ‹ / ›. */
+export const PLAN_STRIP_DAYS = PLAN_HORIZON_DAYS;
+
+/** The furthest-left offset a window of `days` columns may start at, so its
+ *  last column still fits inside the planning horizon. */
+export function maxWindowStartFor(days: number): number {
+  return Math.max(0, PLAN_MAX_DAY_OFFSET + 1 - days);
+}
+
+/** The furthest BACK the window may start — four weeks of history. */
+export const MIN_WINDOW_START = PLAN_MIN_DAY_OFFSET;
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** "2026-07-20" → "20 Jul" (no timezone parse, so no off-by-one shift). */
-function shortDue(ymd: string | null): string | null {
-  if (!ymd) return null;
-  const [, m, d] = ymd.split("-");
-  const mi = Number(m) - 1;
-  if (mi < 0 || mi > 11) return null;
-  return `${Number(d)} ${MONTH_ABBR[mi]}`;
+/** Window start is clamped to [0, maxWindowStartFor(days)] — Previous stops at
+ *  today (you plan forward, you don't re-plan the past) and Next stops at the
+ *  horizon, whichever span is on screen. */
+export function clampWindowStart(raw: unknown, days: number = PLAN_WINDOW_DAYS): number {
+  const n = Math.trunc(Number(raw));
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(MIN_WINDOW_START, Math.min(n, maxWindowStartFor(days)));
 }
 
 /** Whole calendar-days from `from` to `to` (both IST ymd); +ve when to > from. */
@@ -62,14 +108,73 @@ function ymdDiffDays(from: string, to: string): number {
 }
 
 /**
- * Previously-unfinished commitments (prior-day rows, not done) → the "Unfinished"
- * pull box. Dedupe by origin (goal/task/title), drop anything already re-pulled
- * onto today's plan, and cap so a long tail can't flood the column.
+ * The labels for one planner day.
+ *
+ * "Today" / "Tomorrow" / "Day After" read well but don't say WHICH day they are,
+ * while every later tab is named by its weekday already. So the first three
+ * carry the weekday on their DATE line (Sir) — "Today / Mon 18 Aug" — and the
+ * rest stay "Fri / 21 Aug" rather than repeating themselves as "Fri / Fri 21".
  */
+function dayLabels(ymd: string, offset: number): { word: string; date: string; weekday: string } {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+  const weekday = WEEKDAYS[dt.getUTCDay()] ?? "";
+  const named =
+    offset === 0
+      ? "Today"
+      : offset === 1
+        ? "Tomorrow"
+        : offset === 2
+          ? "Day After"
+          : offset === -1
+            ? "Yesterday"
+            : null;
+  const dayMonth = `${Number(d)} ${MONTH_ABBR[(m ?? 1) - 1]}`;
+  return {
+    word: named ?? weekday,
+    date: named ? `${weekday} ${dayMonth}` : dayMonth,
+    weekday,
+  };
+}
+
+/**
+ * The day-tab strip: ONE WEEK of planner days starting at `from`, so ‹ / › can
+ * page it forward and back across the four-week planning range (Sir).
+ *
+ * Built here rather than in the browser on purpose — the tabs both name a day
+ * and are drop targets that file work onto it, so their label and their effect
+ * must come from the same IST calendar the server plans against. Deriving them
+ * from `new Date()` in the client re-opens the midnight/timezone gap between
+ * what a tab says and where a dropped card actually lands.
+ */
+function buildTabs(now: Date, from: number): PlanDayTab[] {
+  return Array.from({ length: PLAN_STRIP_DAYS }, (_, i) => {
+    const offset = Math.max(PLAN_MIN_DAY_OFFSET, Math.min(from + i, PLAN_MAX_DAY_OFFSET));
+    const ymd = ymdForOffset(offset, now);
+    const [, m, d] = ymd.split("-");
+    const { word, weekday } = dayLabels(ymd, offset);
+    const dayMonth = `${d} ${(MONTH_ABBR[Number(m) - 1] ?? "").toUpperCase()}`;
+    return {
+      offset,
+      ymd,
+      word,
+      // Same rule as the column headers: the three named days show which
+      // weekday they actually are; the rest are already named by theirs.
+      date: word === weekday ? dayMonth : `${weekday} ${dayMonth}`,
+    };
+  });
+}
+
 /** The most descriptive label for a task card: its real description first, then
  *  the title — many WMS tasks store the CLIENT in `title`, so the description is
- *  what the user actually wants to read. Falls back to the client / "Untitled". */
-function displayTitle(title: string | null, description: string | null, client: string | null): string {
+ *  what the user actually wants to read. Falls back to the client / "Untitled".
+ *
+ *  EXPORTED because `addTaskToPlan` must label a pulled task with the SAME
+ *  string the source card showed. It did not, and that was the bug: the card in
+ *  the pull list read the description while the row it inserted carried the raw
+ *  `tasks.title` — which for most WMS tasks is just the client name. So "+"
+ *  appeared to drop half the task. One helper, both paths, no drift. */
+export function displayTitle(title: string | null, description: string | null, client: string | null): string {
   const desc = description?.trim();
   if (desc) return desc;
   const t = title?.trim();
@@ -77,25 +182,21 @@ function displayTitle(title: string | null, description: string | null, client: 
   return client?.trim() || "Untitled";
 }
 
-/** Drop the subtitle when it just repeats the title (the "Altus Corp / Altus Corp"
- *  duplication). */
-function dedupeSub(title: string, subtitle: string | null): string | null {
-  const s = subtitle?.trim();
-  if (!s) return null;
-  return s.toLowerCase() === title.trim().toLowerCase() ? null : s;
-}
-
+/**
+ * Previously-unfinished commitments → the "Unfinished" pull box. Dedupe by
+ * origin (goal/task/title), drop anything already re-planned, and cap so a long
+ * tail can't flood the column.
+ */
 function buildUnfinished(
   rows: OverdueItem[],
-  planRows: { goalId: string | null; taskId: string | null }[],
+  plannedGoalIds: Set<string>,
+  plannedTaskIds: Set<string>,
 ): SourceItem[] {
-  const todayGoals = new Set(planRows.map((r) => r.goalId).filter(Boolean) as string[]);
-  const todayTasks = new Set(planRows.map((r) => r.taskId).filter(Boolean) as string[]);
   const seen = new Set<string>();
   const out: SourceItem[] = [];
   for (const r of rows) {
-    if (r.goalId && todayGoals.has(r.goalId)) continue;
-    if (r.taskId && todayTasks.has(r.taskId)) continue;
+    if (r.goalId && plannedGoalIds.has(r.goalId)) continue;
+    if (r.taskId && plannedTaskIds.has(r.taskId)) continue;
     const key = r.goalId ?? r.taskId ?? `t:${r.title}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -104,22 +205,25 @@ function buildUnfinished(
       id: r.id,
       kind: "unfinished",
       title: label,
-      subtitle: dedupeSub(label, r.client ?? r.subject ?? null),
-      meta: r.taskNo ? `#${r.taskNo}` : null,
+      subtitle: null,
+      meta: null,
       added: false,
       overdue: true,
-      dueLabel: "Carried over",
       // Provenance — a carried-over row shows what it originally was and the
       // day it was first committed. Re-adding it REUSES that goal_id/task_id
       // (addUnfinishedToPlan), so nothing is duplicated.
       originKind: r.goalId ? "weekly" : r.taskId ? "task" : "adhoc",
       fromYmd: r.planDate,
-      taskNo: r.taskNo,
-      project: r.client ?? r.subject ?? null,
       taskId: r.taskId,
     });
   }
   return out.slice(0, 40);
+}
+
+/** A WMS task's own calendar block, as the label its source card shows. */
+function taskBlockLabel(t: Parameters<typeof effectiveTime>[0]): string | null {
+  const { startMin, durationMin } = effectiveTime(t);
+  return blockLabel(startMin, durationMin);
 }
 
 /** Cascade goal → source card. subtitle = its Area; meta = self-% when logged. */
@@ -135,19 +239,8 @@ function goalToSource(g: Goal, kind: SourceItem["kind"]): SourceItem {
 }
 
 /**
- * Build the complete PlanBoard payload for one employee's plan day. `dayOffset`
- * 0/1/2 = today / tomorrow / day-after (the 3-day planner). Period goals stay
- * anchored to the real `now` (weekly/monthly/… are period-scoped, not per-day);
- * only the plan rows, unfinished carry-over, WMS due-labels and the day
- * lifecycle re-scope to the chosen day.
- */
-/**
  * DEADLINE → DAY (Sir): a weekly goal with a target date of the 15th must appear
  * on the 15th's plan by itself — you should not have to remember to drag it over.
- *
- * Run when a planner day is opened: any of the viewer's unfinished weekly goals
- * whose `target_date` IS this day and which are not ALREADY planned on some day
- * are materialised onto it.
  *
  * The "not already planned on ANY day" test is the important half. It respects a
  * deliberate move — if you pushed the goal to the 17th, it stays on the 17th
@@ -179,167 +272,312 @@ async function materialiseGoalsDueOn(employeeId: string, ymd: string): Promise<v
       ),
     );
   if (due.length === 0) return;
+  await appendToDay(
+    employeeId,
+    ymd,
+    due.map((g) => ({
+      employeeId,
+      planDate: ymd,
+      goalId: g.id,
+      origin: "goal_related" as const,
+      title: g.targetDone?.trim() || g.subject?.trim() || "Weekly goal",
+      client: g.client,
+      subject: g.subject,
+    })),
+  );
+}
 
-  const [pos] = await db
-    .select({ max: sql<number>`coalesce(max(${dailyChecklist.position}), 0)::int` })
+/**
+ * WMS DUE DATE → PLAN MY DAY (Sir's rule 12). A WMS task whose EFFECTIVE due
+ * (revised ?? due_at) falls on this planner day is filed onto that day by
+ * itself — "if a task is due on 18 August it appears under Tuesday, 18 August",
+ * with nobody re-typing it.
+ *
+ * Identical shape to the weekly-goal materialiser above, and identical guard:
+ * only tasks not planned on ANY day are pulled in, so dragging a task to another
+ * day is respected forever and no task is ever duplicated across days (bug 11).
+ * Best-effort — a failure here must never stop the board from rendering.
+ */
+async function materialiseTasksDueOn(employeeId: string, ymd: string): Promise<void> {
+  const due = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      description: tasks.description,
+      client: tasks.client,
+      subject: tasks.subject,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.doerId, employeeId),
+        eq(tasks.archived, false),
+        isNull(tasks.abandonedAt),
+        sql`${tasks.status} not in ('done','approved','cancelled')`,
+        // Effective due lands on THIS IST day.
+        sql`(${effectiveDueAtSql()} at time zone 'Asia/Kolkata')::date = ${ymd}::date`,
+        sql`not exists (
+          select 1 from daily_checklist dc
+           where dc.task_id = ${tasks.id}
+             and dc.employee_id = ${employeeId}
+        )`,
+      ),
+    )
+    .orderBy(asc(effectiveDueAtSql()));
+  if (due.length === 0) return;
+  await appendToDay(
+    employeeId,
+    ymd,
+    due.map((t) => ({
+      employeeId,
+      planDate: ymd,
+      taskId: t.id,
+      origin: "standalone" as const,
+      title: displayTitle(t.title, t.description, t.client),
+      client: t.client,
+      subject: t.subject,
+    })),
+  );
+}
+
+/** Hard cap per day — mirrors MAX_ITEMS_PER_DAY in the plan actions, so an
+ *  auto-materialised day can never blow past what a hand-planned one allows. */
+const MAX_ITEMS_PER_DAY = 50;
+
+type NewPlanRow = Omit<typeof dailyChecklist.$inferInsert, "position">;
+
+/** Append rows to a day at the end of its order, respecting the per-day cap. */
+async function appendToDay(employeeId: string, ymd: string, rows: NewPlanRow[]): Promise<void> {
+  const [agg] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+      max: sql<number>`coalesce(max(${dailyChecklist.position}), 0)::int`,
+    })
     .from(dailyChecklist)
     .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)));
-  let next = (pos?.max ?? 0) + 1;
-
+  const room = MAX_ITEMS_PER_DAY - (agg?.count ?? 0);
+  if (room <= 0) return;
+  let next = (agg?.max ?? 0) + 1;
   await db
     .insert(dailyChecklist)
-    .values(
-      due.map((g) => ({
-        employeeId,
-        planDate: ymd,
-        goalId: g.id,
-        origin: "goal_related" as const,
-        title: g.targetDone?.trim() || g.subject?.trim() || "Weekly goal",
-        client: g.client,
-        subject: g.subject,
-        position: next++,
-      })),
-    )
+    .values(rows.slice(0, room).map((r) => ({ ...r, position: next++ })))
     .onConflictDoNothing();
 }
 
+/** The plan rows on one day, in order, with any linked WMS task's real schedule. */
+async function planRowsForDays(employeeId: string, ymds: string[]) {
+  if (ymds.length === 0) return [];
+  return db
+    .select({
+      // Explicit list on purpose — see the module header (no bare select()).
+      id: dailyChecklist.id,
+      planDate: dailyChecklist.planDate,
+      title: dailyChecklist.title,
+      client: dailyChecklist.client,
+      subject: dailyChecklist.subject,
+      origin: dailyChecklist.origin,
+      goalId: dailyChecklist.goalId,
+      taskId: dailyChecklist.taskId,
+      done: dailyChecklist.done,
+      donePct: dailyChecklist.donePct,
+      doneNote: dailyChecklist.doneNote,
+      closedAt: dailyChecklist.closedAt,
+      carriedForwardAt: dailyChecklist.carriedForwardAt,
+      movedFromDate: dailyChecklist.movedFromDate,
+      // The commitment's OWN time (0185) — beats the linked task's schedule.
+      startMin: dailyChecklist.startMin,
+      durationMin: dailyChecklist.durationMin,
+      // Time / priority / due come LIVE off the linked task — the plan row is a
+      // reference, so a rescheduled task shows its new time here immediately.
+      startsAt: tasks.startsAt,
+      endsAt: tasks.endsAt,
+      allDay: tasks.allDay,
+      estimatedMinutes: tasks.estimatedMinutes,
+      priority: tasks.priority,
+      taskDueAt: tasks.dueAt,
+      taskRevisedTargetDate: tasks.revisedTargetDate,
+    })
+    .from(dailyChecklist)
+    .leftJoin(tasks, eq(tasks.id, dailyChecklist.taskId))
+
+    .where(
+      and(
+        eq(dailyChecklist.employeeId, employeeId),
+        inArray(dailyChecklist.planDate, ymds),
+        // Cancelled work lives in the Recycle Bin, not on the board (0186).
+        isNull(dailyChecklist.abandonedAt),
+      ),
+    )
+    // Timed work reads in clock order; untimed work keeps its manual order and
+    // sinks below it (Postgres sorts NULLs last on ASC).
+    .orderBy(
+      asc(dailyChecklist.startMin),
+      asc(dailyChecklist.position),
+      asc(dailyChecklist.committedAt),
+    );
+}
+
+/**
+ * Commitments the user explicitly marked PENDING at review time. They stay on
+ * the day they were planned (that is the honest record of what was committed)
+ * and ALSO surface in Unfinished so they can be re-planned — see rule 6.
+ * `getOverdueItems` only looks at strictly-earlier days, so today's pending rows
+ * need this second read.
+ */
+async function pendingTodayItems(employeeId: string, ymd: string): Promise<OverdueItem[]> {
+  const rows = await db
+    .select({
+      id: dailyChecklist.id,
+      title: dailyChecklist.title,
+      description: tasks.description,
+      client: dailyChecklist.client,
+      subject: dailyChecklist.subject,
+      origin: dailyChecklist.origin,
+      goalId: dailyChecklist.goalId,
+      taskId: dailyChecklist.taskId,
+      taskNo: tasks.taskNo,
+      planDate: dailyChecklist.planDate,
+    })
+    .from(dailyChecklist)
+    .leftJoin(tasks, eq(tasks.id, dailyChecklist.taskId))
+    .where(
+      and(
+        eq(dailyChecklist.employeeId, employeeId),
+        eq(dailyChecklist.planDate, ymd),
+        eq(dailyChecklist.done, false),
+        isNotNull(dailyChecklist.closedAt),
+        isNull(dailyChecklist.abandonedAt),
+        sql`(${dailyChecklist.taskId} is null or ${tasks.abandonedAt} is null)`,
+      ),
+    );
+  return rows as OverdueItem[];
+}
+
+/**
+ * Build the complete PlanBoard payload for one employee's planning window.
+ * `windowStart` is the offset of the LEFT column (0 = today). Period goals stay
+ * anchored to the real `now` (weekly/monthly/… are period-scoped, not per-day);
+ * only the plan rows, unfinished carry-over and the day lifecycle move.
+ */
 export async function getPlanDayPayload(
   employeeId: string,
   now: Date = new Date(),
-  dayOffset: number = 0,
+  windowStart: number = 0,
+  hierarchy: PlanHierarchy = { manager: null, managerManager: null },
+  windowDays: number = PLAN_WINDOW_DAYS,
 ): Promise<PlanDayPayload> {
-  const offset = clampDayOffset(dayOffset);
-  const ymd = ymdForOffset(offset, now);
+  const days_ = clampWindowDays(windowDays);
+  const start = clampWindowStart(windowStart, days_);
+  const today = todayYmd(now);
+  const offsets = Array.from({ length: days_ }, (_, i) => clampDayOffset(start + i));
+  const ymds = offsets.map((o) => ymdForOffset(o, now));
 
-  // Pull in anything whose DEADLINE is this day before reading the plan, so the
-  // very first render already shows it. Never blocks the board.
-  await materialiseGoalsDueOn(employeeId, ymd).catch(() => {});
+  // END-OF-DAY CARRY FORWARD (Sir) — anything left unreviewed on a day that has
+  // already ended lands on today before we read the plan, so opening the page is
+  // enough to see it even if the nightly cron never ran. Idempotent, so doing it
+  // here AND on a schedule is safe. Never blocks the board.
+  await carryForwardUnreviewed(employeeId, now).catch(() => {});
 
-  const [planRows, weekly, monthG, quarterG, yearG, openTasks, unfinishedRows, isManager, dayRow] = await Promise.all([
-    db
-      .select({
-        // Explicit list on purpose — see the module header (no bare select()).
-        id: dailyChecklist.id,
-        title: dailyChecklist.title,
-        client: dailyChecklist.client,
-        subject: dailyChecklist.subject,
-        origin: dailyChecklist.origin,
-        goalId: dailyChecklist.goalId,
-        taskId: dailyChecklist.taskId,
-        done: dailyChecklist.done,
-        donePct: dailyChecklist.donePct,
-        doneNote: dailyChecklist.doneNote,
-        // ── Added for the post-"Start My Day" review TABLE ──────────────
-        // `committedAt` was already the tie-break in the ORDER BY below; it is
-        // now selected so the table can show Created (and derive Age).
-        committedAt: dailyChecklist.committedAt,
-        // Set when a row was rolled forward from an earlier, unfinished day.
-        // This is the ONLY reliable "Unfinished" signal: once carried over, a
-        // row's `kind` reverts to weekly/task/adhoc, so kind can't tell you.
-        movedFromDate: dailyChecklist.movedFromDate,
-        // From the linked WMS task, where there is one. Plan rows for goals and
-        // ad-hoc commitments have no task, so these are null for them — the
-        // table renders an em-dash rather than inventing a value.
-        taskNo: tasks.taskNo,
-        taskPriority: tasks.priority,
-        taskDescription: tasks.description,
-        taskDueAt: tasks.dueAt,
-        taskRevisedDueAt: tasks.revisedTargetDate,
-        // Weekly-goal rows carry their deadline here instead.
-        goalTargetDate: weeklyGoals.targetDate,
-      })
-      .from(dailyChecklist)
-      // Both LEFT joins: a plan row is valid with neither a task nor a goal.
-      .leftJoin(tasks, eq(tasks.id, dailyChecklist.taskId))
-      .leftJoin(weeklyGoals, eq(weeklyGoals.id, dailyChecklist.goalId))
-      .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)))
-      .orderBy(asc(dailyChecklist.position), asc(dailyChecklist.committedAt)),
-    listGoalsForPlanner(employeeId, now),
-    getPeriodGoals(employeeId, "month", monthKey(now)),
-    getPeriodGoals(employeeId, "quarter", quarterKey(now)),
-    getPeriodGoals(employeeId, "year", yearKey(now)),
-    // WMS To-Do source. The column filters by due date itself (All / Overdue /
-    // Due Today / This Week), so it needs the whole open set to filter over —
-    // a 7-day horizon here would make "All" quietly mean "next 7 days". The
-    // far-future work Sir wanted out of the way is handled by the
-    // attention-first sort + the collapsed row cap instead of by starving the
-    // filter of rows.
-    listOpenTasksForChecklist(employeeId, now, { limit: 200 }),
-    // TODAY's date, never the VIEWED day (Sir's bug: on the Tomorrow / Day-after
-    // boards this was passed `ymd`, so `plan_date < viewedDay` swept up TODAY's
-    // and TOMORROW's still-open commitments and listed them as "Unfinished ·
-    // carried over from earlier days" — the same items appeared on every board
-    // and looked like they had all gone stale on refresh). Unfinished means
-    // genuinely BEFORE today, whichever day you happen to be planning.
-    getOverdueItems(employeeId, todayYmd(now)),
-    isManagerWithReports(employeeId),
-    db
-      .select({ startedAt: dailyPlanDay.startedAt, closedAt: dailyPlanDay.closedAt })
-      .from(dailyPlanDay)
-      .where(and(eq(dailyPlanDay.employeeId, employeeId), eq(dailyPlanDay.planDate, ymd)))
-      .limit(1),
-  ]);
+  // Pull in anything whose DEADLINE is one of the visible days before reading
+  // the plan, so the very first render already shows it. Never blocks the board.
+  //
+  // TODAY ONWARDS ONLY. A past column is a record of what was planned then —
+  // auto-filing today's overdue work onto last Tuesday would rewrite history and
+  // make an old day sprout tasks nobody planned there.
+  await Promise.all(
+    ymds
+      .filter((_, i) => (offsets[i] ?? 0) >= 0)
+      .flatMap((ymd) => [
+        materialiseGoalsDueOn(employeeId, ymd).catch(() => {}),
+        materialiseTasksDueOn(employeeId, ymd).catch(() => {}),
+      ]),
+  );
+
+  const [rows, weekly, monthG, quarterG, yearG, openTasks, unfinishedRows, pendingRows, isManager, hoursRow, dayRow] =
+    await Promise.all([
+      planRowsForDays(employeeId, ymds),
+      listGoalsForPlanner(employeeId, now),
+      getPeriodGoals(employeeId, "month", monthKey(now)),
+      getPeriodGoals(employeeId, "quarter", quarterKey(now)),
+      getPeriodGoals(employeeId, "year", yearKey(now)),
+      // WMS To-Do source. The column filters by OVERDUE BUCKET itself, so it
+      // needs the whole open set to filter over — a horizon here would make
+      // "All" quietly mean "the next N days". Anything already filed on a
+      // planner day is excluded server-side (one item, one day).
+      listOpenTasksForChecklist(employeeId, now, { limit: 200, excludePlannedAnyDay: true }),
+      // TODAY's date, never a viewed day: "unfinished" means genuinely BEFORE
+      // today, whichever day you happen to be planning.
+      getOverdueItems(employeeId, today),
+      pendingTodayItems(employeeId, today),
+      isManagerWithReports(employeeId),
+      db
+        .select({ start: employees.workingHoursStart, end: employees.workingHoursEnd })
+        .from(employees)
+        .where(eq(employees.id, employeeId))
+        .limit(1),
+      db
+        .select({ startedAt: dailyPlanDay.startedAt, closedAt: dailyPlanDay.closedAt })
+        .from(dailyPlanDay)
+        .where(and(eq(dailyPlanDay.employeeId, employeeId), eq(dailyPlanDay.planDate, today)))
+        .limit(1),
+    ]);
 
   // Phase: no started stamp → PLAN (morning) · started, not closed → ACTIVE ·
-  // closed → CLOSED. Close-out is entered from ACTIVE, so it isn't a load state.
+  // closed → CLOSED. It always describes TODAY — future columns are plan-only.
   const day = dayRow[0];
-  // Future days are plan-only — you can't start or close a day that hasn't
-  // arrived. Today keeps the real lifecycle (plan → active → closed).
-  const initialPhase: PlanPhase =
-    offset !== 0 ? "plan" : day?.closedAt ? "closed" : day?.startedAt ? "active" : "plan";
+  const initialPhase: PlanPhase = day?.closedAt ? "closed" : day?.startedAt ? "active" : "plan";
 
-  // Cascade provenance (0141, guarded) — without it a GOAL pulled onto today
+  // Cascade provenance (0141, guarded) — without it a GOAL pulled onto a day
   // is indistinguishable from a typed commitment and would wear the wrong tag.
-  const cascadeLevels = await cascadeGoalLevels(planRows.map((r) => r.id));
+  const cascadeLevels = await cascadeGoalLevels(rows.map((r) => r.id));
 
-  /**
-   * "YYYY-MM-DD" on the team's IST clock — same convention as `plan_date`.
-   * Accepts a string too: `weekly_goals.target_date` is a DATE column, which
-   * drizzle hands back already formatted, and re-parsing it through a Date
-   * would drag it across a timezone boundary and land on the wrong day.
-   */
-  const ymdOf = (d: Date | string): string =>
-    typeof d === "string" ? d.slice(0, 10) : istYmd(d);
-  /** Whole IST days between two instants; 0 for anything created today. */
-  const daysBetween = (from: Date, to: Date): number => {
-    const a = Date.parse(`${istYmd(from)}T00:00:00Z`);
-    const b = Date.parse(`${istYmd(to)}T00:00:00Z`);
-    return Math.max(0, Math.round((b - a) / 86_400_000));
-  };
-
-  const initialPlan: PlanItem[] = planRows.map((r) => {
-    // Effective due = revised ?? original, matching `pickEffectiveDue` and the
-    // rest of the app; goal rows fall back to their own target date.
-    const due = r.taskRevisedDueAt ?? r.taskDueAt ?? r.goalTargetDate ?? null;
-    const created = r.committedAt ?? null;
-    return {
-      id: r.id,
-      title: r.title,
-      // `subtitle` stays for the plan-phase cards, which still render it.
-      subtitle: r.subject ?? r.client ?? null,
-      // …and the two halves are now carried separately for the table, which
-      // shows them as their own columns.
-      client: r.client ?? null,
-      subject: r.subject ?? null,
-      origin: r.origin === "goal_related" ? ("goal_related" as const) : ("standalone" as const),
-      kind: (r.goalId
-        ? "weekly"
-        : r.taskId
-          ? "task"
-          : (cascadeLevels.get(r.id) ?? "adhoc")) as PlanKind,
-      done: r.done,
-      donePct: r.donePct,
-      doneNote: r.doneNote,
-      taskId: r.taskId ?? null,
-      taskNo: r.taskNo ?? null,
-      priority: r.taskPriority ?? null,
-      description: r.taskDescription ?? null,
-      dueYmd: due ? ymdOf(due) : null,
-      createdYmd: created ? ymdOf(created) : null,
-      ageDays: created ? daysBetween(created, now) : null,
-      carriedOver: r.movedFromDate != null,
-    };
+  const days: PlanDayColumn[] = offsets.map((offset, i) => {
+    const ymd = ymds[i]!;
+    const { word, date } = dayLabels(ymd, offset);
+    const items: PlanItem[] = rows
+      .filter((r) => r.planDate === ymd)
+      .map((r) => {
+        const effDue = r.taskId
+          ? pickEffectiveDue({ dueAt: r.taskDueAt, revisedTargetDate: r.taskRevisedTargetDate })
+          : null;
+        const dueYmd = effDue ? istYmd(effDue) : null;
+        const late = dueYmd && dueYmd < today ? ymdDiffDays(dueYmd, today) : null;
+        const time = effectiveTime(r);
+        return {
+          id: r.id,
+          title: r.title,
+          subtitle: null,
+          origin: r.origin === "goal_related" ? ("goal_related" as const) : ("standalone" as const),
+          kind: (r.goalId
+            ? "weekly"
+            : r.taskId
+              ? "task"
+              : (cascadeLevels.get(r.id) ?? "adhoc")) as PlanKind,
+          done: r.done,
+          // Reviewed and explicitly parked — not done, but not untouched either.
+          pending: !r.done && r.closedAt != null,
+          carriedForward: r.carriedForwardAt != null,
+          fromYmd: r.movedFromDate,
+          donePct: r.donePct,
+          doneNote: r.doneNote,
+          timeLabel: blockLabel(time.startMin, time.durationMin),
+          startMin: time.startMin,
+          durationMin: time.durationMin,
+          priority: r.priority ?? null,
+          overdueDays: late,
+          dueYmd,
+          taskId: r.taskId,
+          // The doer, not the creator: "who is responsible for this".
+          assignee: hierarchy.owner ?? null,
+        };
+      });
+    return { offset, ymd, word, date, items };
   });
+
+  // Everything already filed on ANY of the visible days, so a source card can't
+  // be offered twice.
+  const plannedGoalIds = new Set(rows.map((r) => r.goalId).filter(Boolean) as string[]);
+  const plannedTaskIds = new Set(rows.map((r) => r.taskId).filter(Boolean) as string[]);
 
   const sources = {
     weekly: weekly.map<SourceItem>((g) => ({
@@ -348,49 +586,62 @@ export async function getPlanDayPayload(
       title: g.targetDone?.trim() || g.subject?.trim() || "Weekly goal",
       subtitle: g.client ?? g.subject ?? null,
       meta: g.pctDone > 0 ? `${g.pctDone}%` : null,
-      added: g.pulledToday,
+      added: plannedGoalIds.has(g.id) || g.pulledToday,
     })),
     monthly: monthG.filter((g) => g.adopted).map((g) => goalToSource(g, "monthly")),
     quarterly: quarterG.filter((g) => g.adopted).map((g) => goalToSource(g, "quarterly")),
     yearly: yearG.filter((g) => g.adopted).map((g) => goalToSource(g, "yearly")),
     task: openTasks.map<SourceItem>((t) => {
-      const label = displayTitle(t.title, t.description, t.client);
-      // Due labels are relative to the VIEWED day: a task due on the viewed day
-      // reads "Due"; due before it reads "Overdue" (with a day count). So a task
-      // due tomorrow surfaces as "Due" on the Tomorrow board (task #4).
-      const overdue = t.dueAt != null && t.dueAt < ymd;
-      const dueOnDay = t.dueAt === ymd;
-      const overdueDays = overdue && t.dueAt ? ymdDiffDays(t.dueAt, ymd) : null;
+      const overdue = t.dueAt != null && t.dueAt < today;
       return {
-      // `id` IS the tasks.id — adding this card calls addTaskToPlan(id), which
-      // stores the reference on daily_checklist.task_id. No WMS task is created.
-      id: t.id,
-      kind: "task",
-      title: label,
-      subtitle: dedupeSub(label, t.client ?? t.subject ?? null),
-      meta: t.taskNo ? `#${t.taskNo}` : null,
-      added: false,
-      overdue,
-      dueLabel: overdue ? "Overdue" : dueOnDay ? "Due" : shortDue(t.dueAt),
-      important: t.priority === "imp_urgent" || t.priority === "imp_not_urgent",
-      // Everything the WMS To-Do column's rows + filters read.
-      taskNo: t.taskNo,
-      status: t.status,
-      priority: t.priority,
-      dueYmd: t.dueAt,
-      project: t.client ?? t.subject ?? null,
-      taskId: t.id,
-      // Rich detail for hover + double-click pop-out (no notes).
-      assigner: t.assigner,
-      description: t.description,
-      overdueDays,
+        // `id` IS the tasks.id — adding this card calls addTaskToPlan(id), which
+        // stores the reference on daily_checklist.task_id. No WMS task is created.
+        id: t.id,
+        kind: "task",
+        title: displayTitle(t.title, t.description, t.client),
+        subtitle: null,
+        meta: null,
+        added: false,
+        overdue,
+        // Everything the card + the two filters actually read. No task_no, no
+        // company, no WMS status — see the SourceItem doc comment.
+        priority: t.priority,
+        dueYmd: t.dueAt,
+        taskId: t.id,
+        description: t.description,
+        overdueDays: overdue && t.dueAt ? ymdDiffDays(t.dueAt, today) : null,
+        timeLabel: taskBlockLabel(t),
       };
     }),
-    unfinished: buildUnfinished(unfinishedRows, planRows),
+    unfinished: buildUnfinished([...pendingRows, ...unfinishedRows], plannedGoalIds, plannedTaskIds),
+  };
+
+  // THE TIMELINE AXIS — the person's OWN working hours (employees.working_hours_*),
+  // widened to cover anything already scheduled outside them so a 9 PM block can
+  // never fall off the grid. The fallback only fires if the column is unreadable.
+  const workStart = timeColumnToMin(hoursRow[0]?.start) ?? 10 * 60;
+  const workEnd = timeColumnToMin(hoursRow[0]?.end) ?? 19 * 60;
+  const timed = (days.find((d) => d.offset === 0)?.items ?? []).filter((i) => i.startMin != null);
+  const earliest = timed.reduce((m, i) => Math.min(m, i.startMin!), workStart);
+  const latest = timed.reduce(
+    (m, i) => Math.max(m, i.startMin! + (i.durationMin ?? 30)),
+    Math.max(workEnd, workStart + 60),
+  );
+  const workday = {
+    startMin: Math.max(0, Math.floor(earliest / 60) * 60),
+    endMin: Math.min(24 * 60, Math.ceil(latest / 60) * 60),
   };
 
   return {
-    initialPlan,
+    days,
+    // The strip starts on the board's leftmost day, so the week you are looking
+    // at and the days you can drop onto are always the same week.
+    tabs: buildTabs(now, start),
+    windowStart: start,
+    windowDays: days_,
+    maxWindowStart: maxWindowStartFor(days_),
+    minWindowStart: MIN_WINDOW_START,
+    stripDays: PLAN_STRIP_DAYS,
     sources,
     // 5 for EVERYONE, not 5-for-managers / 3-for-ICs (Sir). This is the same
     // constant the attendance gate and the startMyDay guard read: if the button
@@ -399,7 +650,9 @@ export async function getPlanDayPayload(
     minItems: MIN_ATTENDANCE_ITEMS,
     isManager,
     initialPhase,
-    ymd,
-    dayOffset: offset,
+    todayYmd: today,
+    hierarchy,
+    workday,
   };
 }
+
