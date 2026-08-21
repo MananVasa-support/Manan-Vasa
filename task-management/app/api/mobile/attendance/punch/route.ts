@@ -21,7 +21,10 @@ import {
   monApproveGateOn,
   checkoutCloseoutGateOn,
   punchPlanGateOn,
+  weekLossAckGateOn,
+  weekLossAckMobileGateOn,
 } from "@/lib/goals/flag";
+import { getWeekReportState } from "@/lib/attendance/week-report";
 import { isDayClosedOut } from "@/lib/queries/daily-checklist";
 import { weekCommitSatisfied, managerApproveSatisfied } from "@/lib/goals/gates-predicates";
 import { isSaturdayIST, isWeekdayIST } from "@/lib/goals/gate-day";
@@ -221,6 +224,39 @@ export async function POST(req: Request) {
         }
         return NextResponse.json(
           { ok: false, error, needsPlan: true },
+          { status: 409, headers: MOBILE_CORS },
+        );
+      }
+    }
+  }
+
+  // ── WEEK-LOSS ACKNOWLEDGEMENT (mirrors the web punch) ──────────────────
+  // Last week's attendance-lost + money-lost report must be read before the
+  // first clock-IN of a new week. See lib/attendance/week-report.ts.
+  //
+  // TWO SWITCHES, ON PURPOSE. This route always REPORTS the requirement — the
+  // `needsWeekAck` flag and the full `weekLoss` payload come back so the Android
+  // app can build and test its dialog against real data — but it only REFUSES
+  // the punch when WEEK_LOSS_ACK_MOBILE_GATE_ON is set (default off).
+  //
+  // Blocking before the app has a screen for this would hand mobile users a
+  // refusal they cannot clear from their phone: a hard lockout, and this
+  // codebase has already lived through one (2026-07-27). Flip the mobile switch
+  // on the day that screen ships.
+  //
+  // FAIL-OPEN: any read error resolves to "nothing pending".
+  if (body.kind === "in" && weekLossAckGateOn()) {
+    const today = localDateString(tz);
+    const week = await getWeekReportState(me.id, today).catch(() => null);
+    if (week?.pending && week.loss) {
+      if (weekLossAckMobileGateOn()) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Read last week's attendance and money-lost report before you clock in.",
+            needsWeekAck: true,
+            weekLoss: week.loss,
+          },
           { status: 409, headers: MOBILE_CORS },
         );
       }

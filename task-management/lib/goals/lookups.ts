@@ -11,6 +11,8 @@ import { GOAL_TYPES, GOAL_TYPE_LABELS } from "@/db/enums";
  * deduped lists the board loader hands to the composer + edit drawer.
  */
 
+import { applySubjectPolicy } from "@/lib/tasks/subject-options";
+
 export type GoalLookupKind = "area" | "measure" | "type" | "goaltype";
 
 /** Base Area options (order matters — shown first). Altus department / pillar
@@ -100,7 +102,13 @@ export async function listGoalLookups(): Promise<GoalLookupOptions> {
   const customGoaltypes = activeOf("goaltype");
 
   return {
-    areas: mergeUnique(visibleBase(BASE_AREAS, hiddenOf("area")), customAreas),
+    // AREA is the goals-side counterpart of a task's Subject, so it carries the
+    // same retire/pin policy: "Altus Ecosystem" is always offered on a new goal,
+    // and "WMS" / "WMS App" are not — whether they got here as base options or
+    // as admin-added ones. Existing goals keep whatever area they were filed
+    // under; this is the CHOICE list only.
+    // See lib/tasks/subject-options.ts.
+    areas: applySubjectPolicy(mergeUnique(visibleBase(BASE_AREAS, hiddenOf("area")), customAreas)),
     measures: mergeUnique(visibleBase(BASE_MEASURES, hiddenOf("measure")), customMeasures),
     types: mergeUnique(visibleBase(BASE_TYPES, hiddenOf("type")), customTypes),
     goaltypes: mergeUnique(visibleBase(BASE_GOALTYPES, hiddenOf("goaltype")), customGoaltypes),

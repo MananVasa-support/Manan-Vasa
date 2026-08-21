@@ -6677,3 +6677,41 @@ export const taskReminderRules = pgTable(
 );
 export type TaskReminderRule = typeof taskReminderRules.$inferSelect;
 export type NewTaskReminderRule = typeof taskReminderRules.$inferInsert;
+
+// Migration 0189 — the Monday "what last week cost you" acknowledgement.
+//
+// On the first punch of a new week an employee is shown last week's ATTENDANCE
+// LOST + MONEY LOST report and must dismiss it before they can clock IN. A row
+// here is the proof they read it, one per person per reported week.
+//
+// `weekStart` is the MONDAY of the week being REPORTED — the week that had just
+// ended when the dialog was shown, never the current week.
+//
+// `daysLost` / `moneyLost` are FROZEN copies of the figures actually shown, not
+// pointers to be re-derived. Attendance is editable after the fact (punch-edit,
+// backfill, a leave approved late), so re-deriving would silently rewrite what
+// somebody acknowledged — and this row exists precisely to say what was on the
+// screen at the moment they clicked.
+export const attendanceWeekAck = pgTable(
+  "attendance_week_ack",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    weekStart: date("week_start").notNull(),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }).notNull().defaultNow(),
+    daysLost: numeric("days_lost", { precision: 6, scale: 2 }).notNull().default("0"),
+    moneyLost: numeric("money_lost", { precision: 12, scale: 2 }).notNull().default("0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One acknowledgement per person per reported week — also what makes the
+    // acknowledge action idempotent under a double-click or two racing tabs.
+    uniqueIndex("attendance_week_ack_emp_week_uq").on(t.employeeId, t.weekStart),
+    index("attendance_week_ack_week_idx").on(t.weekStart),
+  ],
+);
+
+export type AttendanceWeekAck = typeof attendanceWeekAck.$inferSelect;
+export type NewAttendanceWeekAck = typeof attendanceWeekAck.$inferInsert;

@@ -34,7 +34,10 @@ import {
   monApproveGateOn,
   checkoutCloseoutGateOn,
   punchPlanGateOn,
+  weekLossAckGateOn,
 } from "@/lib/goals/flag";
+import { acknowledgeWeek, getWeekReportState } from "@/lib/attendance/week-report";
+import { reportedWeekFor, weekLabel } from "@/lib/attendance/week-loss";
 import { isDayClosedOut } from "@/lib/queries/daily-checklist";
 import { assertMonthEditable } from "@/lib/reports/attendance-freeze";
 import { weekCommitSatisfied, managerApproveSatisfied } from "@/lib/goals/gates-predicates";
@@ -216,6 +219,37 @@ export async function punchAttendance(input: {
         }
       }
       return { ok: false, error };
+    }
+  }
+
+  // ── WEEK-LOSS ACKNOWLEDGEMENT (Sir) ──────────────────────────────────
+  // On the first punch of a NEW WEEK, the employee must have seen last week's
+  // ATTENDANCE LOST + MONEY LOST report and dismissed it. The dialog that shows
+  // it lives on the attendance page (components/attendance/week-loss-dialog.tsx)
+  // and calls `acknowledgeWeekLoss` below; this is the server-side half that
+  // makes it a real gate rather than a dialog you can navigate around.
+  //
+  // NOT "Monday only": keyed on the WEEK, so someone who was on leave on Monday
+  // still gets the report on the first day they actually punch. Once dismissed,
+  // it does not reappear until the next week.
+  //
+  // CHECK-IN ONLY. Gating the check-OUT would strand someone mid-shift with no
+  // way to close their day, and the report is about starting the week anyway.
+  //
+  // FAIL-OPEN, twice over: `getWeekReportState` swallows its own errors, and the
+  // `.catch()` here covers anything left. A report that cannot be computed must
+  // never be a locked door — 2026-07-27 is why.
+  if (kind === "in" && weekLossAckGateOn()) {
+    const week = await getWeekReportState(me.id, today).catch(() => ({
+      loss: null,
+      pending: false,
+      weekStart: "",
+    }));
+    if (week.pending && week.loss) {
+      return {
+        ok: false,
+        error: `Read last week's attendance and money-lost report (${weekLabel(week.loss.weekStart, week.loss.weekEnd)}) before you clock in — it is on this page.`,
+      };
     }
   }
 
@@ -750,6 +784,28 @@ export async function punchRemote(form: FormData): Promise<ActionResult<{ date: 
 
   const tz = me.timezone || "Asia/Kolkata";
   const today = localDateString(tz);
+
+  // ── WEEK-LOSS ACKNOWLEDGEMENT — the same gate as the office punch ──────
+  // A remote check-in is still a check-IN, and it is a self-service one, so
+  // leaving it open would make the rule optional for anyone who taps "working
+  // from home" instead. Checked BEFORE the photo is uploaded, so a refusal
+  // never leaves an orphaned file in the bucket.
+  //
+  // CHECK-IN ONLY and FAIL-OPEN, exactly as in `punchAttendance`.
+  if (kind === "in" && weekLossAckGateOn()) {
+    const week = await getWeekReportState(me.id, today).catch(() => ({
+      loss: null,
+      pending: false,
+      weekStart: "",
+    }));
+    if (week.pending && week.loss) {
+      return {
+        ok: false,
+        error: `Read last week's attendance and money-lost report (${weekLabel(week.loss.weekStart, week.loss.weekEnd)}) before you check in — open the Attendance page.`,
+      };
+    }
+  }
+
   const safe = photo.name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || "photo.jpg";
   const path = `attendance/remote/${me.id}/${today}-${kind}-${crypto.randomUUID()}/${safe}`;
 
@@ -786,4 +842,52 @@ export async function punchRemote(form: FormData): Promise<ActionResult<{ date: 
   }
   revalidatePath("/attendance");
   return { ok: true, date: today };
+}
+
+/**
+ * "I have read last week's report" — the Cancel button on the Monday dialog.
+ *
+ * SELF-ONLY and PERIOD-PINNED: it always writes for the caller, and always for
+ * the week `reportedWeekFor(today)` resolves to on the SERVER. Nothing about
+ * whose row this is, or which week it clears, comes off the wire — so a crafted
+ * request cannot acknowledge someone else's report, and cannot pre-clear a week
+ * that has not happened yet to skip a future dialog.
+ *
+ * The FIGURES do come from the client, because they are a record of what was on
+ * the screen rather than an input to any decision (see the migration note). They
+ * are clamped to sane bounds so a tampered payload cannot write nonsense into
+ * the audit trail, and they gate nothing at all.
+ *
+ * Idempotent: the unique (employee, week) index absorbs a double-click.
+ */
+export async function acknowledgeWeekLoss(input: {
+  daysLost: number;
+  moneyLost: number;
+}): Promise<ActionResult<{ weekStart: string }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const tz = me.timezone || "Asia/Kolkata";
+  const { weekStart } = reportedWeekFor(localDateString(tz));
+
+  // Record-keeping only — clamped, never trusted, never used in a decision.
+  const clamp = (n: unknown, hi: number) => {
+    const v = Number(n);
+    return Number.isFinite(v) ? Math.min(Math.max(v, 0), hi) : 0;
+  };
+
+  try {
+    await acknowledgeWeek(me.id, weekStart, {
+      daysLost: clamp(input?.daysLost, 31),
+      moneyLost: clamp(input?.moneyLost, 100_000_000),
+    });
+    // The punch card and the dialog both live on this page, and the gate above
+    // reads the row we just wrote — so the page has to re-render for the clock
+    // to unlock.
+    revalidatePath("/attendance");
+    return { ok: true, weekStart };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }

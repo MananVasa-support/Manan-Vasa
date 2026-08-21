@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Route } from "next";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
@@ -99,7 +100,15 @@ export default async function MyDayPage({
         {/* No `heading` prop and no separate Recycle Bin row any more: the board
             carries its own title, the employee picker and the Recycle Bin link
             in ONE header bar, so a second row above it would just be chrome. */}
-        <PlanBoard target={target} payload={payload} />
+        {/* THE ONLY PLACE the Daily Goals Dashboard is reachable from. The
+            board takes the href as an opt-in prop, so the same component
+            embedded in the Goals canvas day drawer renders no such button —
+            the dashboard belongs to Daily Goals and to nothing else. */}
+        <PlanBoard
+          target={target}
+          payload={payload}
+          dashboardHref={"/my-day/dashboard" as Route}
+        />
       </PageShell>
     </>
   );

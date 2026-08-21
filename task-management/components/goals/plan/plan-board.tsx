@@ -22,6 +22,7 @@ import {
   X,
   ChevronRight,
   ClipboardCheck,
+  LayoutDashboard,
   PanelRightClose,
   PanelRightOpen,
   Trash2,
@@ -78,6 +79,7 @@ import {
   startMyDay,
   transferPlanItem,
 } from "@/app/(app)/goals/plan/actions";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import type { Route } from "next";
 
@@ -97,6 +99,17 @@ interface Props {
   target: PlanTargetProp;
   /** The whole planning window, assembled server-side. */
   payload: PlanDayPayload;
+  /**
+   * Where the header's "Dashboard" button points — the Daily Goals Dashboard.
+   *
+   * OPT-IN, and off unless a caller passes it. The board is mounted on two
+   * surfaces: the Daily Goals page (app/(app)/my-day/page.tsx), which passes
+   * this, and the Goals canvas day drawer (components/goals/canvas/
+   * child-planner.tsx), which does not. The dashboard belongs to Daily Goals
+   * ONLY, so defaulting to "no button" is what keeps it out of the Goals module
+   * — and out of anywhere else this board is ever embedded.
+   */
+  dashboardHref?: Route;
 }
 
 const GOALS_ACCENT = "#E10600";
@@ -122,7 +135,7 @@ const nonGhost = (items: PlanItem[]) => items.filter((i) => i.id !== GHOST_ID);
  * the four decisions (Done / → tomorrow / → day after / Pending). There is no
  * percentage anywhere: a commitment was delivered or it wasn't.
  */
-export function PlanBoard({ target, payload }: Props) {
+export function PlanBoard({ target, payload, dashboardHref }: Props) {
   const [phase, setPhase] = React.useState(payload.initialPhase);
   const [starting, setStarting] = React.useState(false);
   const [days, setDays] = React.useState<PlanDayColumn[]>(payload.days);
@@ -797,6 +810,7 @@ export function PlanBoard({ target, payload }: Props) {
       onQuery={setQuery}
       onAddCommitment={focusAddCommitment}
       onCloseout={() => setPhase("closeout")}
+      dashboardHref={dashboardHref}
     />
   );
 
@@ -968,6 +982,7 @@ function PlannerBar({
   onQuery,
   onAddCommitment,
   onCloseout,
+  dashboardHref,
 }: {
   target: PlanTargetProp;
   hierarchy: PlanDayPayload["hierarchy"];
@@ -990,6 +1005,8 @@ function PlannerBar({
   onAddCommitment: () => void;
   /** Header route into the close-out, once the day is running. */
   onCloseout: () => void;
+  /** Daily Goals → Dashboard. Absent on every surface but Daily Goals. */
+  dashboardHref?: Route;
 }) {
   const reportsTo = [hierarchy.manager, hierarchy.managerManager].filter(Boolean) as string[];
   return (
@@ -1065,7 +1082,13 @@ function PlannerBar({
         ) : null}
       </label>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      {/* The header's right-hand cluster. It became a COLUMN when the Dashboard
+          button arrived: the existing row — Recycle Bin · C · Start/Review — is
+          untouched on top, and Dashboard sits directly under it (Sir) rather
+          than lengthening a row that already gives way first when the header
+          gets tight. */}
+      <div className="ml-auto flex shrink-0 flex-col items-end gap-1.5">
+      <div className="flex items-center gap-2">
 
       {/* The day's lifecycle — one button, whichever one applies now. Hidden
           while the window is parked on future days (starting and reviewing are
@@ -1126,6 +1149,27 @@ function PlannerBar({
           <ClipboardCheck size={15} /> Review My Day
         </button>
       )}
+      </div>
+
+      {/* DAILY GOALS → DASHBOARD. Rendered only when a caller supplied the href
+          — which is the Daily Goals page and nothing else (see the prop's note
+          on Props). Deliberately the QUIET treatment: the outlined chip the
+          Recycle Bin link already uses, not a second filled brand button, so
+          the day's own closing action stays the one thing that draws the eye. */}
+      {dashboardHref ? (
+        <Link
+          href={dashboardHref}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-chip border px-3 py-1.5 text-[12px] font-bold transition-colors focus-visible:outline-2"
+          style={{
+            borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 32%, transparent)`,
+            color: GOALS_ACCENT_DEEP,
+            background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
+            outlineColor: GOALS_ACCENT,
+          }}
+        >
+          <LayoutDashboard size={13} /> Dashboard
+        </Link>
+      ) : null}
       </div>
     </div>
   );

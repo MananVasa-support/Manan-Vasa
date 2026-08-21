@@ -19,10 +19,7 @@ import { MonthCalendar } from "@/components/attendance/month-calendar";
 import { RemoteCheckInTrigger } from "@/components/attendance/remote-checkin-trigger";
 import { TeamDatePicker } from "@/components/attendance/team-date-picker";
 import { LiveStatusPanel } from "@/components/attendance/live-status-panel";
-import {
-  UpcomingHolidaysPanel,
-  type UpcomingHoliday,
-} from "@/components/attendance/upcoming-holidays-panel";
+import { UpcomingHolidaysPanel } from "@/components/attendance/upcoming-holidays-panel";
 import {
   AttTeamRoster,
   type RosterPunch,
@@ -46,8 +43,11 @@ import {
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { getSelfAttendanceSummary } from "@/lib/queries/attendance-summary";
 import { getEmployeeMonthStatus } from "@/lib/queries/attendance-status";
+import { getWeekReportState } from "@/lib/attendance/week-report";
+import { WeekLossDialog } from "@/components/attendance/week-loss-dialog";
+import { weekLossAckGateOn } from "@/lib/goals/flag";
 import { loadLiveStatus, type LiveStatus } from "@/lib/attendance/analytics/live-status";
-import { listHolidays } from "@/lib/queries/holidays";
+import { listUpcomingHolidays } from "@/lib/queries/upcoming-holidays";
 import { withRetry } from "@/lib/db/with-timeout";
 import { formatTimeInTz, localDateString, formatDate } from "@/lib/format";
 
@@ -155,7 +155,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
 
   const [curYear, curMonth] = today.split("-").map(Number) as [number, number];
 
-  const [myDays, team, settings, selfSummary, monthStatus, holidaysRaw] = await Promise.all([
+  const [myDays, team, settings, selfSummary, monthStatus, upcomingHolidays] = await Promise.all([
     withRetry(() => listMyAttendance(me.id, since), { ...RETRY, label: "att-mydays" }),
     isSA
       ? withRetry(() => listTeamAttendanceForDate(teamDate), { ...RETRY, label: "att-team" })
@@ -163,8 +163,12 @@ export default async function AttendancePage({ searchParams }: PageProps) {
     withRetry(() => getOrgSettings(), { ...RETRY, label: "att-settings" }),
     withRetry(() => getSelfAttendanceSummary(me.id), { ...RETRY, label: "att-self" }),
     withRetry(() => getEmployeeMonthStatus(me.id, curYear, curMonth, today), { ...RETRY, label: "att-month" }),
+    // NEXT DAYS OFF — merged from the Admin Panel's holiday list AND the Monthly
+    // Events Master, personalised to this employee, with no year horizon and no
+    // Sundays. See lib/queries/upcoming-holidays.ts for why both calendars have
+    // to be read.
     withRetry(
-      () => Promise.all([listHolidays(curYear), listHolidays(curYear + 1)]).then((r) => r.flat()),
+      () => listUpcomingHolidays({ today, religion: me.religion, limit: 5 }),
       { ...RETRY, label: "att-holidays" },
     ),
   ]);
@@ -181,24 +185,20 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       )
     : null;
 
-  // Next upcoming holidays (active, today-or-later), soonest first.
-  const upcomingHolidays: UpcomingHoliday[] = holidaysRaw
-    .filter((h) => h.isActive && h.holidayDate >= today)
-    .sort((a, b) => a.holidayDate.localeCompare(b.holidayDate))
-    .slice(0, 5)
-    .map((h) => ({
-      date: h.holidayDate,
-      label: h.label,
-      inDays: Math.round(
-        (Date.UTC(
-          Number(h.holidayDate.slice(0, 4)),
-          Number(h.holidayDate.slice(5, 7)) - 1,
-          Number(h.holidayDate.slice(8, 10)),
-        ) -
-          Date.UTC(curYear, curMonth - 1, Number(today.slice(8, 10)))) /
-          86_400_000,
-      ),
-    }));
+  // ── THE MONDAY REPORT (Sir) ──────────────────────────────────────────
+  // On the first punch of a NEW WEEK, last week's attendance-lost + money-lost
+  // report takes over the screen and must be dismissed before the clock unlocks.
+  // The real gate is server-side in this module's `punchAttendance`; this read
+  // is only what puts the dialog on screen.
+  //
+  // FAIL-OPEN: a report that will not compute resolves to "nothing pending", so
+  // a bad read shows no dialog rather than a page nobody can get past. It is
+  // also skipped entirely when the kill-switch is off, so flipping
+  // WEEK_LOSS_ACK_GATE_OFF removes both halves at once and never leaves a
+  // dialog up that the punch no longer requires.
+  const weekReport = weekLossAckGateOn()
+    ? await getWeekReportState(me.id, today).catch(() => null)
+    : null;
 
   // Month calendar cells (client-safe) — colour-coded per graded day.
   const monthCells = monthStatus.days.map((d) => ({
@@ -301,6 +301,11 @@ export default async function AttendancePage({ searchParams }: PageProps) {
 
   return (
     <>
+      {/* Rendered FIRST and fixed-positioned: it owns the screen until it is
+          dismissed, and the clock below it will refuse a check-in until then. */}
+      {weekReport?.pending && weekReport.loss ? (
+        <WeekLossDialog loss={weekReport.loss} />
+      ) : null}
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="wide">
         {/* ── Page header ── */}

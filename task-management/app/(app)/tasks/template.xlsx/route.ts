@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
+import { listActiveSubjectNames } from "@/lib/queries/subjects";
 import {
   TASK_TEMPLATE_COLUMNS,
   TASK_STATUS_LABELS,
@@ -72,6 +73,10 @@ export async function GET(): Promise<Response> {
     .orderBy(employees.name);
   const people = roster.map((r) => r.name).filter(Boolean);
 
+  // The same list the New Task form offers — one source, so the template can
+  // never hand someone a subject the app has retired.
+  const subjectNames = await listActiveSubjectNames();
+
   const sourceValues: Record<Exclude<TaskColumnSource, null>, string[]> = {
     priority: [...PRIORITY_LABELS_LIST],
     status: [...TASK_STATUS_LABELS],
@@ -79,6 +84,7 @@ export async function GET(): Promise<Response> {
     initiator: people,
     recurrence: [...RECURRENCE_LABELS],
     yesno: [...YES_NO_LABELS],
+    subject: subjectNames,
   };
 
   const cols = TASK_TEMPLATE_COLUMNS;

@@ -427,6 +427,9 @@ const SECTION_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/tasks": "Tasks",
   "/my-day": "Daily Goals",
+  // Daily Goals → Dashboard. Named in full so the bar never reads as the WMS
+  // Dashboard at /dashboard, which is a different page entirely.
+  "/my-day/dashboard": "Daily Goals Dashboard",
   "/tasks/kanban": "Kanban",
   "/archived": "Archived",
 };

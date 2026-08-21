@@ -33,6 +33,10 @@ export type TaskColumnSource =
   | "initiator"
   | "recurrence"
   | "yesno"
+  // The Subject roster, filtered by the retire/pin policy in
+  // lib/tasks/subject-options.ts — so the template offers exactly what the
+  // New Task form offers, and the two can never drift.
+  | "subject"
   | null;
 
 export interface TaskTemplateColumn {
@@ -159,10 +163,15 @@ export const TASK_TEMPLATE_COLUMNS: readonly TaskTemplateColumn[] = [
   },
   {
     field: "subject", header: "Subject / Category", schemaField: "subject",
-    writable: true, persisted: true, locked: false, source: null, width: 22,
+    writable: true, persisted: true, locked: false, source: "subject", width: 22,
     aliases: ["subject", "category", "type", "workstream"],
-    examples: ["GST filing", "Audit"],
-    help: "REQUIRED. Short subject/category grouping for the task.",
+    examples: ["Altus Ecosystem", "Audit"],
+    // A DROPDOWN now, not free text: the column used to accept anything typed,
+    // which is how retired spellings kept re-entering through bulk upload.
+    // Validation stays permissive (`showErrorMessage: false`, as every other
+    // source-backed column here) — a value off-list is flagged on import rather
+    // than blocked during entry, so an existing sheet still pastes in.
+    help: "REQUIRED. Short subject/category grouping for the task. Pick from the dropdown.",
   },
   // ── The work ───────────────────────────────────────────────────────
   {

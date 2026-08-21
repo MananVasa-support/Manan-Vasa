@@ -136,3 +136,39 @@ export function voiceCaptureEnabled(): boolean {
 export function punchPlanGateOn(): boolean {
   return process.env.PUNCH_PLAN_GATE_OFF !== "true";
 }
+
+/**
+ * WEEK-LOSS ACKNOWLEDGEMENT — the Monday "what last week cost you" gate (Sir).
+ *
+ * On the first punch of a new week the employee is shown last week's ATTENDANCE
+ * LOST + MONEY LOST report and must dismiss it — like a skippable ad — before
+ * they can clock IN. See lib/attendance/week-report.ts.
+ *
+ * It lives here rather than in lib/attendance because this file is where the
+ * punch kill-switches are deliberately kept together: if attendance ever jams,
+ * one place holds every switch that can unjam it.
+ *
+ * ON by default, killable with WEEK_LOSS_ACK_GATE_OFF=true. It gates the CHECK-IN
+ * only — never the check-out, which would strand someone mid-shift with no way
+ * to close their day — and every read behind it fails OPEN.
+ */
+export function weekLossAckGateOn(): boolean {
+  return process.env.WEEK_LOSS_ACK_GATE_OFF !== "true";
+}
+
+/**
+ * The same gate on the MOBILE punch route — OFF by default, and deliberately so.
+ *
+ * The web punch can show the dialog; the Android app cannot yet. Turning this on
+ * before the app ships a screen for `needsWeekAck` would hand mobile users a
+ * refusal they have no way to clear — a hard lockout, which is exactly the
+ * failure this codebase already lived through on 2026-07-27.
+ *
+ * The mobile punch route already RETURNS the report and the `needsWeekAck` flag
+ * regardless of this switch, so the app can be built and tested against real
+ * data first. Flip WEEK_LOSS_ACK_MOBILE_GATE_ON=true only once that screen and
+ * its acknowledge call are live.
+ */
+export function weekLossAckMobileGateOn(): boolean {
+  return process.env.WEEK_LOSS_ACK_MOBILE_GATE_ON === "true";
+}

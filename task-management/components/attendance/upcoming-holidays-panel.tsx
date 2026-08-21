@@ -9,30 +9,59 @@ export interface UpcomingHoliday {
   label: string;
   /** Days from today (0 = today). */
   inDays: number;
+  /** OPTIONAL holiday — offered, not automatic. Undefined reads as false, so a
+   *  caller that predates this field still renders correctly. */
+  optional?: boolean;
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function parts(date: string): { day: string; mon: string; dow: string } {
+function parts(date: string): { day: string; mon: string; dow: string; year: string } {
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(Date.UTC(y ?? 2026, (m ?? 1) - 1, d ?? 1, 12));
   return {
     day: String(d ?? 1).padStart(2, "0"),
     mon: MONTHS[(m ?? 1) - 1] ?? "",
     dow: WEEKDAYS[dt.getUTCDay()] ?? "",
+    year: String(y ?? ""),
   };
 }
 
+/**
+ * How far away, in the coarsest unit that still reads honestly.
+ *
+ * The old version topped out at weeks, so a holiday fourteen months out read as
+ * "In 61 weeks" — a number nobody converts in their head. Weeks give way to
+ * months at ~8 weeks and to years at 18 months, because the panel now shows the
+ * NEXT day off however far away it is, and a distant one still has to be
+ * readable at a glance.
+ */
 function whenLabel(inDays: number): string {
   if (inDays <= 0) return "Today";
   if (inDays === 1) return "Tomorrow";
   if (inDays < 7) return `In ${inDays} days`;
-  const weeks = Math.round(inDays / 7);
-  return weeks <= 1 ? "Next week" : `In ${weeks} weeks`;
+  if (inDays < 56) {
+    const weeks = Math.round(inDays / 7);
+    return weeks <= 1 ? "Next week" : `In ${weeks} weeks`;
+  }
+  const months = Math.round(inDays / 30.44);
+  if (months < 18) return `In ${months} months`;
+  const years = Math.round((inDays / 365.25) * 10) / 10;
+  return `In ${years === Math.trunc(years) ? years : years.toFixed(1)} years`;
 }
 
 export function UpcomingHolidaysPanel({ holidays }: { holidays: UpcomingHoliday[] }) {
+  // "This year" is derived from the data, not from a clock: the soonest holiday
+  // minus its own distance IS today, which keeps this component pure (no
+  // `new Date()` during render) and keeps server and client agreeing.
+  const first = holidays[0];
+  const thisYear = first
+    ? new Date(Date.parse(`${first.date}T12:00:00Z`) - first.inDays * 86_400_000)
+        .getUTCFullYear()
+        .toString()
+    : "";
+
   return (
     <section
       className="wg-rise rounded-[22px] bg-surface-card p-5 max-md:p-4"
@@ -95,9 +124,22 @@ export function UpcomingHolidaysPanel({ holidays }: { holidays: UpcomingHoliday[
                   </span>
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13.5px] font-bold text-ink-strong">{h.label}</p>
+                  <p className="flex items-center gap-1.5 text-[13.5px] font-bold text-ink-strong">
+                    <span className="truncate">{h.label}</span>
+                    {h.optional ? (
+                      <span className="shrink-0 rounded-pill bg-surface-soft px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-wide text-ink-muted">
+                        Optional
+                      </span>
+                    ) : null}
+                  </p>
+                  {/* THE DATE IS SPELLED OUT (Sir) — the day chip alone cannot say
+                      which YEAR, and this panel now shows the next day off even
+                      when it is more than a year away. The year is added only
+                      when it is not the current one, so the common case stays
+                      short. */}
                   <p className="text-[12px] font-medium text-ink-subtle">
-                    {p.dow} · {whenLabel(h.inDays)}
+                    {p.dow}, {p.day} {p.mon}
+                    {p.year === thisYear ? "" : ` ${p.year}`} · {whenLabel(h.inDays)}
                   </p>
                 </div>
               </li>
