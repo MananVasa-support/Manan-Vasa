@@ -27,7 +27,7 @@ import type { EmployeeStatusRow, StatusCellBucket, ViewMode } from "@/lib/types"
 import { StatusCellPopover } from "./status-cell-popover";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { DEFAULT_DEBOUNCE_MS, useDebouncedCallback } from "@/lib/client/use-debounced";
-import { SectionPagination, usePagedRows, CollapseToggle, CollapsibleBody } from "./section-chrome";
+import { SectionPagination, usePagedRows, CollapseToggle, CollapsibleBody, DASHBOARD_CARD } from "./section-chrome";
 import { DashboardSectionHeader } from "./section-header";
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -529,7 +529,7 @@ export function StatusTable({
 
       {filtered.length === 0 ? (
         <div
-          className="bg-surface-card rounded-section border border-hairline p-10 text-center"
+          className={`${DASHBOARD_CARD} p-10 text-center`}
           style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
         >
           <p className="text-body-lg text-ink-subtle">
@@ -552,8 +552,10 @@ export function StatusTable({
         </div>
       ) : (
         <div
-          className="bg-surface-card rounded-section border border-hairline"
-          style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+          /* p-6 sits INSIDE the card and OUTSIDE the scroll box, so the
+             horizontal scrollbar appears at the padded boundary rather than
+             hard against the card edge. */
+          className={`${DASHBOARD_CARD} p-6`}
         >
           {isTransposed ? (
             /* Transposed reads the SAME filtered set, but not the paged one:

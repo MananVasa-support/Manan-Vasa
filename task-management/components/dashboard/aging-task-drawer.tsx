@@ -209,7 +209,7 @@ export function AgingTaskDrawer({
                   // "AA Tech" and the TASK column read as a client column. A
                   // task with no description now says so plainly rather than
                   // borrowing a label that describes someone else.
-                  const taskText = t.description?.trim() || "Untitled task";
+                  const taskText = t.description?.trim() || "No description provided";
                   // The hover carries what truncation ate: the FULL task text,
                   // plus the client on its own line so the tooltip still
                   // answers "whose?" even when the row is clipped short.
@@ -239,7 +239,7 @@ export function AgingTaskDrawer({
                       {/* `title` on the <td> as well as the link so the hover
                           target is the whole cell, including the empty space
                           to the right of a short description. */}
-                      <td className="max-w-[320px] px-3 py-1.5" title={taskHover}>
+                      <td className="max-w-[340px] px-3 py-1.5" title={taskHover}>
                         <Link
                           href={`/tasks/${t.id}` as Route}
                           // Native title, not a rich tooltip: this sits inside a
@@ -257,7 +257,7 @@ export function AgingTaskDrawer({
                           // real sentences and one clipped line usually stops
                           // before the verb; `break-words` keeps a long
                           // unbroken token from forcing a horizontal overflow.
-                          className="block line-clamp-2 max-w-[320px] break-words text-[13px] font-semibold text-slate-900 hover:underline"
+                          className="block line-clamp-2 max-w-[340px] break-words text-xs font-semibold leading-normal text-slate-900 hover:underline"
                         >
                           {taskText}
                         </Link>

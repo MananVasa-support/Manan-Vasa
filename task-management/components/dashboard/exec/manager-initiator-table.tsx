@@ -152,7 +152,7 @@ export function ManagerInitiatorTable({
        incapable of exceeding its container and a scroll axis would only ever
        park an inert scrollbar under the rows. Clipping is the backstop, not the
        layout — nothing should reach it. */
-    <div className="wms-card w-full overflow-hidden rounded-2xl bg-white p-6 shadow-xs hover:shadow-sm max-md:p-4">
+    <div className="wms-card w-full overflow-hidden bg-white border border-slate-200/80 rounded-2xl shadow-xs p-6 md:p-8 hover:shadow-sm">
       <table className="w-full table-fixed border-collapse">
         {/* `table-fixed` + colgroup: without fixed layout the browser sizes
             columns from content, which is what let a long manager name push
