@@ -34,3 +34,24 @@ export function employeeEmailTargets(emp: {
   }
   return out;
 }
+
+/**
+ * The ONE address for mail an employee receives in their work capacity —
+ * a manager's team report, the founder's org-wide roster. That is their
+ * BUSINESS address (`officialEmail`), falling back to the login `email` when
+ * the HR record has no work address on file yet.
+ *
+ * Deliberately NOT `employeeEmailTargets`: that fans a person's own documents
+ * out to every mailbox they own, including the personal one. A report about
+ * OTHER PEOPLE'S attendance and pay impact must not land in a personal inbox,
+ * so this returns a single work address or nothing at all.
+ */
+export function businessEmailFor(emp: {
+  email?: string | null;
+  officialEmail?: string | null;
+}): string | null {
+  const official = emp.officialEmail?.trim();
+  if (official) return official;
+  const login = emp.email?.trim();
+  return login || null;
+}
