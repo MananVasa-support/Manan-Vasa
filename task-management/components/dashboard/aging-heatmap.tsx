@@ -24,68 +24,43 @@ import { DashboardSectionHeader } from "@/components/dashboard/section-header";
 import {
   CollapseToggle,
   CollapsibleBody,
-  DASHBOARD_CARD_PADDED,
+  DASHBOARD_CARD,
 } from "@/components/dashboard/section-chrome";
 import { AgingTaskDrawer } from "@/components/dashboard/aging-task-drawer";
 
-// RISK-BANDED palette — four bands rather than a continuous hue ramp, so a lane
-// reads as its risk level at a glance instead of "somewhere along a gradient":
-//
-//   On track   0-3 · 4-7    green-400 / emerald-400
-//   Low        8-14         yellow-400
-//   Medium     15-20 · 21-30 amber-500 / orange-500
-//   High       31-45 · 46-60 · 60+  red-500 → red-600 → red-700
-//
-// `fill` is the Tailwind swatch named above; `deep` is the saturated label
-// colour (kept 2–3 steps darker so text stays legible on `tint`), `light` is the
-// gradient partner and `tint` the wash behind counts. The three High lanes step
 /**
- * SEVEN SOLID TIERS. `fill` is the flat ground for the bar segment, the legend
- * pill and the popover's age chip; `ink` is the text that sits on it.
+ * THE AGE RAMP — one continuous risk gradient, green through burgundy.
  *
- * Replaces a three-tier scheme (emerald / amber / rose) which collapsed eight
- * brackets into three colours — 31-45d and 60+d rendered identically, so the
- * bar could not show that one lane's backlog was twice as old as another's.
+ * One map, read by the legend pills, the stacked bar segments and the hover
+ * popover, so a bucket is the same colour in all three. Re-mapped from the old
+ * green -> teal -> SKY BLUE -> amber ramp: a blue tier in the middle of a heat
+ * scale reads as a category, not a step, so 8-14d looked like a different KIND
+ * of thing rather than "worse than 4-7d". The ramp is now monotonic in hue AND
+ * in temperature: green -> lime -> yellow -> orange -> red -> deep red ->
+ * burgundy, so a bar gets visibly hotter left to right with no hue that breaks
+ * the sequence.
  *
- * `0-3` and `4-7` intentionally share emerald: the palette specifies a single
- * "0-7d" tier, while the underlying AGE_BUCKETS keep the two apart for counting.
+ * 46-60 AND 60+ ARE NOT THE SAME BURGUNDY. The palette names one "deep dark
+ * burgundy" tier for both, but byte-identical fills on adjacent buckets is the
+ * exact defect this map was rewritten once before to fix — two brackets that
+ * render the same cannot show that one lane's backlog is older than another's.
+ * They take the two burgundies the palette offers (#7F1D1D and #450A0A), which
+ * keeps the tier reading as one family while staying distinguishable.
  *
- * `deep` survives only as the focus-ring / popover-border colour. `light` is
- * gone with the vertical gradient it fed — solid fills read more honestly
- * against the white cards, and a gradient made two adjacent tiers blur into
- * each other at the seam.
- */
-/**
- * THE AGE RAMP. One map, read by the legend pills, the stacked bar segments and
- * the hover popover, so a bucket is the same colour in all three.
- *
- * 0-3 AND 4-7 WERE BYTE-IDENTICAL — same fill, same deep, both commented
- * "fresh". The two youngest buckets were indistinguishable everywhere the ramp
- * appears, which is the whole point of a ramp.
- *
- * 4-7 is TEAL, not the lime or cyan also on the table. Cyan-500 sits right next
- * to 8-14's sky-500 and would have recreated the same collision one step over;
- * lime breaks the hue progression by going green → yellow-green → blue. Teal
- * keeps the ramp monotonic — green → teal → sky → amber → orange → red — and is
- * clearly distinct from both neighbours.
- *
- * INK follows the tier rather than a blanket white: sky, amber and orange are
- * all too light to carry it. 21-30 flips to dark ink here — white on orange-500
- * measures 2.8:1, under even the 3:1 large-text floor, and these labels are
- * 11px. That is the same rule the other light tiers already followed.
- *
- * 46-60 and 60+ keep escalating past red-500; "31d+" in the spec is where red
- * BEGINS, not where the ramp stops.
+ * INK FOLLOWS CONTRAST, not a blanket colour. Everything from green through
+ * orange is too light to carry white: white on #16A34A measures 3.4:1 and on
+ * #F97316 just 2.8:1, under even the 3:1 large-text floor, and these counts are
+ * 12px. Those four take slate-900 (6:1 or better). Red and darker take white.
  */
 const BUCKET_COLOR: Record<AgeBucketId, { fill: string; ink: string; deep: string }> = {
-  "0-3":   { fill: "#10b981", ink: "#ffffff", deep: "#059669" }, // emerald-500 — fresh
-  "4-7":   { fill: "#0d9488", ink: "#ffffff", deep: "#0f766e" }, // teal-600    — early warning
-  "8-14":  { fill: "#0ea5e9", ink: "#111827", deep: "#0284c7" }, // sky-500     — moderate
-  "15-20": { fill: "#f59e0b", ink: "#111827", deep: "#b45309" }, // amber-500   — late
-  "21-30": { fill: "#f97316", ink: "#111827", deep: "#c2410c" }, // orange-500  — critical
-  "31-45": { fill: "#ef4444", ink: "#ffffff", deep: "#b91c1c" }, // red-500     — severe
-  "46-60": { fill: "#991b1b", ink: "#ffffff", deep: "#7f1d1d" }, // red-800     — very severe
-  "60+":   { fill: "#6b21a8", ink: "#ffffff", deep: "#581c87" }, // purple-700  — extreme
+  "0-3":   { fill: "#16A34A", ink: "#0F172A", deep: "#15803D" }, // forest green   — freshest
+  "4-7":   { fill: "#65A30D", ink: "#0F172A", deep: "#4D7C0F" }, // lime           — early warning
+  "8-14":  { fill: "#EAB308", ink: "#0F172A", deep: "#CA8A04" }, // amber yellow   — moderate
+  "15-20": { fill: "#F97316", ink: "#0F172A", deep: "#EA580C" }, // deep orange    — late
+  "21-30": { fill: "#DC2626", ink: "#FFFFFF", deep: "#B91C1C" }, // bright red     — critical
+  "31-45": { fill: "#B91C1C", ink: "#FFFFFF", deep: "#991B1B" }, // deep red       — severe
+  "46-60": { fill: "#7F1D1D", ink: "#FFFFFF", deep: "#601717" }, // burgundy       — very severe
+  "60+":   { fill: "#450A0A", ink: "#FFFFFF", deep: "#2C0606" }, // dark burgundy  — extreme
 };
 
 const BUCKET_WEIGHT: Record<AgeBucketId, number> = {
@@ -468,7 +443,15 @@ export function AgingHeatmap({
            `wms-card` came off with them: that utility OWNS the border, and the
            card constant sets `border-slate-200/80` alongside it, so the two
            were fighting over the same property. */
-        className={`aging-shell relative overflow-hidden ${DASHBOARD_CARD_PADDED}`}
+        /* DASHBOARD_CARD without its padding, then p-8/p-10 on top. NOT
+           `${DASHBOARD_CARD_PADDED} p-8`: both sets are plain utilities of
+           equal specificity, so which one wins is decided by their order in
+           the GENERATED stylesheet, not by their order in this string — the
+           override would be a coin flip. Taking the unpadded constant leaves
+           exactly one padding rule.
+           min-h gives the section a floor so it holds its presence on the
+           page even with three lanes in it. */
+        className={`aging-shell relative min-h-[600px] overflow-hidden p-8 md:p-10 ${DASHBOARD_CARD}`}
       >
         {/* The red/green "heat wash" backdrop was removed — it was the other
             half of the peach tint. The heat colours still live where they carry
@@ -502,6 +485,11 @@ export function AgingHeatmap({
               ) : (
                 <>
                   <LaneHeader />
+                  {/* space-y-4 between people. The lanes used to be table
+                      rows divided by a hairline; with the bars this much
+                      thicker they need air between them instead, and a rule
+                      under a floating row reads as a stray underline. */}
+                  <div className="space-y-4 pt-3">
                   {top12.map((r, i) => (
                     <Lane
                       key={r.employeeId}
@@ -513,6 +501,7 @@ export function AgingHeatmap({
                       avatarUrl={avatarById[r.employeeId] ?? null}
                     />
                   ))}
+                  </div>
                 </>
               )}
             </div>
@@ -767,18 +756,15 @@ function Lane({
           onDrill(row.employeeId, null);
         }
       }}
-      // A 44px TABLE ROW, not a card: no per-lane background, no radius, no
-      // shadow — just a hairline rule underneath. That is where the vertical
-      // space came from; roughly twice as many people now fit on one screen.
-      //
-      // 44px is the floor, not a target to beat: the 26px avatar leaves 9px of
-      // air above and below it, which is what keeps the row compact rather than
-      // cramped. Going lower would start clipping the avatar.
+      // 56px, up from 44px: the heat bar inside is now 26px rather than 16px,
+      // and 44px would have left it 9px of air top and bottom — a bar wearing
+      // the row rather than sitting in it. The lanes are separated by space-y-4
+      // now instead of a hairline rule, so the row carries no border of its own.
       //
       // Tier-3 mobile fix — at 390px the desktop grid overflows the section, so
       // `aging-lane-mobile` (globals.css) collapses it to 2 stacked rows on
       // max-md, where the height has to go back to auto.
-      className="aging-lane aging-lane-mobile grid h-[44px] items-center gap-3 border-b border-hairline px-3 transition-colors last:border-b-0 max-md:h-auto max-md:gap-2 max-md:px-2 max-md:py-2"
+      className="aging-lane aging-lane-mobile grid h-[56px] items-center gap-3 rounded-xl px-3 transition-colors max-md:h-auto max-md:gap-2 max-md:px-2 max-md:py-2"
       style={{
         gridTemplateColumns: LANE_COLUMNS,
         opacity: 0,
@@ -802,13 +788,17 @@ function Lane({
       {/* Risk score */}
       <RiskChip score={row.risk} />
 
-      {/* Heat bar — a thin lane. Segments are flush (no per-segment radius) and
-          the container clips them, so the eight tiers read as one continuous
-          measure rather than eight little pills. */}
+      {/* Heat bar. Segments are flush (no per-segment radius) and the container
+          clips them, so the eight tiers read as one continuous measure rather
+          than eight little pills.
+          26px outer (h-6 plus the hairline top and bottom), up from 16px: at
+          the old height the tier colours were a stripe, and a count sitting in
+          one was squeezed against the seams. rounded-lg rather than a pill —
+          at this thickness a full radius eats the first and last segment. */}
       <div
-        className="relative rounded-full bg-surface-soft overflow-hidden"
+        className="relative rounded-lg bg-surface-soft overflow-hidden"
         style={{
-          height: 16,
+          height: 26,
           border: "1px solid var(--color-hairline)",
         }}
       >
@@ -974,8 +964,10 @@ function Segment({
             minWidth: 0,
             outlineColor: c.deep,
             fontFamily: "var(--font-display), system-ui, sans-serif",
-            fontWeight: 900,
-            fontSize: 11,
+            // 12px / 700, up from 11px / 900. The taller bar can carry it,
+            // and 900 at 11px was dense enough that the digits ran together.
+            fontWeight: 700,
+            fontSize: 12,
           }}
           aria-label={`${employeeName}, ${bucketLabel}: ${count} pending`}
         >
