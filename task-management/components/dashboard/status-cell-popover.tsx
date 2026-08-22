@@ -22,7 +22,37 @@ const BUCKET_META: Record<
     label: "Critical",
     params: () => new URLSearchParams({ prio: "imp_urgent" }),
   },
+  // ── One entry per status column ──────────────────────────────────────────
+  // The label is the COLUMN's label, verbatim, so the popover header names the
+  // thing the reader is pointing at. The params reproduce that column's exact
+  // set in /tasks — `status` is comma-separated there (lib/task-filters.ts),
+  // which is what lets the collapsed columns list every status they fold in.
+  approved: { label: "Approved", params: () => new URLSearchParams({ status: "approved" }) },
   done: { label: "Done", params: () => new URLSearchParams({ status: "done" }) },
+  transferred: {
+    label: "Transferred",
+    params: () => new URLSearchParams({ status: "transferred" }),
+  },
+  // Follow Up counts the legacy numbered variants too, so the link has to name
+  // all four or it would open a shorter list than the badge promised.
+  followUp: {
+    label: "Follow Up",
+    params: () =>
+      new URLSearchParams({ status: "follow_up,follow_up_1,follow_up_2,follow_up_3" }),
+  },
+  // "Need Info" absorbed the retired `need_help` (2026-06-10); historical rows
+  // still carry it and the column still counts them.
+  needHelp: {
+    label: "Need Info",
+    params: () => new URLSearchParams({ status: "need_info,need_help" }),
+  },
+  initiated: { label: "Initiated", params: () => new URLSearchParams({ status: "initiated" }) },
+  notStarted: {
+    label: "Not Started",
+    params: () => new URLSearchParams({ status: "not_started" }),
+  },
+  dontKnow: { label: "Not Read", params: () => new URLSearchParams({ status: "dont_know" }) },
+  onHold: { label: "On Hold", params: () => new URLSearchParams({ status: "on_hold" }) },
   pendingTotal: {
     label: "Pending",
     // The exact set computeEmployeeStatusTable counts as pending. `dont_know`

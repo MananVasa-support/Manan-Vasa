@@ -26,6 +26,8 @@ import {
 import type { EmployeeStatusRow, StatusCellBucket, ViewMode } from "@/lib/types";
 import { StatusCellPopover } from "./status-cell-popover";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
+import { useKpiFocus, setKpiFocus } from "@/lib/client/kpi-focus";
+import type { KpiBucketKey } from "@/lib/dashboard/kpi-buckets";
 import { DEFAULT_DEBOUNCE_MS, useDebouncedCallback } from "@/lib/client/use-debounced";
 import { SectionPagination, usePagedRows, CollapseToggle, CollapsibleBody, DASHBOARD_CARD } from "./section-chrome";
 import { DashboardSectionHeader } from "./section-header";
@@ -99,27 +101,69 @@ type StatusCol = {
   key: keyof EmployeeStatusRow;
   label: string;
   tone?: Tone;
-  /** Only set where a preview bucket counts EXACTLY this column. */
+  /** The preview bucket that counts EXACTLY this column. Every status column
+   *  now has one, so every non-zero cell in the grid hovers. It stays optional
+   *  only so a future non-status column can opt out rather than borrow a
+   *  bucket that counts something else. */
   preview?: StatusCellBucket;
 };
 
 const STATUS_COLUMNS: StatusCol[] = [
-  { key: "approved", label: "Approved", tone: "green" },
+  { key: "approved", label: "Approved", tone: "green", preview: "approved" },
   { key: "notApproved", label: "Not Approved", tone: "red", preview: "notApproved" },
   { key: "done", label: "Done", tone: "green", preview: "done" },
-  { key: "followUp", label: "Follow Up", tone: "amber" },
-  { key: "needHelp", label: "Need Info", tone: "amber" },
-  { key: "initiated", label: "Initiated", tone: "amber" },
-  { key: "notStarted", label: "Not Started" },
-  { key: "dontKnow", label: "Not Read" },
-  { key: "onHold", label: "On Hold", tone: "amber" },
-  { key: "transferred", label: "Transferred" },
+  { key: "followUp", label: "Follow Up", tone: "amber", preview: "followUp" },
+  { key: "needHelp", label: "Need Info", tone: "amber", preview: "needHelp" },
+  { key: "initiated", label: "Initiated", tone: "amber", preview: "initiated" },
+  { key: "notStarted", label: "Not Started", preview: "notStarted" },
+  { key: "dontKnow", label: "Not Read", preview: "dontKnow" },
+  { key: "onHold", label: "On Hold", tone: "amber", preview: "onHold" },
+  { key: "transferred", label: "Transferred", preview: "transferred" },
   { key: "cancelled", label: "Cancelled", tone: "rose", preview: "cancelled" },
 ];
+
+/**
+ * Which of the columns above each Task Summary card covers — the table's half
+ * of the [ VIEW ] toggle. Expanding NOT APPROVED up in the strip narrows this
+ * grid to the Not Approved column and to the people who actually have some.
+ *
+ * The keys are this table's own column keys, not task statuses, because the
+ * two vocabularies are not the same shape: the strip's Done card covers both
+ * the `done` and `approved` columns, and its Pending card is the residual over
+ * four of them (see lib/dashboard/kpi-buckets.ts).
+ *
+ * Transferred / Cancelled belong to NO card. They are excluded from the Task
+ * Summary entirely, so no focus can select them — which is the intended
+ * reading, not an omission.
+ */
+const KPI_FOCUS_COLUMNS: Record<
+  Exclude<KpiBucketKey, "total">,
+  readonly (keyof EmployeeStatusRow)[]
+> = {
+  needHelp: ["needHelp"],
+  notApproved: ["notApproved"],
+  done: ["approved", "done"],
+  pending: ["initiated", "followUp", "onHold", "dontKnow"],
+  notStarted: ["notStarted"],
+};
+
+/** Human name of the focused card, for the "Focused on …" chip. */
+const KPI_FOCUS_LABELS: Record<Exclude<KpiBucketKey, "total">, string> = {
+  needHelp: "Need Info",
+  notApproved: "Not Approved",
+  done: "Done",
+  pending: "Pending",
+  notStarted: "Not Started",
+};
 
 function buildColumns(
   avatarById: Record<string, string | null>,
   view: ViewMode,
+  /** The status columns to render — all of them, or just the focused card's. */
+  statusColumns: StatusCol[],
+  /** True while a KPI card is focused: Total then no longer partitions the
+   *  visible columns, so it is relabelled rather than left to look wrong. */
+  focused: boolean,
 ): ColumnDef<EmployeeStatusRow>[] {
   return [
     {
@@ -150,23 +194,29 @@ function buildColumns(
         </span>
       ),
     },
-    ...STATUS_COLUMNS.map<ColumnDef<EmployeeStatusRow>>((c) => ({
+    ...statusColumns.map<ColumnDef<EmployeeStatusRow>>((c) => ({
       accessorKey: c.key,
       header: c.label,
       cell: (info) => {
         const n = info.getValue<number>();
         const node = c.tone ? <Pill value={n} tone={c.tone} /> : <PlainCount value={n} />;
-        // A preview is attached ONLY where a bucket counts exactly this column.
-        // `pendingTotal` holds every pending task, so hanging it off Follow Up
-        // or Initiated would show a superset of the number being pointed at.
+        // A preview is attached ONLY where a bucket counts exactly this
+        // column. That used to leave eight columns dead on hover, because only
+        // done / notApproved / cancelled had a bucket of their own; each status
+        // now has one, so the rule holds AND every column is live.
+        // `pendingTotal` is still not usable here — it holds every pending
+        // task, so hanging it off Follow Up or Initiated would preview a
+        // superset of the number being pointed at.
         return c.preview && n > 0 ? withPreview(info.row.original, c.preview, n, view, node) : node;
       },
     })),
     // TOTAL = every task in the filter for this person, and the eleven status
-    // columns above partition it exactly.
+    // columns above partition it exactly — UNLESS a KPI card is focused, in
+    // which case only that card's columns are on screen and the header says
+    // "All" so nobody reads the visible columns as summing to it.
     {
       accessorKey: "total",
-      header: "Total",
+      header: focused ? "All" : "Total",
       cell: (info) =>
         withPreview(info.row.original, "total", info.getValue<number>(), view,
           <span className="text-display-3xs text-ink-strong">
@@ -192,18 +242,21 @@ function TransposedTable({
   rows,
   view,
   avatarById,
+  statusColumns,
   sortBy,
   onSort,
 }: {
   rows: EmployeeStatusRow[];
   view: ViewMode;
   avatarById: Record<string, string | null>;
+  /** The status rows to render — all of them, or just the focused card's. */
+  statusColumns: StatusCol[];
   /** Employee id whose column is ranking the status rows, or null for schema order. */
   sortBy: { employeeId: string; desc: boolean } | null;
   onSort: (employeeId: string) => void;
 }) {
   const statusRows = React.useMemo(() => {
-    const base = STATUS_COLUMNS.map((c) => ({
+    const base = statusColumns.map((c) => ({
       col: c,
       counts: rows.map((r) => Number(r[c.key] ?? 0)),
       total: rows.reduce((sum, r) => sum + Number(r[c.key] ?? 0), 0),
@@ -215,7 +268,7 @@ function TransposedTable({
     return [...base].sort((a, b) =>
       sortBy.desc ? at(b.counts) - at(a.counts) : at(a.counts) - at(b.counts),
     );
-  }, [rows, sortBy]);
+  }, [rows, sortBy, statusColumns]);
 
   const grand = rows.reduce((sum, r) => sum + r.total, 0);
 
@@ -361,6 +414,22 @@ export function StatusTable({
   // box (below the header) and the FilterBar's section search at the top of
   // the page. Both match on the person's name.
   const sectionQuery = useSectionSearch();
+
+  // [ VIEW ] on a Task Summary card focuses this table on that status subset:
+  // its columns narrow to the ones that card counts, and people carrying none
+  // of it drop out. [ HIDE ] restores the full grid. Read through a module
+  // store, so this widget opts in with one hook and the page stays untouched
+  // (lib/client/kpi-focus.ts).
+  const kpiFocus = useKpiFocus();
+  const focusColumns = kpiFocus && kpiFocus !== "total" ? KPI_FOCUS_COLUMNS[kpiFocus] : null;
+  const statusColumns = React.useMemo(
+    () =>
+      focusColumns
+        ? STATUS_COLUMNS.filter((c) => focusColumns.includes(c.key))
+        : STATUS_COLUMNS,
+    [focusColumns],
+  );
+
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
@@ -376,11 +445,18 @@ export function StatusTable({
         return false;
       if (q && !r.employeeName.toLowerCase().includes(q)) return false;
       if (!matchesSearch(sectionQuery, r.employeeName)) return false;
+      // Under a KPI focus, a person with none of that status is noise — the
+      // question being asked is "who is carrying the sent-back work", and a
+      // screen of zeroes does not answer it.
+      if (focusColumns && !focusColumns.some((k) => Number(r[k] ?? 0) > 0)) return false;
       return true;
     });
-  }, [rows, query, selectedDepts, sectionQuery]);
+  }, [rows, query, selectedDepts, sectionQuery, focusColumns]);
 
-  const columns = React.useMemo(() => buildColumns(avatarById, view), [avatarById, view]);
+  const columns = React.useMemo(
+    () => buildColumns(avatarById, view, statusColumns, focusColumns !== null),
+    [avatarById, view, statusColumns, focusColumns],
+  );
 
   // EVERY column sorts now. `defaultColumn` used to close sorting so only
   // Employee and Critical opted in; that left six count columns carrying no
@@ -409,7 +485,10 @@ export function StatusTable({
   });
 
   const hasActiveFilter =
-    query.trim().length > 0 || selectedDepts.length > 0 || sectionQuery.length > 0;
+    query.trim().length > 0 ||
+    selectedDepts.length > 0 ||
+    sectionQuery.length > 0 ||
+    focusColumns !== null;
 
   // Page the already-sorted TanStack rows. Keyed off the row model (not
   // `filtered`) so paging follows the table's own sort order.
@@ -458,6 +537,17 @@ export function StatusTable({
                 {filtered.length}
               </span>{" "}
               of {rows.length} {rows.length === 1 ? "person" : "people"}
+              {/* Says WHY the grid narrowed. Without it, clicking [ VIEW ] two
+                  sections up silently drops most of this table's columns and
+                  rows, which reads as a bug rather than as a focus. */}
+              {kpiFocus && kpiFocus !== "total" && (
+                <>
+                  {" · focused on "}
+                  <span className="font-semibold text-gray-900">
+                    {KPI_FOCUS_LABELS[kpiFocus]}
+                  </span>
+                </>
+              )}
             </>
           ) : (
             "Tasks broken down per person"
@@ -482,9 +572,13 @@ export function StatusTable({
             {hasActiveFilter && (
               <button
                 type="button"
+                // Also releases the Task Summary focus. "Clear" that left the
+                // grid narrowed to one status would be the most confusing
+                // button on the page.
                 onClick={() => {
                   setQuery("");
                   setSelectedDepts([]);
+                  setKpiFocus(null);
                 }}
                 className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] font-bold text-ink-muted transition-colors hover:text-altus-red"
               >
@@ -534,7 +628,9 @@ export function StatusTable({
           <p className="text-body-lg text-ink-subtle">
             {rows.length === 0
               ? "No data for the current filter."
-              : "No employees match your search."}
+              : kpiFocus && kpiFocus !== "total"
+                ? `Nobody is carrying any ${KPI_FOCUS_LABELS[kpiFocus]} work.`
+                : "No employees match your search."}
           </p>
           {hasActiveFilter && rows.length > 0 && (
             <button
@@ -542,6 +638,7 @@ export function StatusTable({
               onClick={() => {
                 setQuery("");
                 setSelectedDepts([]);
+                setKpiFocus(null);
               }}
               className="bg-surface-card mt-3 text-cta text-altus-red hover:underline"
             >
@@ -564,6 +661,7 @@ export function StatusTable({
               rows={filtered}
               view={view}
               avatarById={avatarById}
+              statusColumns={statusColumns}
               sortBy={transposedSort}
               onSort={toggleTransposedSort}
             />
@@ -575,7 +673,10 @@ export function StatusTable({
               spent, and twelve columns genuinely do not fit a laptop viewport.
               The Employee cell stays frozen with `sticky left-0`, so names
               remain readable while the status columns scroll under them. */}
-          <div className="overflow-x-auto">
+          {/* The scroll box carries its own hairline + radius, so the table
+              reads as a framed object inside the card's p-6 rather than as
+              loose rows that happen to slide sideways. */}
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
           {/* min-w carries the twelve columns: one name column plus eleven
               statuses and Total. Below this the numeric columns collapse into
               each other, so the floor is what forces the scrollbar instead of

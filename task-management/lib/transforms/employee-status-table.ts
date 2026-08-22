@@ -102,15 +102,16 @@ export function computeEmployeeStatusTable(
     // Bucket those first so they take priority over the lifecycle status.
     if (t.approvalStatus) {
       switch (t.approvalStatus) {
-        case "approved":      row.approved   += 1; continue;
+        case "approved":      row.approved    += 1; addTo(rowKey, "approved", t);    continue;
         case "not_approved":  row.notApproved += 1; addTo(rowKey, "notApproved", t); continue;
-        case "cancelled":     row.cancelled   += 1; addTo(rowKey, "cancelled", t); continue;
-        case "transferred":   row.transferred += 1; continue;
+        case "cancelled":     row.cancelled   += 1; addTo(rowKey, "cancelled", t);   continue;
+        case "transferred":   row.transferred += 1; addTo(rowKey, "transferred", t); continue;
       }
     }
     switch (t.status) {
       case "approved":
         row.approved += 1;
+        addTo(rowKey, "approved", t);
         break;
       case "not_approved":
         row.notApproved += 1;
@@ -122,6 +123,7 @@ export function computeEmployeeStatusTable(
         break;
       case "transferred":
         row.transferred += 1;
+        addTo(rowKey, "transferred", t);
         break;
       case "cancelled":
         row.cancelled += 1;
@@ -131,6 +133,7 @@ export function computeEmployeeStatusTable(
                                   // (need_help retired 2026-06-10)
         row.needHelp += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "needHelp", t);
         addTo(rowKey, "pendingTotal", t);
         break;
       case "follow_up":
@@ -139,16 +142,19 @@ export function computeEmployeeStatusTable(
       case "follow_up_3":         // Tier-3
         row.followUp += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "followUp", t);
         addTo(rowKey, "pendingTotal", t);
         break;
       case "initiated":
         row.initiated += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "initiated", t);
         addTo(rowKey, "pendingTotal", t);
         break;
       case "not_started":
         row.notStarted += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "notStarted", t);
         addTo(rowKey, "pendingTotal", t);
         break;
       // "I haven't assessed this yet". It used to be folded into not_started,
@@ -158,6 +164,7 @@ export function computeEmployeeStatusTable(
       case "dont_know":
         row.dontKnow += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "dontKnow", t);
         addTo(rowKey, "pendingTotal", t);
         break;
       // Retired 2026-06-10 in favour of need_info, but historical rows still
@@ -165,6 +172,7 @@ export function computeEmployeeStatusTable(
       case "need_help":
         row.needHelp += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "needHelp", t);
         addTo(rowKey, "pendingTotal", t);
         break;
       // Paused, but still this person's open work. It now has its own bucket:
@@ -174,6 +182,7 @@ export function computeEmployeeStatusTable(
       case "on_hold":
         row.onHold += 1;
         row.pendingTotal += 1;
+        addTo(rowKey, "onHold", t);
         addTo(rowKey, "pendingTotal", t);
         break;
       default: {

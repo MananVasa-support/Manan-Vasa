@@ -171,7 +171,17 @@ function ageInDays(dueAt: Date | string | null, nowDay: number): number {
 // Not Approved when EITHER column says so (lib/queries/dashboard.ts), so the
 // list filter must match the same way — otherwise the "Not Approved" KPI
 // filtered on `status` alone and showed almost nothing (sir's changes #14).
-const APPROVAL_VERDICTS = new Set<TaskStatus>(["approved", "not_approved"]);
+// All FOUR verdicts, not two. `cancelled` and `transferred` are recorded in
+// approval_status exactly like the other two, and computeEmployeeStatusTable
+// counts them from either column — so with only two listed here, the Cancelled
+// and Transferred cell links opened a SHORTER list than the badge beside them
+// promised. Same bug as sir's changes #14, two columns further along.
+const APPROVAL_VERDICTS = new Set<TaskStatus>([
+  "approved",
+  "not_approved",
+  "cancelled",
+  "transferred",
+]);
 
 function statusFilterCondition(statuses: TaskStatus[]) {
   if (statuses.length === 0) return undefined;

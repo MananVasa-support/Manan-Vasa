@@ -28,10 +28,43 @@ export interface KpiTotals {
   notApproved: number;
 }
 
-export interface KpiWithDelta {
+/** One day of the 14-day velocity series. `date` is an ISO `YYYY-MM-DD` UTC
+ *  day so the client can format the tooltip label without a second source of
+ *  truth for which bar is which day. */
+export interface TrendPoint {
+  date: string;
+  /** Tasks in this bucket CREATED that day (created_at). */
+  created: number;
+  /** Tasks in this bucket COMPLETED that day (completed_at). */
+  completed: number;
+}
+
+/** Current window vs the one immediately before it — what the card's ▲/▼ badge
+ *  reports. See computeTrendWindows for why `changePct` is nullable. */
+export interface TrendWindows {
+  windowDays: number;
   current: number;
   previous: number;
+  /** (current − previous) / previous × 100, one decimal. Null when the
+   *  previous window is empty (no percentage change from zero). */
+  changePct: number | null;
+}
+
+export interface KpiWithDelta {
+  /** The big number: tasks in this bucket across the ACTIVE dashboard filter. */
+  current: number;
+  /** Volume in the 7 days before last — the badge's baseline. NOT comparable
+   *  with `current`, which spans the whole filtered range; use `window`. */
+  previous: number;
+  /** Volume in the last 7 days, the same measure as `previous`. */
+  window: number;
+  /** Percent change of `window` against `previous`, or null when previous = 0. */
+  changePct: number | null;
+  /** 14 daily creation counts, oldest → newest. Kept as bare numbers for the
+   *  existing area-sparkline path; `trend` carries the same days with labels. */
   sparkline: number[];
+  /** The 14-day created/completed series behind the hover tooltip. */
+  trend: TrendPoint[];
 }
 
 export interface KpiSet {
@@ -45,14 +78,28 @@ export interface KpiSet {
 
 
 
-/** The six count columns the Status-by-Doer table renders, keyed by the field
- *  they read. Used to key the hover previews below. */
+/** The count columns the Status-by-Doer table renders, keyed by the field they
+ *  read. Used to key the hover previews below.
+ *
+ *  EVERY status column is here, not just the three that used to be. The
+ *  previews are what the hover popover draws, and a bucket missing from this
+ *  union is a column whose non-zero cells hover dead — which is exactly what
+ *  Approved, Follow Up, Need Info, Initiated, Not Started, Not Read, On Hold
+ *  and Transferred did. */
 export type StatusCellBucket =
   | "criticalCount"
-  | "done"
-  | "pendingTotal"
+  | "approved"
   | "notApproved"
+  | "done"
+  | "transferred"
   | "cancelled"
+  | "followUp"
+  | "needHelp"
+  | "initiated"
+  | "notStarted"
+  | "dontKnow"
+  | "onHold"
+  | "pendingTotal"
   | "total";
 
 /** One line in a status-cell hover preview. Deliberately minimal — this ships
@@ -302,7 +349,14 @@ export interface InitiatorBoard { windowDays: number; workingDays: number; manag
 
 export interface DashboardData {
   kpis: KpiSet;
+  /** The unfiltered operational summary — every task in the active filter.
+   *  Identical to `wmsSummaryByKpi.total`; kept as its own field because it is
+   *  what the strip shows before any card is expanded. */
   wmsSummary: WmsSummary;
+  /** One operational summary PER CARD, computed over that card's task subset.
+   *  Expanding NOT APPROVED now re-reads Overdue / Due Today / Avg Age against
+   *  the sent-back tasks alone, instead of repeating the org-wide numbers. */
+  wmsSummaryByKpi: Record<import("@/lib/dashboard/kpi-buckets").KpiBucketKey, WmsSummary>;
   punctuality: Punctuality;
   doneOnTime: DoneOnTime;
   notApprovedAging: NotApprovedAging;
