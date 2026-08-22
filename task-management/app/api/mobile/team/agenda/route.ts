@@ -55,6 +55,7 @@ export async function GET(req: Request) {
     archived: false,
     activityType: null,
     overdue: false,
+    unread: false,
     ageRange: null,
     assigneeMode: "default",
       teams: [],

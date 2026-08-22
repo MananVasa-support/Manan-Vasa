@@ -520,6 +520,7 @@ export function TaskTable({
   subjects,
   clients,
   openInDrawer = false,
+  filterLabel = null,
 }: {
   rows: TaskListRow[];
   employees: { id: string; name: string }[];
@@ -533,6 +534,9 @@ export function TaskTable({
   /** Open the record in the side drawer (`?task=`) instead of navigating away
    *  to /tasks/[id]. Modifier-clicks still open the full page in a new tab. */
   openInDrawer?: boolean;
+  /** The active quick-filter pill's label ("Not Read", "Done", …), or null.
+   *  Named in the footer count so "Showing all 175 tasks" says WHICH 175. */
+  filterLabel?: string | null;
 }) {
   const resolvedLabels = statusLabels ?? STATUS_LABELS_FALLBACK;
   const resolvedTones = statusTones ?? STATUS_TONES_FALLBACK;
@@ -899,12 +903,17 @@ export function TaskTable({
 
   const selectedIds = table.getSelectedRowModel().rows.map((r) => r.original.id);
 
+  // The active pill's name, appended so the count says which set it counted.
+  // "Showing all 175 tasks" and "Showing all 175 tasks (Not Read)" are the
+  // difference between a number the reader has to take on trust and one they
+  // can check against the pill they just clicked.
+  const filterSuffix = filterLabel ? ` (${filterLabel})` : "";
   const countLabel =
     totalFiltered === 0
-      ? "No tasks"
+      ? `No tasks${filterSuffix}`
       : hasMore
-        ? `Showing ${rendered.toLocaleString("en-IN")} of ${totalFiltered.toLocaleString("en-IN")}`
-        : `Showing all ${totalFiltered.toLocaleString("en-IN")} ${totalFiltered === 1 ? "task" : "tasks"}`;
+        ? `Showing ${rendered.toLocaleString("en-IN")} of ${totalFiltered.toLocaleString("en-IN")}${filterSuffix}`
+        : `Showing all ${totalFiltered.toLocaleString("en-IN")} ${totalFiltered === 1 ? "task" : "tasks"}${filterSuffix}`;
 
   return (
     <div ref={listTopRef} className="scroll-mt-6">
@@ -1382,6 +1391,7 @@ export function TaskTable({
       <div className="mt-5 flex items-center justify-center gap-3 md:hidden">
         <p className="text-[13px] font-semibold text-ink-subtle tabular-nums">
           Showing {rendered.toLocaleString("en-IN")} of {totalFiltered.toLocaleString("en-IN")}
+          {filterSuffix}
         </p>
         {hasMore && (
           <button

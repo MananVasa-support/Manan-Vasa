@@ -398,6 +398,13 @@ export interface TaskListFilters {
   /** `?type=goals|tasks|commitments` -- which activity family a manager-board
    *  click came from. Null when absent or unrecognised. */
   activityType: import("@/lib/task-filters").ActivityType | null;
+  /** `?unread=1` — pending work nobody has opened yet: `first_read_at IS
+   *  NULL` AND the status is one of PENDING_STATUSES. Both halves matter —
+   *  a DONE task with no read receipt is finished, not unread, and counting it
+   *  would make the figure larger than the "Not Read" pill that links here.
+   *  A cross-cut like `overdue`, not a status: there is no `not_read` value in
+   *  the enum, which is exactly why the pill had no filter to point at. */
+  unread: boolean;
   /** `?overdue=true` — only OPEN tasks whose effective due date is already
    *  past. A cross-cut, not a status: it narrows within whatever statuses are
    *  selected rather than replacing them. Terminal work is excluded because a

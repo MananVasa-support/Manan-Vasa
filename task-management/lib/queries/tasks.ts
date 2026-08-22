@@ -86,6 +86,27 @@ function overdueConditions() {
 }
 
 /**
+ * NOT READ — pending work nobody has opened.
+ *
+ * BOTH halves are required. `first_read_at IS NULL` alone would sweep in every
+ * finished task that never had a read receipt written, which is not "unread",
+ * it is "done, and nobody needed to open it again". Pairing the null check with
+ * PENDING_STATUSES makes this filter return exactly the set the Not Read pill
+ * counts (see computeStatCounts in components/tasks/task-list-page.tsx) — if
+ * the two ever diverge, the pill's number and the list it opens disagree, which
+ * is the failure that made the pill worth wiring up in the first place.
+ *
+ * A list, like overdueConditions(), so both definite conditions spread into the
+ * caller's array without an assertion.
+ */
+function unreadConditions() {
+  return [
+    sql`${tasks.firstReadAt} IS NULL`,
+    inArray(tasks.status, [...PENDING_STATUSES]),
+  ];
+}
+
+/**
  * Whole-day index for a timestamp, in UTC.
  *
  * Age is a CALENDAR-DAY difference, not elapsed milliseconds. The previous
@@ -206,6 +227,7 @@ async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
   if (filters.overdue)               conditions.push(...overdueConditions());
+  if (filters.unread)                conditions.push(...unreadConditions());
   if (filters.ageRange)              conditions.push(...ageRangeConditions(filters.ageRange));
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
@@ -451,6 +473,7 @@ async function listTasksPageUncached(
   if (filters.subjects.length > 0) conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.taskId) conditions.push(eq(tasks.id, filters.taskId));
   if (filters.overdue) conditions.push(...overdueConditions());
+  if (filters.unread) conditions.push(...unreadConditions());
   if (filters.ageRange) conditions.push(...ageRangeConditions(filters.ageRange));
 
   // Team scope, matching the flat path above. This path IGNORED it entirely
@@ -762,6 +785,7 @@ export async function listTasksForExport(
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
   if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
   if (filters.overdue)               conditions.push(...overdueConditions());
+  if (filters.unread)                conditions.push(...unreadConditions());
   if (filters.ageRange)              conditions.push(...ageRangeConditions(filters.ageRange));
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 

@@ -80,6 +80,7 @@ describe("parseTaskFilters", () => {
       archived: false,
       activityType: null,
     overdue: false,
+    unread: false,
     ageRange: null,
       assigneeMode: "all" as const,
       teams: ["mine"],

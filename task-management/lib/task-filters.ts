@@ -66,6 +66,8 @@ export function parseTaskFilters(
   // selecting it flips the list to show archived tasks. Any real status chips
   // selected alongside it still narrow by status within the archived set.
   const wantsArchived = rawStatuses.includes("archived");
+  // Accept 1 / true / yes so a hand-written link behaves like the generated one.
+  const unread = ["1", "true", "yes"].includes((get("unread") ?? "").toLowerCase());
   const priorities = split(get("prio")).filter((p): p is TaskPriority =>
     PRIO_SET.has(p as TaskPriority),
   );
@@ -124,6 +126,7 @@ export function parseTaskFilters(
     clients: split(get("client")),
     taskId: typeof id === "string" && id.length > 0 ? id : null,
     archived: archived || wantsArchived,
+    unread,
     // Accepts true/1/yes so a hand-typed or shared link is forgiving; anything
     // else (including the param being absent) is false.
     overdue: ["true", "1", "yes"].includes((get("overdue") ?? "").toLowerCase()),
@@ -161,6 +164,7 @@ export function taskFiltersToSearchString(f: TaskListFilters): string {
   if (f.subjects.length > 0)     sp.set("subj", f.subjects.join(","));
   if (f.clients.length > 0)      sp.set("client", f.clients.join(","));
   if (f.taskId) sp.set("id", f.taskId);
+  if (f.unread) sp.set("unread", "1");
   if (f.overdue) sp.set("overdue", "true");
   if (f.ageRange) sp.set("age_range", FINE_BUCKET_SLUGS[f.ageRange]);
   return sp.toString();

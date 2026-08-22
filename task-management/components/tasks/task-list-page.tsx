@@ -157,46 +157,73 @@ export function TaskListPage({
   // was clicked, which turned a summary bar into a description of itself.
   const counts = computeStatCounts(metricsRows ?? rows);
 
-  // Each filterable stat card maps to a set of statuses and/or priorities.
-  // Clicking a card TOGGLES its set into/out of the current filter (click on /
-  // click off — no reload needed), and the sets ACCUMULATE so several cards can
-  // be active together (e.g. Pending + Done, or Critical narrowing the rest).
-  // Date / employee / department scope always carries over. `notRead` is a
-  // derived "unread" metric with no URL filter dimension, so it stays
-  // display-only.
-  const CARD_FILTER: Partial<Record<KpiKey, { statuses?: TaskStatus[]; priorities?: TaskPriority[] }>> = {
+  // Each stat card maps to a set of statuses and/or priorities, or to the
+  // `unread` cross-cut.
+  //
+  // NOT READ IS NO LONGER DISPLAY-ONLY. It had no entry here because there is
+  // no `not_read` value in the status enum — it is "pending AND never opened",
+  // which needed a filter dimension of its own (`?unread=1`, see
+  // lib/task-filters.ts). Without one the pill counted 175 tasks and then did
+  // nothing when clicked, which reads as a broken control rather than a
+  // deliberate one.
+  const CARD_FILTER: Partial<
+    Record<KpiKey, { statuses?: TaskStatus[]; priorities?: TaskPriority[]; unread?: boolean }>
+  > = {
     notApproved: { statuses: ["not_approved"] },
     done: { statuses: ["done", "approved"] },
     pending: { statuses: [...CANONICAL_PENDING_STATUSES] },
     critical: { priorities: ["imp_urgent"] },
     urgent: { priorities: ["not_imp_urgent"] },
+    notRead: { unread: true },
   };
 
-  // Active when ALL of the card's statuses + priorities are currently selected.
+  // SELECTION IS EXCLUSIVE. This used to ACCUMULATE — each click added its set
+  // to whatever was already selected, so clicking Done while Pending was on
+  // gave you Done + Pending and the table still showed Initiated rows. That was
+  // deliberate once (it allows Critical to narrow Pending), but it makes the
+  // pills read as broken: you click "Done" and see work that is not done.
+  //
+  // One pill at a time now. Clicking a pill REPLACES the status, priority and
+  // unread dimensions with just that pill's; clicking the active one clears
+  // them. Everything else in the URL — date range, employee, department, team,
+  // subject, client — carries over untouched, so a pill narrows the scope the
+  // reader has already chosen rather than resetting the page.
   function cardActive(key: KpiKey): boolean {
     const cf = CARD_FILTER[key];
     if (!cf) return false;
-    const s = new Set(filters.statuses);
-    const p = new Set(filters.priorities);
     const sts = cf.statuses ?? [];
     const prs = cf.priorities ?? [];
-    if (sts.length + prs.length === 0) return false;
-    return sts.every((x) => s.has(x)) && prs.every((x) => p.has(x));
+    // Exact-match, not superset: with exclusive selection the pill is "on" only
+    // when the filter is EXACTLY its set, so two pills can never both look on.
+    const sameStatuses =
+      filters.statuses.length === sts.length && sts.every((x) => filters.statuses.includes(x));
+    const samePriorities =
+      filters.priorities.length === prs.length &&
+      prs.every((x) => filters.priorities.includes(x));
+    return sameStatuses && samePriorities && filters.unread === Boolean(cf.unread);
   }
 
-  // Toggle the card's set in/out of the current filter; preserve everything else.
   function cardHref(key: KpiKey): Route {
     const cf = CARD_FILTER[key];
     if (!cf) return basePath as Route;
-    const remove = cardActive(key);
-    const s = new Set(filters.statuses);
-    const p = new Set(filters.priorities);
-    for (const x of cf.statuses ?? []) remove ? s.delete(x) : s.add(x);
-    for (const x of cf.priorities ?? []) remove ? p.delete(x) : p.add(x);
-    const next: TaskListFilters = { ...filters, statuses: [...s], priorities: [...p] };
+    const clear = cardActive(key);
+    const next: TaskListFilters = {
+      ...filters,
+      statuses: clear ? [] : (cf.statuses ?? []),
+      priorities: clear ? [] : (cf.priorities ?? []),
+      unread: clear ? false : Boolean(cf.unread),
+    };
     const qs = taskFiltersToSearchString(next);
     return (qs ? `${basePath}?${qs}` : basePath) as Route;
   }
+
+  /** The active pill's label, for the table footer's "… (Not Read)" suffix.
+   *  Exclusive selection is what makes a single label correct here: at most one
+   *  pill can be active, so there is never a set to summarise. */
+  const activeSpec = KPI_SPECS.find((sp) => cardActive(sp.key)) ?? null;
+  const activeCardLabel = activeSpec
+    ? activeSpec.label.charAt(0) + activeSpec.label.slice(1).toLowerCase()
+    : null;
 
   // ── Drill-through banner ────────────────────────────────────────────────
   // Shown only for the exact shape the Done Dashboard sends: a DONE-family
@@ -284,13 +311,6 @@ export function TaskListPage({
               status/priority filter; `notRead` is display-only. */}
           <div className="flex flex-wrap items-center gap-1.5">
             {KPI_SPECS.map((spec, i) => {
-              if (!CARD_FILTER[spec.key]) {
-                return (
-                  <div key={spec.key} className="wg-rise" style={{ animationDelay: `${i * 30}ms` }}>
-                    <StatChip spec={spec} value={counts[spec.key]} active={false} />
-                  </div>
-                );
-              }
               const on = cardActive(spec.key);
               return (
                 <Link
@@ -397,6 +417,7 @@ export function TaskListPage({
           <SectionErrorBoundary label="the tasks table">
             <TaskTable
               rows={rows}
+              filterLabel={activeCardLabel}
               employees={employees}
               me={me}
               statusLabels={statusLabels}
@@ -436,10 +457,14 @@ function StatChip({
       title={spec.sublabel}
       // The pill owns the text colour; the count and label below INHERIT it
       // rather than carrying their own ink-strong/ink-soft, or the -950 tone
-      // would never show. Active adds a ring instead of a heavier fill, so the
-      // status colour stays readable while engagement is unmistakable.
-      className={`group inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 transition-colors ${c.pill} ${
-        active ? "ring-2 ring-offset-1 ring-slate-400 font-bold" : ""
+      // would never show. Active adds a slate-900 ring, matching border and a
+      // slight scale instead of a heavier fill, so the status colour stays
+      // readable while the selection is unmistakable — and with selection now
+      // exclusive, exactly one pill can ever wear it.
+      className={`group inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 transition-transform ${c.pill} ${
+        active
+          ? "scale-105 border-slate-900 font-bold ring-2 ring-slate-900"
+          : ""
       }`}
     >
       <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
