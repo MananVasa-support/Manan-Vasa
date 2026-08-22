@@ -6,8 +6,8 @@
  * footer) and walks the doc: a title + doc-code KEY:VALUE box, an optional
  * summary, then each numbered section and its body nodes (paragraphs, sub-
  * headings, bullet lists, bordered tables, a committee roster, a numbered
- * workflow with a "case closure" end cap), and finally the shared declaration /
- * sign-off block.
+ * workflow with a "case closure" end cap), and finally the shared declaration
+ * block (heading + acknowledgement statement — no printed sign-off lines).
  *
  * PURE presentational component — NO hooks, NO "use client", NO framer-motion
  * (CSS only). Safe to render from a server OR client parent, and print/PDF
@@ -258,31 +258,20 @@ function WorkflowView({ node, fx }: { node: Extract<PolicyNode, { kind: "workflo
 /* Declaration / sign-off                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Heading + acknowledgement statement only.
+ *
+ * The printed sign-off used to follow it — Employee Name / ID / Department /
+ * Signature / Date rules plus the "Received By (HR Representative)" and
+ * "Enterprise Approval" boxes. Removed: a policy is acknowledged through the
+ * in-app Sign flow (document_signatures / DigiLocker), so blank pen-and-paper
+ * lines were a second, unsigned record of the same consent.
+ */
 function DeclarationView({ block, fx }: { block: DeclarationBlock; fx: Fx }) {
   return (
     <section className="apd-section apd-decl">
       <h2 className="apd-h2 apd-h2-decl">{fx(block.heading)}</h2>
       <p className="apd-p apd-decl-statement">{fx(block.statement)}</p>
-
-      <div className="apd-decl-grid">
-        {block.employeeFields.map((f) => (
-          <div key={f} className="apd-signline">
-            <span className="apd-signline-rule" aria-hidden />
-            <span className="apd-signline-label">{fx(f)}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="apd-decl-approvals">
-        <div className="apd-approval">
-          <span className="apd-approval-box" aria-hidden />
-          <span className="apd-approval-label">{fx(block.hrLabel)}</span>
-        </div>
-        <div className="apd-approval">
-          <span className="apd-approval-box" aria-hidden />
-          <span className="apd-approval-label">{fx(block.approvalLabel)}</span>
-        </div>
-      </div>
     </section>
   );
 }
@@ -478,37 +467,6 @@ const POLICY_CSS = `
 .apd-decl{margin-top:30px;break-inside:avoid-page;}
 .apd-h2-decl{border-bottom-color:${RED};}
 .apd-decl-statement{font-style:italic;}
-.apd-decl-grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:22px 34px;
-  margin:22px 0 8px;
-}
-.apd-signline{display:flex;flex-direction:column;gap:5px;}
-.apd-signline-rule{
-  height:0;border-bottom:1.4px solid var(--color-ink-strong, #0f172a);
-  margin-top:22px;
-}
-.apd-signline-label{
-  font-family:var(--font-display, system-ui, sans-serif);
-  font-size:11.5px;font-weight:800;letter-spacing:.02em;
-  color:var(--color-ink-muted, #64748b);
-}
-.apd-decl-approvals{
-  display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:26px;
-}
-.apd-approval{display:flex;flex-direction:column;gap:6px;}
-.apd-approval-box{
-  height:62px;border:1.4px dashed var(--color-hairline-strong, #cbd5e1);
-  border-radius:8px;background:var(--color-surface-soft, #f8fafc);
-}
-.apd-approval-label{
-  font-family:var(--font-display, system-ui, sans-serif);
-  font-size:11.5px;font-weight:800;letter-spacing:.02em;
-  color:var(--color-ink-muted, #64748b);
-}
-
-@media (max-width:720px){
-  .apd-decl-grid,.apd-decl-approvals{grid-template-columns:1fr;}
-}
 
 /* Print / PDF */
 @media print{

@@ -11,9 +11,9 @@
  *
  * A policy is authored ONCE as a `PolicyDoc`: identity + a doc-code header
  * (`docCode`, `effectiveDate`, `version`, `owner`, `registeredOffice`, `hrEmail`),
- * an ordered `sections` array, and a shared `declaration` sign-off block (every
- * policy carries the SAME bottom acknowledgement — Employee Name / ID /
- * Department / Signature / Date + Received-by-HR + Enterprise Approval).
+ * an ordered `sections` array, and a shared `declaration` block (every policy
+ * carries the SAME bottom acknowledgement text — heading + statement; consent
+ * itself is captured by the in-app Sign flow, not by printed sign-off lines).
  *
  * ── Read + sign, NOT a form ────────────────────────────────────────────────
  * Policies are READ and then SIGNED on day one (via the existing
@@ -188,20 +188,18 @@ export interface PolicySection {
 /**
  * The shared bottom acknowledgement block. EVERY policy carries the same one
  * (built via `declaration()`), so it stays consistent across documents. The
- * reader signs it on day one through the document_signatures flow; the printed
- * block also provides physical Employee / HR / Founder sign-off lines.
+ * reader agrees to it on day one through the document_signatures flow.
+ *
+ * TEXT ONLY — heading + statement. There are deliberately NO printed sign-off
+ * lines (Employee Name / ID / Department / Signature / Date) and no HR-receipt
+ * or founder-approval boxes: consent is captured in-app, and blank pen-and-paper
+ * rules on the rendered policy were a second, unsigned record of the same thing.
  */
 export interface DeclarationBlock {
   /** Section heading, e.g. "Declaration & Acknowledgement". */
   heading: string;
   /** The "I have read and agree…" acknowledgement statement. */
   statement: string;
-  /** Employee-side fields printed as sign-off lines. */
-  employeeFields: string[];
-  /** Label of the HR receipt sub-block. */
-  hrLabel: string;
-  /** Label of the enterprise / founder approval sub-block. */
-  approvalLabel: string;
 }
 
 /** The default acknowledgement — reused by every policy via `declaration()`. */
@@ -209,9 +207,6 @@ export const DEFAULT_DECLARATION: DeclarationBlock = {
   heading: "Declaration & Acknowledgement",
   statement:
     "I hereby acknowledge that I have read, understood and agree to abide by the terms of this policy. I understand that this policy forms part of my terms of engagement, and that any breach may attract disciplinary action, up to and including termination of employment, in accordance with the Firm's rules and applicable law.",
-  employeeFields: ["Employee Name", "Employee ID", "Department", "Signature", "Date"],
-  hrLabel: "Received by HR",
-  approvalLabel: "Enterprise Approval — Founder Signature / Seal",
 };
 
 /**

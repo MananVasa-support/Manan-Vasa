@@ -380,14 +380,11 @@ const poshPolicy: PolicyDoc = {
     ),
   ],
 
-  /* 18 — Employee Declaration & Acknowledgment (verbatim sign-off) ── */
+  /* 18 — Employee Declaration & Acknowledgment (verbatim text) ───── */
   declaration: declaration({
     heading: "Employee Declaration & Acknowledgment",
     statement:
       "Please read the statement below carefully. Sign, date, and return this page to the Human Resources Department within seven (7) days of receiving this document. I, the undersigned, hereby acknowledge that I have received, read, and fully understood the {firm} Prevention of Sexual Harassment (POSH) Policy (Version 1.0). I agree to abide by the principles, conduct guidelines, relationship boundaries, and rules outlined in this policy. I understand that any violation of this policy may lead to disciplinary action up to and including the termination of my employment with {firm}.",
-    employeeFields: ["Employee Name", "Employee ID", "Department", "Signature", "Date"],
-    hrLabel: "Received By (HR Representative)",
-    approvalLabel: "Enterprise Approval & Authentication — Approved By [Founder Signature / Seal] {firm}",
   }),
 };
 

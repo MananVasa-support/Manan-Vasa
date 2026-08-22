@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listSalaryProfiles } from "@/lib/queries/salary";
 import { weekReportFor } from "@/lib/reports/attendance-report-data";
+import { weekLabel } from "@/lib/reports/weekly-attendance-rollup";
 import {
   sendWeeklyAttendanceReportEmail,
   sendWeeklyAttendanceRosterEmail,
@@ -18,16 +19,6 @@ import {
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "2026-07-14" + "2026-07-20" → "14–20 Jul 2026". */
-function weekLabel(startYmd: string, endYmd: string): string {
-  const [sy, sm, sd] = startYmd.split("-");
-  const [, em, ed] = endYmd.split("-");
-  const left = sm === em ? `${Number(sd)}` : `${Number(sd)} ${MONTH[Number(sm) - 1]}`;
-  return `${left}–${Number(ed)} ${MONTH[Number(em) - 1]} ${sy}`;
-}
 
 async function run(request: Request): Promise<NextResponse> {
   const expected = process.env.CRON_SECRET;

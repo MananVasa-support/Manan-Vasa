@@ -126,30 +126,31 @@ export async function sendWeeklyAttendanceReportEmail(args: {
   }
 }
 
-/** One processed employee's line in the HR roster email. */
+/** One processed employee's line in a weekly attendance roster email. */
 export interface RosterRow {
   name: string;
   totals: AttnTotals;
 }
 
-/** (a2) COMBINED weekly roster → HR desk: one table of everyone + grand-total ₹ lost. */
-export async function sendWeeklyAttendanceRosterEmail(args: {
-  weekLabel: string;
-  rows: RosterRow[];
-  totalLost: number;
-  siteUrl?: string;
-}): Promise<SendResult> {
-  try {
-    const resend = getResend();
-    if (!resend) return { id: null, error: null };
-    const th = (label: string, align: "left" | "right" = "right") =>
-      `<th align="${align}" style="padding:8px 10px;border-bottom:2px solid #eee;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px">${label}</th>`;
-    const numCell = (val: number, tone?: string) =>
-      `<td align="right" style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;color:${tone ?? "#1a1a1a"}">${val}</td>`;
-    const bodyRows = args.rows
-      .map((r) => {
-        const t = r.totals;
-        return `<tr>
+/**
+ * The shared roster table — one row per person (present / absent / late / early
+ * leave / ₹ money lost) plus a grand-total ₹ footer.
+ *
+ * ONE renderer for all three roster audiences (HR desk, each manager's team,
+ * the founder's org-wide list) so the numbers a manager sees are laid out
+ * exactly like the ones HR and Manan see. Inline HTML on purpose — these
+ * reports carry NO CSV / XLSX attachment; the table IS the report.
+ */
+function rosterTable(rows: RosterRow[], totalLost: number, emptyNote: string): string {
+  const th = (label: string, align: "left" | "right" = "right") =>
+    `<th align="${align}" style="padding:8px 10px;border-bottom:2px solid #eee;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px">${label}</th>`;
+  const numCell = (val: number, tone?: string) =>
+    `<td align="right" style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;color:${tone ?? "#1a1a1a"}">${val}</td>`;
+  if (rows.length === 0) return `<p style="color:#888;font-size:13px">${emptyNote}</p>`;
+  const bodyRows = rows
+    .map((r) => {
+      const t = r.totals;
+      return `<tr>
           <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600">${r.name}</td>
           ${numCell(t.presentDays)}
           ${numCell(t.absentDays, t.absentDays ? BRAND : "#1a1a1a")}
@@ -157,11 +158,9 @@ export async function sendWeeklyAttendanceRosterEmail(args: {
           ${numCell(t.earlyDays, t.earlyDays ? "#b45309" : "#1a1a1a")}
           <td align="right" style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:800;color:${t.salaryReduced ? BRAND : "#059669"}">${inr(t.salaryReduced)}</td>
         </tr>`;
-      })
-      .join("");
-    const table = args.rows.length === 0
-      ? `<p style="color:#888;font-size:13px">No employees had a working day in this period.</p>`
-      : `<table style="width:100%;border-collapse:collapse;margin-top:6px">
+    })
+    .join("");
+  return `<table style="width:100%;border-collapse:collapse;margin-top:6px">
           <thead><tr>
             ${th("Employee", "left")}
             ${th("Present")}
@@ -174,16 +173,69 @@ export async function sendWeeklyAttendanceRosterEmail(args: {
           <tfoot><tr>
             <td style="padding:10px;border-top:2px solid #eee;font-size:13px;font-weight:800">Grand total</td>
             <td colspan="4" style="border-top:2px solid #eee"></td>
-            <td align="right" style="padding:10px;border-top:2px solid #eee;font-size:15px;font-weight:800;color:${args.totalLost ? BRAND : "#059669"}">${inr(args.totalLost)}</td>
+            <td align="right" style="padding:10px;border-top:2px solid #eee;font-size:15px;font-weight:800;color:${totalLost ? BRAND : "#059669"}">${inr(totalLost)}</td>
           </tr></tfoot>
         </table>`;
+}
+
+/** (a2) COMBINED weekly roster → HR desk: one table of everyone + grand-total ₹ lost. */
+export async function sendWeeklyAttendanceRosterEmail(args: {
+  weekLabel: string;
+  rows: RosterRow[];
+  totalLost: number;
+  siteUrl?: string;
+}): Promise<SendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
     const inner = `<p style="font-size:14px;margin:0 0 14px">Weekly attendance roster for <b>${args.weekLabel}</b> — every processed employee with a working day this week, their present/absent/late/early-leave counts, and the ₹ money impact of their attendance.</p>
-      ${table}`;
+      ${rosterTable(args.rows, args.totalLost, "No employees had a working day in this period.")}`;
     const { data, error } = await resend.emails.send({
       from: FROM,
       to: HR_CONTACT.email,
       subject: clampSubject(`Weekly attendance roster — ${args.weekLabel} — Altus Corp`),
       html: shell("Weekly attendance roster", args.weekLabel, inner, args.siteUrl),
+      ...companyBcc(),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/**
+ * (a3) ONE Sunday-morning team roster → a single recipient's BUSINESS address.
+ *
+ * Serves both Sunday-morning audiences with the same body:
+ *   • each manager → their full downline (reports, reports-of-reports)
+ *   • Manan       → every active employee
+ *
+ * One email per recipient, everyone in one table, and NO attachment — no CSV,
+ * no XLSX. Anything the reader needs is in the mail itself.
+ */
+export async function sendWeeklyAttendanceTeamEmail(args: {
+  recipient: { email: string; name: string };
+  /** Sub-heading under the title, e.g. "Priya Shah’s team" or "All employees". */
+  scopeLabel: string;
+  /** Subject-line scope, kept short so `clampSubject` rarely bites. */
+  subjectScope: string;
+  weekLabel: string;
+  rows: RosterRow[];
+  totalLost: number;
+  siteUrl?: string;
+}): Promise<SendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+    const headcount = args.rows.length;
+    const intro = `<p style="font-size:14px;margin:0 0 14px">Hi ${args.recipient.name.split(" ")[0]}, here is the attendance and money-lost summary for <b>${args.scopeLabel}</b> — week of <b>${args.weekLabel}</b>. ${headcount} ${headcount === 1 ? "person" : "people"} listed, with their late marks, early leaves, absences, and the ₹ impact on pay.</p>`;
+    const inner = `${intro}${rosterTable(args.rows, args.totalLost, "Nobody in this list had a working day in this period.")}`;
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: args.recipient.email,
+      subject: clampSubject(`Attendance & money lost — ${args.subjectScope} — ${args.weekLabel}`),
+      html: shell("Weekly attendance & money lost", `${args.scopeLabel} · ${args.weekLabel}`, inner, args.siteUrl),
       ...companyBcc(),
     });
     if (error) return { id: null, error: error.message };
