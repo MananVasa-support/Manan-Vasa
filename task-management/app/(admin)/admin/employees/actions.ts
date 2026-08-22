@@ -19,6 +19,7 @@ import {
   tasks,
 } from "@/db/schema";
 import { payBasisFor } from "@/lib/attendance/worker-type";
+import { mergeScheduleForBulk } from "@/lib/employees/bulk-schedule-merge";
 import { requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import {
@@ -26,8 +27,10 @@ import {
   EditEmployeeSchema,
   EmployeeIdSchema,
   ResetPasswordSchema,
+  BulkEditEmployeesSchema,
   type InviteEmployeeInput,
   type EditEmployeeInput,
+  type BulkEditEmployeesInput,
 } from "@/lib/validators/employee";
 import {
   UpdateEmployeeSchedule,
@@ -1158,4 +1161,169 @@ export async function deleteEmployee(
   revalidatePath("/admin/employees");
   updateTag(CACHE_TAGS.employees);
   return { ok: true, deleted: counts };
+}
+
+/** One employee that could not be updated, so the admin can see WHO failed. */
+export interface BulkEditFailure {
+  id: string;
+  name: string;
+  error: string;
+}
+
+/**
+ * "Edit All" — apply a SPARSE patch to many employees at once.
+ *
+ * ── THE ONE RULE: ONLY WHAT CHANGED ────────────────────────────────────────
+ * Absent key = leave that field exactly as it is, per employee. This matters
+ * more than it looks, because `updateEmployeeAttendanceSchedule` is NOT sparse:
+ * it always writes weeklyOff and all four time columns, and it re-derives the
+ * salary_profiles rates from whatever it was handed. Calling it with only a
+ * worker type would therefore blank every other schedule field and wipe the pay
+ * rates for every selected person.
+ *
+ * So the merge happens HERE: for each employee we read their CURRENT row (and
+ * pay profile), overlay only the keys the admin actually touched, and hand the
+ * existing action a COMPLETE input. Same code path, same validation, same audit
+ * events, same cache invalidation as editing one person — this action adds a
+ * loop and a merge, and changes no business logic.
+ *
+ * ── PER-EMPLOYEE ISOLATION ─────────────────────────────────────────────────
+ * Each employee is attempted independently and failures are collected, not
+ * thrown. One person who trips a guard (the self-demote rule, a stale id) must
+ * not silently abort the other 24 — the caller gets counts plus the failed rows
+ * by name so a partial apply is visible rather than mysterious.
+ *
+ * Admin-only: the underlying actions each call `requireAdmin` themselves; the
+ * check here fails fast before any work starts.
+ */
+export async function bulkEditEmployees(
+  employeeIds: string[],
+  patch: BulkEditEmployeesInput,
+): Promise<{
+  ok: boolean;
+  updated: number;
+  failed: BulkEditFailure[];
+  error?: string;
+}> {
+  await requireAdmin();
+
+  const ids = Array.from(new Set(employeeIds.filter(Boolean)));
+  if (ids.length === 0) {
+    return { ok: false, updated: 0, failed: [], error: "No employees selected." };
+  }
+  for (const id of ids) {
+    if (!EmployeeIdSchema.safeParse(id).success) {
+      return { ok: false, updated: 0, failed: [], error: "Invalid employee id." };
+    }
+  }
+
+  const parsed = BulkEditEmployeesSchema.safeParse(patch);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      updated: 0,
+      failed: [],
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+    };
+  }
+  const p = parsed.data;
+
+  // Which halves of the patch were touched at all. An untouched half means that
+  // action is never called, so it cannot write anything.
+  const identityKeys = [
+    "role",
+    "departmentIds",
+    "primaryDepartmentId",
+    "managerId",
+    "dailyTaskQuota",
+    "whatsappOptedIn",
+  ] as const;
+  const scheduleKeys = [
+    "workerType",
+    "weeklyOff",
+    "attOfficialStart",
+    "attLateAfter",
+    "attOfficialEnd",
+    "attEarlyBefore",
+  ] as const;
+  const touchesIdentity = identityKeys.some((k) => p[k] !== undefined);
+  const touchesSchedule = scheduleKeys.some((k) => p[k] !== undefined);
+
+  const rows = await db.select().from(employees).where(inArray(employees.id, ids));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  // Pay rates are read once and handed straight back, so a worker-type change
+  // cannot null out someone's rupee figures as a side effect.
+  const profileRows = touchesSchedule
+    ? await db
+        .select({
+          employeeId: salaryProfiles.employeeId,
+          monthlyPayAtTarget: salaryProfiles.monthlyPayAtTarget,
+          weeklyTargetHours: salaryProfiles.weeklyTargetHours,
+          monthlyFee: salaryProfiles.monthlyFee,
+        })
+        .from(salaryProfiles)
+        .where(inArray(salaryProfiles.employeeId, ids))
+    : [];
+  const profileById = new Map(profileRows.map((r) => [r.employeeId, r]));
+
+  const failed: BulkEditFailure[] = [];
+  let updated = 0;
+
+  for (const id of ids) {
+    const emp = byId.get(id);
+    if (!emp) {
+      failed.push({ id, name: id, error: "Employee not found." });
+      continue;
+    }
+    let touched = false;
+
+    if (touchesIdentity) {
+      const fields: EditEmployeeInput = {};
+      if (p.role !== undefined) fields.role = p.role;
+      if (p.managerId !== undefined) {
+        // Never make someone their own manager just because they were in the
+        // selection: skip the key for that one person, keep the rest of the patch.
+        if (p.managerId !== id) fields.managerId = p.managerId;
+      }
+      if (p.dailyTaskQuota !== undefined) fields.dailyTaskQuota = p.dailyTaskQuota;
+      if (p.whatsappOptedIn !== undefined) fields.whatsappOptedIn = p.whatsappOptedIn;
+      if (p.departmentIds !== undefined) {
+        fields.departmentIds = p.departmentIds;
+        fields.primaryDepartmentId = p.primaryDepartmentId ?? null;
+      }
+      if (Object.keys(fields).length > 0) {
+        const res = await editEmployee(id, fields);
+        if (!res.ok) {
+          failed.push({ id, name: emp.name, error: res.error ?? "Update failed." });
+          continue;
+        }
+        touched = true;
+      }
+    }
+
+    if (touchesSchedule) {
+      // The merge that keeps untouched fields untouched lives in
+      // lib/employees/bulk-schedule-merge.ts — pure, and unit-tested there.
+      const input: UpdateEmployeeScheduleInput = mergeScheduleForBulk(
+        id,
+        emp,
+        profileById.get(id),
+        p,
+      );
+      const res = await updateEmployeeAttendanceSchedule(input);
+      if (!res.ok) {
+        failed.push({ id, name: emp.name, error: res.error ?? "Schedule update failed." });
+        continue;
+      }
+      touched = true;
+    }
+
+    if (touched) updated++;
+  }
+
+  revalidatePath("/admin/employees");
+  revalidatePath("/attendance/dashboard");
+  updateTag(CACHE_TAGS.employees);
+  return { ok: failed.length === 0, updated, failed };
 }

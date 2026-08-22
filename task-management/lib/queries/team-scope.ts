@@ -1,20 +1,28 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { employeeIdsInDepartments } from "@/lib/queries/departments";
 import { DEPARTMENTS, type Department } from "@/db/enums";
+import { teamOption } from "@/lib/teams/roster";
 
 /**
  * Resolve the toolbar's Team filter to a concrete set of employee ids.
  *
- * Two shapes, both arriving as the `team` URL param:
+ * Three shapes, all arriving as the `team` URL param:
+ *   • "t1".."t6"    — a STANDING TEAM: the manager it is rooted at, plus their
+ *                     whole branch at any depth. The only shape the dropdown
+ *                     still offers; see lib/teams/roster.ts.
  *   • "mine"        — the viewer PLUS everyone below them in the org chart, at
  *                     any depth. Not just direct reports: a manager asking for
  *                     "my team" means the whole branch, and stopping at depth 1
  *                     would silently hide the work of anyone reporting to a lead.
  *   • a department  — everyone in that department, via the same membership join
  *                     the existing `dept` filter uses, so the two agree.
+ *
+ * The last two are RETIRED from the picker but still resolved here, so links and
+ * bookmarks saved before the T1..T6 switch keep working rather than silently
+ * widening to the whole org.
  *
  * Returns `null` when the value is unrecognised or the viewer is unknown —
  * callers treat that as "no team scoping" rather than "match nothing", so a
@@ -25,6 +33,22 @@ export async function resolveTeamScope(
   viewerId: string | null,
 ): Promise<string[] | null> {
   if (!team) return null;
+
+  // A standing team resolves to its manager's whole branch. Matched by EMAIL
+  // (see lib/teams/roster.ts) so a rename cannot empty the team out.
+  const standing = teamOption(team);
+  if (standing) {
+    const [manager] = await db
+      .select({ id: employees.id })
+      .from(employees)
+      .where(sql`lower(${employees.email}) = ${standing.managerEmail.toLowerCase()}`)
+      .limit(1);
+    // No such employee (wrong address, or they were removed) — treat it as "no
+    // team scoping" like any other unrecognised value, rather than matching
+    // nothing and showing an empty screen.
+    if (!manager) return null;
+    return descendantsIncluding(manager.id);
+  }
 
   if (team === "mine") {
     if (!viewerId) return null;

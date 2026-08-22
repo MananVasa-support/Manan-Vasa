@@ -6,6 +6,7 @@ import { listActiveSubjectNames } from "@/lib/queries/subjects";
 import { listProjectNodeOptions } from "@/lib/queries/projects";
 import { getTaskById } from "@/lib/queries/tasks";
 import { requireUser } from "@/lib/auth/current";
+import { canAddTaskRoster } from "@/lib/auth/roster-permission";
 import { withRetry } from "@/lib/db/with-timeout";
 import type { TaskPriority } from "@/db/enums";
 
@@ -138,7 +139,7 @@ export default async function NewTaskPage({ searchParams }: PageProps) {
             clients={clients}
             subjects={subjects}
             projectNodes={projectNodes}
-            canAddRoster={me.isAdmin}
+            canAddRoster={canAddTaskRoster(me)}
             defaults={defaults}
           />
         </div>

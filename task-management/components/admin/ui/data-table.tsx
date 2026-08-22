@@ -3,6 +3,7 @@
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ReorderableTh, useColumnOrder } from "@/components/ui/reorderable-columns";
 
 export interface DataTableColumn<T> {
   /** Stable key — also the sort key. */
@@ -37,12 +38,31 @@ export interface DataTableProps<T> {
    *  sticky selection bar appear; render the action buttons for the picked rows.
    *  `clearSelection()` empties the selection (call after a successful action). */
   bulkActions?: (selected: T[], clearSelection: () => void) => ReactNode;
+  /**
+   * Turn on the leading checkbox column WITHOUT the sticky selection bar, for
+   * callers that would rather drive the selection from their own toolbar
+   * control (see `toolbarActions`). `bulkActions` implies this.
+   */
+  selectable?: boolean;
+  /**
+   * Rendered in the toolbar, after the filter dropdowns. Unlike `bulkActions`
+   * this is ALWAYS mounted, so a button here can sit beside the filters and
+   * simply disable itself while nothing is ticked — which is what "Edit All"
+   * needs. Receives the rows currently selected AND visible.
+   */
+  toolbarActions?: (ctx: { selected: T[]; clearSelection: () => void }) => ReactNode;
   /** Shown when there are zero rows to begin with. */
   emptyState?: ReactNode;
   /** Tighter vertical padding. */
   dense?: boolean;
   /** Placeholder for the search input. */
   searchPlaceholder?: string;
+  /**
+   * Stable, module-scoped id for this table, e.g. "admin.employees". Supplying
+   * it turns on drag-to-reorder columns, saved per user and restored on every
+   * later visit. Omit it and the table renders exactly as before.
+   */
+  tableKey?: string;
   className?: string;
 }
 
@@ -84,9 +104,12 @@ export function DataTable<T>({
   initialSort,
   rowActions,
   bulkActions,
+  selectable = false,
+  toolbarActions,
   emptyState,
   dense = false,
   searchPlaceholder = "Search…",
+  tableKey,
   className,
 }: DataTableProps<T>) {
   const [query, setQuery] = useState("");
@@ -94,6 +117,16 @@ export function DataTable<T>({
   const [filterValues, setFilterValues] = useState<Record<number, string>>({});
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const searchInputId = useId();
+
+  // Drag-to-reorder, per user. Only the caller's own `columns` participate: the
+  // leading bulk-select checkbox and the trailing row-actions cell are rendered
+  // outside this list and stay pinned to the edges where they belong.
+  const columnIds = useMemo(() => columns.map((c) => c.key), [columns]);
+  const cols = useColumnOrder({ tableKey: tableKey ?? "", columns: columnIds });
+  const orderedColumns = useMemo(
+    () => cols.ordered(columns, (c) => c.key),
+    [cols, columns],
+  );
 
   const colByKey = useMemo(() => {
     const m = new Map<string, DataTableColumn<T>>();
@@ -153,14 +186,21 @@ export function DataTable<T>({
     });
   }
 
-  const hasToolbar = Boolean(searchText) || (filters && filters.length > 0);
-  const totalCols = columns.length + (rowActions ? 1 : 0) + (bulkActions ? 1 : 0);
+  const showSelect = Boolean(bulkActions) || selectable;
+  const hasToolbar =
+    Boolean(searchText) || (filters && filters.length > 0) || Boolean(toolbarActions);
+  const totalCols = columns.length + (rowActions ? 1 : 0) + (showSelect ? 1 : 0);
   const cellPadY = dense ? "py-2.5" : "py-4";
 
   // ── Bulk selection (opt-in) ──────────────────────────────────────────
+  // Scoped to `filtered`, so "selected" always means "selected AND currently
+  // visible" — narrowing the search must not silently act on hidden rows.
   const selectedRows = useMemo(
-    () => (bulkActions ? filtered.filter((r) => selectedKeys.has(getRowKey(r))) : []),
-    [bulkActions, filtered, selectedKeys, getRowKey],
+    () =>
+      bulkActions || selectable
+        ? filtered.filter((r) => selectedKeys.has(getRowKey(r)))
+        : [],
+    [bulkActions, selectable, filtered, selectedKeys, getRowKey],
   );
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((r) => selectedKeys.has(getRowKey(r)));
@@ -272,6 +312,12 @@ export function DataTable<T>({
             </label>
           ))}
 
+          {toolbarActions ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {toolbarActions({ selected: selectedRows, clearSelection })}
+            </div>
+          ) : null}
+
           <div className="ml-auto text-[13px] font-medium text-ink-subtle tabular-nums">
             {filtered.length} of {rows.length}
           </div>
@@ -307,7 +353,7 @@ export function DataTable<T>({
               className="border-b border-hairline text-left text-[12px] font-bold uppercase tracking-[0.08em] text-ink-subtle"
               style={{ background: "rgba(248, 250, 252, 0.7)" }}
             >
-              {bulkActions ? (
+              {showSelect ? (
                 <th scope="col" className="sticky top-0 z-10 w-10 px-4 py-4" style={{ background: "rgba(248, 250, 252, 0.82)" }}>
                   <input
                     type="checkbox"
@@ -321,12 +367,15 @@ export function DataTable<T>({
                   />
                 </th>
               ) : null}
-              {columns.map((c) => {
+              {orderedColumns.map((c) => {
                 const sortable = Boolean(c.sortValue);
                 const active = sort?.key === c.key;
                 return (
-                  <th
+                  <ReorderableTh
                     key={c.key}
+                    id={c.key}
+                    ctl={cols}
+                    label={c.label}
                     scope="col"
                     className={cn(
                       "sticky top-0 z-10 px-5 py-4 backdrop-blur",
@@ -368,7 +417,7 @@ export function DataTable<T>({
                     ) : (
                       c.label
                     )}
-                  </th>
+                  </ReorderableTh>
                 );
               })}
               {rowActions ? (
@@ -396,7 +445,7 @@ export function DataTable<T>({
                   key={getRowKey(row)}
                   className="admin-row border-b border-hairline last:border-b-0"
                 >
-                  {bulkActions ? (
+                  {showSelect ? (
                     <td className={cn("w-10 px-4 align-middle", cellPadY)}>
                       <input
                         type="checkbox"
@@ -407,7 +456,7 @@ export function DataTable<T>({
                       />
                     </td>
                   ) : null}
-                  {columns.map((c) => (
+                  {orderedColumns.map((c) => (
                     <td
                       key={c.key}
                       className={cn(

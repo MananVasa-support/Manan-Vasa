@@ -3,12 +3,16 @@
 import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { Star, BarChart3 } from "lucide-react";
+import { Star, BarChart3, Users } from "lucide-react";
 import type { Employee } from "@/db/schema";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { DataTable } from "@/components/admin/ui/data-table";
 import { EmployeeRowActions } from "@/components/admin/employee-row-actions";
-import type { EmployeeDepartmentMembership } from "@/components/admin/edit-employee-dialog";
+import {
+  EmployeeEditor,
+  type EditableEmployee,
+  type EmployeeDepartmentMembership,
+} from "@/components/admin/employee-editor";
 import type { DepartmentOption } from "@/components/admin/department-multi-select";
 
 /** salary_profiles rate fields (numeric columns read back as string | null). */
@@ -134,8 +138,81 @@ export function EmployeeList({
   const deptNames = (e: Employee) =>
     (membershipsByEmployee[e.id] ?? []).map((m) => m.name).join(" ");
 
+  // "Edit All" opens the SAME editor the row menu does, in bulk mode.
+  const [bulkOpen, setBulkOpen] = React.useState(false);
+  const [bulkTargets, setBulkTargets] = React.useState<EditableEmployee[]>([]);
+
+  /** One employee row → the shape the editor reads. Used by both modes, so a
+   *  field can never be present in single edit and missing in bulk. */
+  const toEditable = React.useCallback(
+    (e: Employee): EditableEmployee => ({
+      id: e.id,
+      name: e.name,
+      email: e.email,
+      role: e.role,
+      departments: membershipsByEmployee[e.id] ?? [],
+      isAdmin: e.isAdmin,
+      whatsappPhone: e.whatsappPhone,
+      whatsappOptedIn: e.whatsappOptedIn,
+      managerId: e.managerId,
+      dailyTaskQuota: e.dailyTaskQuota,
+      attendanceBiometricExempt: e.attendanceBiometricExempt,
+      weeklyOff: e.weeklyOff,
+      attOfficialStart: e.attOfficialStart,
+      attLateAfter: e.attLateAfter,
+      attOfficialEnd: e.attOfficialEnd,
+      attEarlyBefore: e.attEarlyBefore,
+      workerType: e.workerType,
+      attFullDayMinutes: e.attFullDayMinutes,
+      attHalfDayMinutes: e.attHalfDayMinutes,
+      weeklyTargetMinutes: e.weeklyTargetMinutes,
+      monthlyPayAtTarget: salaryProfileByEmployee[e.id]?.monthlyPayAtTarget ?? null,
+      weeklyTargetHours: salaryProfileByEmployee[e.id]?.weeklyTargetHours ?? null,
+      monthlyFee: salaryProfileByEmployee[e.id]?.monthlyFee ?? null,
+    }),
+    [membershipsByEmployee, salaryProfileByEmployee],
+  );
+
   return (
-    <DataTable<Employee>
+    <>
+      <DataTable<Employee>
+      tableKey="admin.employees"
+      selectable
+      toolbarActions={({ selected, clearSelection }) => (
+        <>
+          {selected.length > 0 ? (
+            <>
+              <span className="text-[13px] font-bold tabular-nums text-ink-strong">
+                {selected.length} {selected.length === 1 ? "employee" : "employees"} selected
+              </span>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="text-[12.5px] font-semibold text-ink-subtle underline-offset-2 hover:text-ink-strong hover:underline"
+              >
+                Clear Selection
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            disabled={selected.length === 0}
+            onClick={() => {
+              setBulkTargets(selected.map(toEditable));
+              setBulkOpen(true);
+            }}
+            title={
+              selected.length === 0
+                ? "Tick one or more employees to edit them together"
+                : `Edit ${selected.length} selected`
+            }
+            className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3.5 py-2 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink-strong disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:text-ink-soft"
+          >
+            <Users size={14} strokeWidth={2.2} />
+            Edit All
+          </button>
+        </>
+      )}
       rows={employees}
       getRowKey={(e) => e.id}
       searchText={(e) => `${e.name} ${e.email} ${deptNames(e)}`}
@@ -215,33 +292,7 @@ export function EmployeeList({
             <span className="max-md:hidden">Attendance</span>
           </Link>
           <EmployeeRowActions
-            employee={{
-            id: e.id,
-            name: e.name,
-            email: e.email,
-            role: e.role,
-            departments: membershipsByEmployee[e.id] ?? [],
-            isAdmin: e.isAdmin,
-            isActive: e.isActive,
-            joinedAt: e.joinedAt,
-            whatsappPhone: e.whatsappPhone,
-            whatsappOptedIn: e.whatsappOptedIn,
-            managerId: e.managerId,
-            dailyTaskQuota: e.dailyTaskQuota,
-            attendanceBiometricExempt: e.attendanceBiometricExempt,
-            weeklyOff: e.weeklyOff,
-            attOfficialStart: e.attOfficialStart,
-            attLateAfter: e.attLateAfter,
-            attOfficialEnd: e.attOfficialEnd,
-            attEarlyBefore: e.attEarlyBefore,
-            workerType: e.workerType,
-            attFullDayMinutes: e.attFullDayMinutes,
-            attHalfDayMinutes: e.attHalfDayMinutes,
-            weeklyTargetMinutes: e.weeklyTargetMinutes,
-            monthlyPayAtTarget: salaryProfileByEmployee[e.id]?.monthlyPayAtTarget ?? null,
-            weeklyTargetHours: salaryProfileByEmployee[e.id]?.weeklyTargetHours ?? null,
-            monthlyFee: salaryProfileByEmployee[e.id]?.monthlyFee ?? null,
-          }}
+            employee={{ ...toEditable(e), isActive: e.isActive, joinedAt: e.joinedAt }}
             isSelf={e.id === currentEmployeeId}
             canManageAdmins={canManageAdmins}
             departmentOptions={departmentOptions}
@@ -269,5 +320,18 @@ export function EmployeeList({
         </>
       }
     />
+    {bulkOpen && bulkTargets.length > 0 ? (
+      <EmployeeEditor
+        key={bulkTargets.map((t) => t.id).join(",")}
+        mode="bulk"
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        employees={bulkTargets}
+        departmentOptions={departmentOptions}
+        managerOptions={managerOptions}
+        canManageAdmins={canManageAdmins}
+      />
+    ) : null}
+    </>
   );
 }

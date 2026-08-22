@@ -13,7 +13,7 @@ import {
 import { AdminSection } from "@/components/admin/ui/section-shell";
 import { EmployeeList } from "@/components/admin/employee-list";
 import { InviteEmployeeDialog } from "@/components/admin/invite-employee-dialog";
-import type { EmployeeDepartmentMembership } from "@/components/admin/edit-employee-dialog";
+import type { EmployeeDepartmentMembership } from "@/components/admin/employee-editor";
 
 export default async function EmployeesPage() {
   const me = await requireAdmin();

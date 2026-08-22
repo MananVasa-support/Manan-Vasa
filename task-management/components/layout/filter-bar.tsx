@@ -1,6 +1,7 @@
 "use client";
 import { FINE_BUCKET_BY_SLUG } from "@/lib/transforms/aging-buckets-fine";
-import { TeamFilter, MY_TEAM } from "./filters/team-filter";
+import { TeamFilter } from "./filters/team-filter";
+import { teamLabel } from "@/lib/teams/roster";
 import * as React from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
@@ -226,7 +227,7 @@ export function FilterBar({
   for (const t of team)
     activePills.push({
       key: `t-${t}`,
-      label: t === MY_TEAM ? "My Team" : t,
+      label: teamLabel(t),
       color: TINT.team,
       remove: () => setTeam(team.filter((x) => x !== t)),
     });

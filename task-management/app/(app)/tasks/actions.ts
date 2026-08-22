@@ -46,6 +46,7 @@ import {
   type SetRevisedTargetDateInput,
 } from "@/lib/validators/task";
 import { taskEvents, clients, subjects, employees } from "@/db/schema";
+import { canAddTaskRoster } from "@/lib/auth/roster-permission";
 import { CreateClientSchema } from "@/lib/validators/client";
 import { CreateSubjectSchema } from "@/lib/validators/subject";
 import { requireUser, requireWeeklyGoalsFilled } from "@/lib/auth/current";
@@ -1075,11 +1076,13 @@ export async function bulkCreateTasks(
  * Appends a new client to the shared roster, used by the "+ Add new
  * client…" affordance on the task forms.
  *
- * ADMIN ONLY (Sir). This used to accept any authenticated user, so the
- * roster every task form picks from could be grown by anyone — and a
- * misspelling added here becomes a permanent second client that quietly
- * splits a client's task history in two. The picker hides the affordance
- * for non-admins; this is the check that actually holds.
+ * ADMINS AND SUPER-ADMINS ONLY (Sir). This used to accept any authenticated
+ * user, so the roster every task form picks from could be grown by anyone — and
+ * a misspelling added here becomes a permanent second client that quietly
+ * splits a client's task history in two. The picker hides the affordance for
+ * everyone else; this is the check that actually holds. Membership is decided by
+ * `canAddTaskRoster` — is_admin OR the super-admin allow-list, which are not the
+ * same set.
  *
  * Case-insensitive dedupe: if the name already exists we return the
  * canonical stored spelling instead of erroring, so the picker can just
@@ -1089,7 +1092,7 @@ export async function quickAddClient(
   rawName: string,
 ): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
   const me = await requireUser();
-  if (!me.isAdmin) {
+  if (!canAddTaskRoster(me)) {
     return { ok: false, error: "Only an admin can add a new client." };
   }
 
@@ -1136,14 +1139,14 @@ export async function quickAddClient(
 
 /**
  * Appends a new subject to the shared roster, used by the "+ Add new
- * subject…" affordance on the task forms. ADMIN ONLY, mirroring
- * quickAddClient — same reasoning, same enforcement point.
+ * subject…" affordance on the task forms. ADMINS AND SUPER-ADMINS ONLY,
+ * mirroring quickAddClient — same reasoning, same enforcement point.
  */
 export async function quickAddSubject(
   rawName: string,
 ): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
   const me = await requireUser();
-  if (!me.isAdmin) {
+  if (!canAddTaskRoster(me)) {
     return { ok: false, error: "Only an admin can add a new subject." };
   }
 
@@ -2221,7 +2224,8 @@ export async function loadNewTaskOptions(): Promise<{
   clients: string[];
   subjects: string[];
   projectNodes: { id: string; label: string }[];
-  /** May this user create a new client/subject from the pickers? Admin only. */
+  /** May this user create a new client/subject from the pickers?
+   *  Admins and super-admins only — see `canAddTaskRoster`. */
   canAddRoster: boolean;
 }> {
   const me = await requireUser();
@@ -2236,6 +2240,6 @@ export async function loadNewTaskOptions(): Promise<{
     clients: clientNames,
     subjects: subjectNames,
     projectNodes,
-    canAddRoster: me.isAdmin,
+    canAddRoster: canAddTaskRoster(me),
   };
 }
