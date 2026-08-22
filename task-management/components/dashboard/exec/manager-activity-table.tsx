@@ -2,7 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronDown, Loader2, Users, CalendarDays } from "lucide-react";
+import {
+  ChevronDown,
+  Loader2,
+  Users,
+  CalendarDays,
+  ArrowLeftRight,
+} from "lucide-react";
 import * as Popover from "@radix-ui/react-popover";
 import { Avatar } from "@/components/ui/avatar";
 import { getManagerActivityBoard } from "@/app/(app)/dashboard/manager-activity-actions";
@@ -171,6 +177,22 @@ function fmtYmd(ymd: string): string {
 
 const HEAD_CELL =
   "px-2 py-3 text-[11px] font-bold uppercase leading-tight tracking-wider text-slate-900";
+
+/**
+ * ONE RECIPE FOR EVERY CONTROL IN THE HEADER BAR.
+ *
+ * The bar had grown four controls with three different treatments: a
+ * bordered `text-[13px] font-bold` select, a bordered date trigger, and a
+ * borderless `text-ink-muted` text button. Sitting in one row they read as
+ * unrelated widgets rather than a control group, which is what made the
+ * corner look crowded. Same height, same padding, same border, same hover.
+ *
+ * No `dark:` variants, for the reason already spelled out above HEAD_CELL:
+ * this app has no dark theme, so `dark:bg-slate-800` would darken these
+ * controls for an OS in dark mode while the card behind them stayed white.
+ */
+const CONTROL_CLS =
+  "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-2xs transition-colors hover:bg-slate-50";
 
 /** One manager's row plus its expandable member breakdown. */
 function ManagerRow({
@@ -426,6 +448,166 @@ function MemberBreakdown({
   );
 }
 
+/**
+ * TRANSPOSED — categories become rows, managers become columns.
+ *
+ * Reads the SAME `rows` the standard view does; nothing is recomputed, so the
+ * two orientations cannot disagree about a number. Only the axes swap.
+ *
+ * THE BREAKDOWN IS NOT NESTED INSIDE A COLUMN. A manager's breakdown is a
+ * nine-column table of its own, and dropping that into one narrow manager
+ * column would either blow the column out or crush the nested table - the
+ * failure the brief calls "breaking table borders". It renders instead as a
+ * full-width row spanning every column, one per open manager, titled with the
+ * manager it belongs to. The trigger stays in the grid, on a Breakdown row
+ * whose cells line up under their managers.
+ */
+function TransposedActivityTable({
+  rows,
+  targets,
+  resolveAvatar,
+  period,
+  custom,
+  openIds,
+  onToggleRow,
+}: {
+  rows: ManagerActivityRow[];
+  targets: ActivityTargets;
+  resolveAvatar: (id: string) => string | null;
+  period: ActivityPeriod;
+  custom?: { from: string; to: string } | null;
+  openIds: ReadonlySet<string>;
+  onToggleRow: (id: string) => void;
+}) {
+  // The first column is frozen: with a manager per column the grid scrolls
+  // sideways, and a category label that scrolls out of view leaves a row of
+  // bare numbers meaning nothing.
+  const stickyHead = `${HEAD_CELL} sticky left-0 z-20 text-left`;
+  const stickyCell =
+    "sticky left-0 z-10 bg-white px-3 py-2.5 text-[12.5px] font-bold text-ink-strong";
+
+  return (
+    <div className="max-h-[600px] overflow-auto">
+      <table className="min-w-full border-collapse">
+        <thead className="sticky top-0 z-30" style={{ background: "#f9fafb" }}>
+          <tr>
+            <th className={stickyHead} style={{ background: "#f9fafb" }}>
+              Category
+            </th>
+            {rows.map((r) => (
+              <th key={r.managerId} className={`${HEAD_CELL} text-center`}>
+                <span className="inline-flex flex-col items-center gap-1">
+                  <Avatar
+                    name={r.managerName}
+                    avatarUrl={resolveAvatar(r.managerId)}
+                    size={26}
+                  />
+                  <span className="max-w-[14ch] truncate normal-case" title={r.managerName}>
+                    {r.managerName}
+                  </span>
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {FAMILIES.map((f) => (
+            <tr key={f.key} className="border-b border-gray-100 transition-colors hover:bg-gray-50/80">
+              <td className={stickyCell}>{f.label}</td>
+              {rows.map((r) => {
+                const actual = r[f.key];
+                return (
+                  <td
+                    key={r.managerId}
+                    className="whitespace-nowrap px-2 py-2.5 text-center"
+                  >
+                    <CountLink
+                      value={actual}
+                      managerId={r.managerId}
+                      memberId={r.managerId}
+                      memberName={r.managerName}
+                      category={f.key}
+                      categoryLabel={f.label}
+                      split="gt"
+                      period={period}
+                      custom={custom}
+                    />
+                    {/* The same actual / pro-rated-target ratio the standard
+                        view shows. Transposing must not change what a cell
+                        says, only where it sits. */}
+                    <span
+                      className="ml-1 text-[11px] font-bold tabular-nums"
+                      style={{ color: attainColor(actual, targets[f.key]) }}
+                    >
+                      /{targets[f.key]}
+                    </span>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+
+          <tr className="border-b border-gray-200 bg-gray-50/40">
+            <td className={`${stickyCell} bg-gray-50`}>G.T.</td>
+            {rows.map((r) => (
+              <td key={r.managerId} className="px-2 py-2.5 text-center">
+                <Num value={r.total} hero />
+              </td>
+            ))}
+          </tr>
+
+          <tr className="border-b border-gray-100">
+            <td className={stickyCell}>Breakdown</td>
+            {rows.map((r) => {
+              const isOpen = openIds.has(r.managerId);
+              return (
+                <td key={r.managerId} className="px-2 py-2.5 text-center">
+                  <button
+                    type="button"
+                    onClick={() => onToggleRow(r.managerId)}
+                    aria-expanded={isOpen}
+                    aria-label={`${isOpen ? "Hide" : "Show"} the breakdown for ${r.managerName}`}
+                    title={isOpen ? "Hide breakdown" : "Show breakdown"}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-bold text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                  >
+                    <ChevronDown
+                      size={13}
+                      strokeWidth={2.6}
+                      className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                </td>
+              );
+            })}
+          </tr>
+
+          {rows
+            .filter((r) => openIds.has(r.managerId))
+            .map((r) => (
+              <tr key={`breakdown-${r.managerId}`}>
+                <td colSpan={rows.length + 1} className="bg-gray-50/60 px-3 py-3">
+                  {/* Named, because in this orientation the breakdown is no
+                      longer physically under its manager's column. */}
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-subtle">
+                    {r.managerName}
+                  </p>
+                  <MemberBreakdown
+                    members={r.members}
+                    managerId={r.managerId}
+                    resolveAvatar={resolveAvatar}
+                    period={period}
+                    custom={custom}
+                    targets={targets}
+                  />
+                </td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function ManagerActivityTable({
   avatarById = {},
 }: {
@@ -443,6 +625,9 @@ export function ManagerActivityTable({
   // own a bespoke toggle that expanded it in place, so the one button that
   // looks identical across the dashboard did something different here.
   const [open, setOpen] = React.useState(true);
+  // Orientation. Kept OUTSIDE the fetch state: transposing is a rendering
+  // choice over a board already in hand, and must never trigger a refetch.
+  const [isTransposed, setIsTransposed] = React.useState(false);
   // Which manager breakdowns are open. Lifted out of the rows so the bulk
   // control can open all of them at once.
   const [openIds, setOpenIds] = React.useState<ReadonlySet<string>>(new Set());
@@ -511,7 +696,7 @@ export function ManagerActivityTable({
   }, [rows]);
 
   const controls = (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2.5">
       <label className="sr-only" htmlFor="activity-period">
         Period
       </label>
@@ -532,7 +717,7 @@ export function ManagerActivityTable({
             setPickerOpen(false);
           }
         }}
-        className="h-9 cursor-pointer rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] font-bold text-gray-700 outline-none transition-colors hover:border-gray-300 focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
+        className={`${CONTROL_CLS} outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]`}
       >
         {ACTIVITY_PERIODS.map((p) => (
           <option key={p.id} value={p.id}>
@@ -549,7 +734,7 @@ export function ManagerActivityTable({
             <button
               type="button"
               title="Choose a date range"
-              className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] font-bold text-gray-700 transition-colors hover:border-gray-300"
+              className={CONTROL_CLS}
             >
               <CalendarDays size={14} strokeWidth={2.4} />
               {custom ? `${fmtYmd(custom.from)} - ${fmtYmd(custom.to)}` : "Pick dates"}
@@ -609,9 +794,24 @@ export function ManagerActivityTable({
           onClick={toggleAllRows}
           aria-pressed={allRowsOpen}
           title={allRowsOpen ? "Collapse every breakdown" : "Expand every breakdown"}
-          className="inline-flex h-9 shrink-0 cursor-pointer items-center rounded-lg px-2 text-[13px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
+          className={CONTROL_CLS}
         >
           {allRowsOpen ? "Collapse all" : "Expand all"}
+        </button>
+      )}
+      {/* Transpose sits with the collapse control, the same place the Aging
+          Heatmap and Status by Doer put theirs: both change the section's
+          SHAPE rather than what it contains. */}
+      {rows.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setIsTransposed((v) => !v)}
+          aria-pressed={isTransposed}
+          title={isTransposed ? "Back to managers as rows" : "Transpose: categories as rows"}
+          className={`${CONTROL_CLS} ${isTransposed ? "text-altus-red" : ""}`}
+        >
+          <ArrowLeftRight className="size-3.5" strokeWidth={2.6} aria-hidden />
+          Transpose
         </button>
       )}
       {/* The shared section control, not a bespoke one. Every other section on
@@ -653,7 +853,19 @@ export function ManagerActivityTable({
         </div>
       )}
 
-      {!showLoading && state.kind === "ok" && state.board.rows.length > 0 && (
+      {!showLoading && state.kind === "ok" && state.board.rows.length > 0 && isTransposed && (
+        <TransposedActivityTable
+          rows={state.board.rows}
+          targets={state.board.targets}
+          resolveAvatar={resolveAvatar}
+          period={period}
+          custom={custom}
+          openIds={openIds}
+          onToggleRow={toggleRow}
+        />
+      )}
+
+      {!showLoading && state.kind === "ok" && state.board.rows.length > 0 && !isTransposed && (
         /* The 600px scroll box, matching the scorecard widget beside it. This
            is the section's default height now — folding it away entirely is the
            section control's job, not this box's. */
