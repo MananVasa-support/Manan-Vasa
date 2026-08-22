@@ -59,29 +59,35 @@ const KPI_SPECS: KpiSpec[] = [
  * mapped onto red-ish tokens, so a token-keyed map could not give them the
  * distinct rose/red pair specified.
  */
-const CHIP_STYLE: Record<KpiKey, { pill: string; dot: string }> = {
+const CHIP_STYLE: Record<KpiKey, { pill: string; border: string; dot: string }> = {
   notApproved: {
-    pill: "bg-red-50 hover:bg-red-100 text-red-950 border-red-200",
+    pill: "bg-red-50 hover:bg-red-100 text-red-950",
+    border: "border-red-200",
     dot: "bg-red-600",
   },
   done: {
-    pill: "bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border-emerald-200",
+    pill: "bg-emerald-50 hover:bg-emerald-100 text-emerald-950",
+    border: "border-emerald-200",
     dot: "bg-emerald-600",
   },
   pending: {
-    pill: "bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-200",
+    pill: "bg-amber-50 hover:bg-amber-100 text-amber-950",
+    border: "border-amber-200",
     dot: "bg-amber-500",
   },
   critical: {
-    pill: "bg-rose-50 hover:bg-rose-100 text-rose-950 border-rose-200",
+    pill: "bg-rose-50 hover:bg-rose-100 text-rose-950",
+    border: "border-rose-200",
     dot: "bg-rose-600",
   },
   urgent: {
-    pill: "bg-orange-50 hover:bg-orange-100 text-orange-950 border-orange-200",
+    pill: "bg-orange-50 hover:bg-orange-100 text-orange-950",
+    border: "border-orange-200",
     dot: "bg-orange-600",
   },
   notRead: {
-    pill: "bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-300",
+    pill: "bg-slate-100 hover:bg-slate-200 text-slate-900",
+    border: "border-slate-300",
     dot: "bg-slate-500",
   },
 };
@@ -457,14 +463,21 @@ function StatChip({
       title={spec.sublabel}
       // The pill owns the text colour; the count and label below INHERIT it
       // rather than carrying their own ink-strong/ink-soft, or the -950 tone
-      // would never show. Active adds a slate-900 ring, matching border and a
-      // slight scale instead of a heavier fill, so the status colour stays
-      // readable while the selection is unmistakable — and with selection now
-      // exclusive, exactly one pill can ever wear it.
-      className={`group inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 transition-transform ${c.pill} ${
+      // would never show.
+      //
+      // ACTIVE IS A THIN WHITE BORDER, not the slate-900 ring it was. A 2px
+      // black outline around a pastel pill reads as a separate object stamped
+      // on top of the chip rather than the chip itself being chosen, and six of
+      // them in a row made the whole bar look heavier than the page around it.
+      // White cuts the pill's own tint away from its fill, and `ring-1
+      // ring-black/10` under it keeps that hairline legible where the fill is
+      // palest — on Pending's amber-50 and Not Read's slate-100 a bare white
+      // border would otherwise vanish into the page behind it. The scale drops
+      // from 105 to 102: enough to lift, not enough to shove its neighbours.
+      className={`group inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 transition-all duration-150 ${c.pill} ${
         active
-          ? "scale-105 border-slate-900 font-bold ring-2 ring-slate-900"
-          : ""
+          ? "scale-[1.02] border-white font-bold shadow-xs ring-1 ring-black/10"
+          : `${c.border} font-medium`
       }`}
     >
       <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
