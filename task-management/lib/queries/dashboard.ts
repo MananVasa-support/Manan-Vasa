@@ -1,7 +1,20 @@
-import { and, gte, lt, inArray, getTableColumns, sql } from "drizzle-orm";
+import { and, or, gte, lt, inArray, getTableColumns, sql } from "drizzle-orm";
 import { db, employees, tasks, taskEvents, holidays } from "@/lib/db";
 import type { Task } from "@/lib/db";
-import type { DashboardData, DashboardFilters, KpiSet, InitiatorBoard } from "@/lib/types";
+import type {
+  DashboardData,
+  DashboardFilters,
+  KpiSet,
+  KpiWithDelta,
+  InitiatorBoard,
+  WmsSummary,
+} from "@/lib/types";
+import {
+  KPI_BUCKET_KEYS,
+  type KpiBucketKey,
+  inKpiBucket,
+  isOpenTask,
+} from "@/lib/dashboard/kpi-buckets";
 import { isFounderEmail } from "@/lib/auth/founder";
 import {
   distributeDoneFine,
@@ -15,7 +28,8 @@ import {
   computeKpiTotals,
   computeAgingByDate,
   computeWeekOverWeekDelta,
-  computeDailySparkline,
+  computeTrendSeries,
+  computeTrendWindows,
   computeTopPerformers,
   pickPerformersForEmployees,
   generatePullQuote,
@@ -39,6 +53,21 @@ import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * A real Date, or null — never a string that merely has the Date TYPE.
+ *
+ * Columns projected through raw `sql` fragments (the `effectiveDueAtSql()`
+ * COALESCE, for one) are typed by the cast the caller writes, not by what the
+ * driver actually returns, and a timestamp can arrive as an ISO string. Date
+ * arithmetic on a string silently yields NaN, which turns a bucket count into
+ * garbage rather than an error you can see.
+ */
+function toDateOrNull(value: unknown): Date | null {
+  if (value == null) return null;
+  const d = value instanceof Date ? value : new Date(value as string);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 // All task columns EXCEPT the large free-text fields. The dashboard transforms
 // never read them, and shipping them on every row of three full scans bloats the
@@ -90,7 +119,12 @@ export async function loadDashboardData(
     // The key is the real fix: a shape change and a stale entry cannot coexist.
     // The consumers are also defensive now, but that is the belt, not the
     // braces — the next field added still needs a bump here.
-    "dashboard-data:v2",
+    //
+    // v2 -> v3: the KPI payload changed shape again — `KpiWithDelta` gained
+    // `window` / `changePct` / `trend`, and `wmsSummaryByKpi` was added. A v2
+    // entry served after this deploy would hand the card a `trend` of
+    // `undefined` and the tooltip would read `.length` off it during render.
+    "dashboard-data:v3",
     filters.startDate?.toISOString() ?? "_",
     filters.endDate?.toISOString() ?? "_",
     filters.view,
@@ -121,16 +155,22 @@ async function loadDashboardDataUncached(
   // narrowing. Kept separate so the Top-Performers ranking can run on the
   // base scope — a user filtered to themselves must see their TRUE position
   // in the whole team, not "1st of 1".
+  // Scope = the filters that are NOT about the date window (priority, subject).
+  // Split out of `baseConditions` because the 14-day TREND scan needs them
+  // without the date window — see `trendConditions` below.
+  const scopeConditions = [];
+  if (filters.priorities.length > 0) {
+    scopeConditions.push(inArray(tasks.priority, filters.priorities));
+  }
+  if (filters.subjects.length > 0) {
+    scopeConditions.push(inArray(tasks.subject, filters.subjects));
+  }
+
   const baseConditions = [
     gte(tasks.createdAt, start),
     lt(tasks.createdAt, new Date(end.getTime() + MS_PER_DAY)),
+    ...scopeConditions,
   ];
-  if (filters.priorities.length > 0) {
-    baseConditions.push(inArray(tasks.priority, filters.priorities));
-  }
-  if (filters.subjects.length > 0) {
-    baseConditions.push(inArray(tasks.subject, filters.subjects));
-  }
 
   const peopleConditions = [];
   let departmentEmployeeIds: string[] = [];
@@ -155,11 +195,30 @@ async function loadDashboardDataUncached(
 
   const fourteenAgo = new Date(Date.now() - 14 * MS_PER_DAY);
 
+  // THE 14-DAY TREND SCAN. Two things were wrong with it:
+  //
+  //  1. It ignored every active filter. Filter the dashboard to one person and
+  //     their card read (say) 12 while the trend line under it and the "vs last
+  //     week" badge beside it still described the whole company. It now carries
+  //     the same priority / subject / employee / department narrowing as the
+  //     cards; only the DATE window differs, because a 14-day trend is by
+  //     definition a different window from the one the user picked.
+  //
+  //  2. It keyed on `created_at` alone, so the completed series could never see
+  //     a task created 3 weeks ago and finished yesterday — the exact rows that
+  //     make up most of a week's throughput. The window is now an OR over
+  //     created_at / completed_at.
+  const trendConditions = [
+    or(gte(tasks.createdAt, fourteenAgo), gte(tasks.completedAt, fourteenAgo))!,
+    ...scopeConditions,
+    ...peopleConditions,
+  ];
+
   const [allEmployees, periodTasksRaw, wideTasksRaw, departmentMap, rankingTasksRaw] =
     await Promise.all([
       db.select().from(employees),
       db.select(taskCols()).from(tasks).where(and(...conditions)),
-      db.select(taskCols()).from(tasks).where(gte(tasks.createdAt, fourteenAgo)),
+      db.select(taskCols()).from(tasks).where(and(...trendConditions)),
       getEmployeeDepartmentMap(),
       // Ranking scope: only fetched when a people filter narrows the period
       // set — otherwise the period set IS the ranking set.
@@ -225,61 +284,39 @@ async function loadDashboardDataUncached(
 
   const totals = computeKpiTotals(periodTasks);
 
-  const approvedCount = periodTasks.filter((t) => t.status === "approved").length;
-
-  const sparklineFor = (predicate: (s: TaskStatus) => boolean) =>
-    computeDailySparkline(
-      wideTasks.filter((t) => predicate(t.status)),
+  // ── The six cards, all off ONE classification ────────────────────────────
+  //
+  // `current` is the count in the ACTIVE FILTER (what the big number shows).
+  // `trend` / `window` / `previous` describe the rolling 14- and 7-day windows,
+  // computed over the same filtered scope. Both halves now ask
+  // `inKpiBucket(task, key)` — previously the number and the line beneath it
+  // used two different definitions of the same bucket.
+  const buildKpi = (key: KpiBucketKey, current: number): KpiWithDelta => {
+    const trend = computeTrendSeries(
+      wideTasks.filter((t) => inKpiBucket(t, key)),
       now,
       14,
     );
-
-  const wow = (predicate: (s: TaskStatus) => boolean) =>
-    computeWeekOverWeekDelta(
-      wideTasks.filter((t) => predicate(t.status)),
-      now,
-    );
-
-  const isDone = (s: TaskStatus) => s === "done" || s === "approved";
-  // Tier-3 (2026-05-20) — `pending` covers every non-terminal status EXCEPT
-  // the dedicated `need_info` tile + `not_started` (which has its own tile).
-  // That mirrors computeKpiTotals. (need_help retired 2026-06-10 → need_info.)
-  const PENDING_SET = new Set<TaskStatus>(PENDING_STATUSES);
-  const isPending = (s: TaskStatus) =>
-    PENDING_SET.has(s) && s !== "not_started" && s !== "need_info";
-  const isNeedHelp = (s: TaskStatus) => s === "need_info";
+    const windows = computeTrendWindows(trend, 7, "created");
+    return {
+      current,
+      previous: windows.previous,
+      window: windows.current,
+      changePct: windows.changePct,
+      // The bare-number series the area sparkline draws. Same days as `trend`,
+      // so the tooltip and the line can never point at different dates.
+      sparkline: trend.map((p) => p.created),
+      trend,
+    };
+  };
 
   const kpis: KpiSet = {
-    total: {
-      current: totals.total,
-      previous: wow(() => true).previous,
-      sparkline: sparklineFor(() => true),
-    },
-    pending: {
-      current: totals.pending,
-      previous: wow(isPending).previous,
-      sparkline: sparklineFor(isPending),
-    },
-    notStarted: {
-      current: totals.notStarted,
-      previous: wow((s) => s === "not_started").previous,
-      sparkline: sparklineFor((s) => s === "not_started"),
-    },
-    needHelp: {
-      current: totals.needHelp,
-      previous: wow(isNeedHelp).previous,
-      sparkline: sparklineFor(isNeedHelp),
-    },
-    done: {
-      current: totals.done,
-      previous: wow(isDone).previous,
-      sparkline: sparklineFor(isDone),
-    },
-    notApproved: {
-      current: totals.notApproved,
-      previous: wow((s) => s === "not_approved").previous,
-      sparkline: sparklineFor((s) => s === "not_approved"),
-    },
+    total: buildKpi("total", totals.total),
+    pending: buildKpi("pending", totals.pending),
+    notStarted: buildKpi("notStarted", totals.notStarted),
+    needHelp: buildKpi("needHelp", totals.needHelp),
+    done: buildKpi("done", totals.done),
+    notApproved: buildKpi("notApproved", totals.notApproved),
   };
 
   // ── WMS operational summary (shown when a KPI card is expanded) ──────────
@@ -287,17 +324,12 @@ async function loadDashboardDataUncached(
   // day comparison classifies them correctly without timezone drift.
   const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const tomorrowUTC = new Date(todayUTC.getTime() + MS_PER_DAY);
-  const weekUTC = new Date(todayUTC.getTime() + 7 * MS_PER_DAY);
-
-  const openTasks = periodTasks.filter((t) => !t.archived && PENDING_SET.has(t.status));
-  const doneTasks = periodTasks.filter((t) => isDone(t.status));
-  const approvedN = periodTasks.filter(
-    (t) => t.status === "approved" || t.approvalStatus === "approved",
-  ).length;
-  const notApprovedN = periodTasks.filter(
-    (t) => t.status === "not_approved" || t.approvalStatus === "not_approved",
-  ).length;
-  const completed = periodTasks.filter((t) => t.completedAt != null);
+  // END OF WEEK = the instant after Sunday, the calendar week the user is
+  // standing in. It used to be `today + 7 days`, a rolling window: on a
+  // Thursday that reached into the middle of NEXT week, so "Due This Week"
+  // counted work the reader would not call this week's.
+  const daysToSunday = (7 - todayUTC.getUTCDay()) % 7;
+  const endOfWeekUTC = new Date(todayUTC.getTime() + (daysToSunday + 1) * MS_PER_DAY);
 
   const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : 0);
   const avgDays = (rows: Task[], to: (t: Task) => number) =>
@@ -305,18 +337,60 @@ async function loadDashboardDataUncached(
       ? Math.round(rows.reduce((s, t) => s + (to(t) - t.createdAt.getTime()), 0) / rows.length / MS_PER_DAY)
       : 0;
 
-  const wmsSummary = {
-    overdue: openTasks.filter((t) => t.dueAt < todayUTC).length,
-    dueToday: openTasks.filter((t) => t.dueAt >= todayUTC && t.dueAt < tomorrowUTC).length,
-    dueThisWeek: openTasks.filter((t) => t.dueAt >= todayUTC && t.dueAt < weekUTC).length,
-    completionRate: pct(doneTasks.length, totals.total),
-    approvalRate: pct(approvedN, approvedN + notApprovedN),
-    avgAgeDays: avgDays(openTasks, () => now.getTime()),
-    avgTimeToDoneDays: avgDays(completed, (t) => t.completedAt!.getTime()),
+  /**
+   * The seven operational chips, over an arbitrary slice of the filtered
+   * period. Computed PER CARD (below) so expanding NOT APPROVED answers
+   * "how overdue is the sent-back work" rather than repeating the org-wide
+   * figures under every card — which is what it did when there was one
+   * global summary shared by all six.
+   *
+   * "Open" is `isOpenTask`: countable and not delivered. That is wider than
+   * the old PENDING_STATUSES test, which silently dropped sent-back tasks
+   * from Overdue even though they are the most overdue work there is.
+   */
+  const summarize = (rows: (Task & { dueAt: Date | null })[]): WmsSummary => {
+    const open = rows.filter(isOpenTask);
+    const dated = (t: { dueAt: Date | null }) => t.dueAt != null;
+    const doneRows = rows.filter((t) => inKpiBucket(t, "done"));
+    const approvedN = doneRows.length;
+    const notApprovedN = rows.filter((t) => inKpiBucket(t, "notApproved")).length;
+    const completed = rows.filter((t) => t.completedAt != null);
+    const countable = rows.filter((t) => inKpiBucket(t, "total")).length;
+
+    return {
+      overdue: open.filter((t) => dated(t) && t.dueAt!.getTime() < todayUTC.getTime()).length,
+      dueToday: open.filter(
+        (t) =>
+          dated(t) &&
+          t.dueAt!.getTime() >= todayUTC.getTime() &&
+          t.dueAt!.getTime() < tomorrowUTC.getTime(),
+      ).length,
+      // Everything still open and due on or before the end of this week —
+      // overdue work included, per the brief's `due_date <= END_OF_WEEK`.
+      // It is therefore a SUPERSET of Overdue and Due Today, not a third
+      // slice beside them.
+      dueThisWeek: open.filter((t) => dated(t) && t.dueAt!.getTime() < endOfWeekUTC.getTime())
+        .length,
+      completionRate: pct(doneRows.length, countable),
+      approvalRate: pct(approvedN, approvedN + notApprovedN),
+      avgAgeDays: avgDays(open, () => now.getTime()),
+      avgTimeToDoneDays: avgDays(completed, (t) => t.completedAt!.getTime()),
+    };
   };
 
+  // One summary per card. `total` is the whole filtered period, so it is also
+  // what `wmsSummary` (the pre-expansion default) reports.
+  const wmsSummaryByKpi = Object.fromEntries(
+    KPI_BUCKET_KEYS.map((key) => [
+      key,
+      summarize(periodTasks.filter((t) => inKpiBucket(t, key))),
+    ]),
+  ) as Record<KpiBucketKey, WmsSummary>;
+
+  const wmsSummary = wmsSummaryByKpi.total;
+
   const wowDone = computeWeekOverWeekDelta(
-    wideTasks.filter((t) => isDone(t.status)),
+    wideTasks.filter((t) => inKpiBucket(t, "done")),
     now,
   );
 
@@ -501,30 +575,50 @@ async function loadDashboardDataUncached(
   // SENT-BACK WORK — declined by status OR approval_status, not archived, and
   // deliberately NOT scoped to the dashboard's period: a task sent back weeks
   // ago is still on someone's plate today.
-  const sentBackPerCount = new Map<string, number>();
-  for (const r of sentBackRows) {
-    sentBackPerCount.set(r.doerId, (sentBackPerCount.get(r.doerId) ?? 0) + 1);
-  }
-  const sentBackNames = new Map(allEmployees.map((e) => [e.id, e.name] as const));
-  const sentBackByPerson: NotApprovedPersonRow[] = [...sentBackPerCount.entries()]
-    .map(([employeeId, count]) => ({
-      employeeId,
-      employeeName: sentBackNames.get(employeeId) ?? "Unknown",
-      count,
-    }))
-    .sort((a, b) => b.count - a.count || a.employeeName.localeCompare(b.employeeName));
+  //
+  // FAIL-OPEN, LIKE THE READ ABOVE IT. The query already degrades to `[]` via
+  // its own `.catch`, but the assembly did not: `distributePendingFine` reads a
+  // date off every row, and one row whose `effective_due_at` came back as
+  // something other than a Date threw HERE — outside any catch, in the middle
+  // of loadDashboardData, which takes the WHOLE dashboard down to its load-error
+  // card rather than just this widget. A fail-open read whose transform can
+  // still throw is not fail-open.
+  const sentBack = ((): DashboardData["sentBack"] => {
+    try {
+      const perCount = new Map<string, number>();
+      for (const r of sentBackRows) {
+        if (!r?.doerId) continue;
+        perCount.set(r.doerId, (perCount.get(r.doerId) ?? 0) + 1);
+      }
+      const names = new Map(allEmployees.map((e) => [e.id, e.name] as const));
+      const byPerson: NotApprovedPersonRow[] = [...perCount.entries()]
+        .map(([employeeId, count]) => ({
+          employeeId,
+          employeeName: names.get(employeeId) ?? "Unknown",
+          count,
+        }))
+        .sort((a, b) => b.count - a.count || a.employeeName.localeCompare(b.employeeName));
 
-  const sentBackDist = distributePendingFine(
-    sentBackRows.map((r) => ({ effectiveDue: (r.effectiveDueAt as Date | null) ?? null })),
-    now,
-  );
+      // Coerced, not cast. `effectiveDueAt` is a COALESCE over two columns and
+      // the driver can hand back a string for it; `as Date | null` only silenced
+      // the type system, it did not make the value a Date, so the bucketing
+      // maths ran on a string and produced NaN — or threw.
+      const dist = distributePendingFine(
+        sentBackRows.map((r) => ({ effectiveDue: toDateOrNull(r.effectiveDueAt) })),
+        now,
+      );
 
-  const sentBack = {
-    total: sentBackRows.length,
-    byPerson: sentBackByPerson,
-    buckets: sentBackDist.buckets,
-    undated: sentBackDist.undated,
-  };
+      return {
+        total: sentBackRows.length,
+        byPerson,
+        buckets: dist.buckets,
+        undated: dist.undated,
+      };
+    } catch (err) {
+      console.error("[dashboard] sent-back rollup failed:", err);
+      return { total: 0, byPerson: [], buckets: [], undated: 0 };
+    }
+  })();
 
   // DELIVERY SPREAD — every non-archived done task, matching how the Task
   // Analytics report computed it so the on-time percentage reads the same here.
@@ -547,6 +641,7 @@ async function loadDashboardDataUncached(
   return {
     kpis,
     wmsSummary,
+    wmsSummaryByKpi,
     punctuality,
     pullQuote: generatePullQuote({
       doneThisWeek: wowDone.current,
