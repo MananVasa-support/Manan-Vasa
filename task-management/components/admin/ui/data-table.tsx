@@ -3,7 +3,6 @@
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ReorderableTh, useColumnOrder } from "@/components/ui/reorderable-columns";
 
 export interface DataTableColumn<T> {
   /** Stable key — also the sort key. */
@@ -57,12 +56,6 @@ export interface DataTableProps<T> {
   dense?: boolean;
   /** Placeholder for the search input. */
   searchPlaceholder?: string;
-  /**
-   * Stable, module-scoped id for this table, e.g. "admin.employees". Supplying
-   * it turns on drag-to-reorder columns, saved per user and restored on every
-   * later visit. Omit it and the table renders exactly as before.
-   */
-  tableKey?: string;
   className?: string;
 }
 
@@ -109,7 +102,6 @@ export function DataTable<T>({
   emptyState,
   dense = false,
   searchPlaceholder = "Search…",
-  tableKey,
   className,
 }: DataTableProps<T>) {
   const [query, setQuery] = useState("");
@@ -117,16 +109,6 @@ export function DataTable<T>({
   const [filterValues, setFilterValues] = useState<Record<number, string>>({});
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const searchInputId = useId();
-
-  // Drag-to-reorder, per user. Only the caller's own `columns` participate: the
-  // leading bulk-select checkbox and the trailing row-actions cell are rendered
-  // outside this list and stay pinned to the edges where they belong.
-  const columnIds = useMemo(() => columns.map((c) => c.key), [columns]);
-  const cols = useColumnOrder({ tableKey: tableKey ?? "", columns: columnIds });
-  const orderedColumns = useMemo(
-    () => cols.ordered(columns, (c) => c.key),
-    [cols, columns],
-  );
 
   const colByKey = useMemo(() => {
     const m = new Map<string, DataTableColumn<T>>();
@@ -367,15 +349,12 @@ export function DataTable<T>({
                   />
                 </th>
               ) : null}
-              {orderedColumns.map((c) => {
+              {columns.map((c) => {
                 const sortable = Boolean(c.sortValue);
                 const active = sort?.key === c.key;
                 return (
-                  <ReorderableTh
+                  <th
                     key={c.key}
-                    id={c.key}
-                    ctl={cols}
-                    label={c.label}
                     scope="col"
                     className={cn(
                       "sticky top-0 z-10 px-5 py-4 backdrop-blur",
@@ -417,7 +396,7 @@ export function DataTable<T>({
                     ) : (
                       c.label
                     )}
-                  </ReorderableTh>
+                  </th>
                 );
               })}
               {rowActions ? (
@@ -456,7 +435,7 @@ export function DataTable<T>({
                       />
                     </td>
                   ) : null}
-                  {orderedColumns.map((c) => (
+                  {columns.map((c) => (
                     <td
                       key={c.key}
                       className={cn(

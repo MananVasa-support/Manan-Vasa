@@ -15,11 +15,11 @@ import { hoursLabel, requirementFor, targetsFor, to12h } from "./schedule-format
  * verbatim by single and bulk mode.
  *
  * ⚠ THIS IS THE SOURCE OF TRUTH THE ATTENDANCE ENGINE READS. Every figure shown
- * here is derived by `lib/attendance/effective-config.ts` — the same resolver
- * the grader, the weekly reconciler and the salary engine call. Nothing is
- * hardcoded: a full-timer's 9h/54h and a part-timer's 4.5h/27h both come out of
- * `defaultDailyMinutesFor`, so this panel cannot drift from what Attendance
- * actually enforces. If the policy changes, it changes there and shows up here.
+ * here is derived from `lib/attendance/hours-rule.ts` — the same constants the
+ * grader and the salary engine read (see ./schedule-format). Nothing is
+ * hardcoded: a full-timer's 9h/54h and a part-timer's 4.5h/27h both fall out of
+ * those constants, so this panel cannot drift from what Attendance actually
+ * enforces. If the policy changes, it changes there and shows up here.
  */
 
 export const WEEKDAY_OPTIONS = [

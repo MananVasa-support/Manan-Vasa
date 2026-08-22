@@ -9,7 +9,7 @@ import {
 
 /**
  * The schedule panel must show what ATTENDANCE actually enforces. These assert
- * the figures come out of `lib/attendance/effective-config.ts` with the values
+ * the figures come out of `lib/attendance/hours-rule.ts` with the values
  * the spec asked for — if someone changes the policy there, these fail loudly
  * rather than the admin screen quietly lying about the requirement.
  */

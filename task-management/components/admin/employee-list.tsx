@@ -176,7 +176,6 @@ export function EmployeeList({
   return (
     <>
       <DataTable<Employee>
-      tableKey="admin.employees"
       selectable
       toolbarActions={({ selected, clearSelection }) => (
         <>
