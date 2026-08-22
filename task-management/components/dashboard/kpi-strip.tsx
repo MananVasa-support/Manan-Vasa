@@ -5,15 +5,18 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   STATUS_COLORS,
+  STATUS_INK,
   statusCardStyle,
-  STATUS_CARD_BADGE,
-  STATUS_CARD_BADGE_ACTIVE,
+  statusCardInk,
   type StatusColorKey,
 } from "@/lib/status-palette";
 import { ArrowUpRight } from "lucide-react";
 import type { NeonKey } from "./kpi-card";
 import { KpiDetailPanel } from "./kpi-detail-panel";
 import type { KpiSet, WmsSummary } from "@/lib/types";
+import type { KpiBucketKey } from "@/lib/dashboard/kpi-buckets";
+import { setKpiFocus } from "@/lib/client/kpi-focus";
+import { formatTrendPct } from "./kpi-trend-badge";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { PageShell } from "@/components/layout/page-shell";
 import { CardGrid } from "@/components/layout/card-grid";
@@ -21,7 +24,8 @@ import { CollapseToggle, CollapsibleBody } from "./section-chrome";
 import { DashboardSectionHeader } from "./section-header";
 
 interface Entry {
-  key: keyof KpiSet;
+  /** Also the key the rest of the dashboard focuses on — see lib/client/kpi-focus. */
+  key: KpiBucketKey & keyof KpiSet;
   label: string;
   sublabel: string;
   neonKey: NeonKey;
@@ -50,38 +54,35 @@ const ITEMS: Entry[] = [
 ];
 
 /**
- * The "vs …" half of each card's comparison line, derived from the selected
- * date range. The delta itself compares the range against the SAME number of
- * days immediately before it (lib/queries/dashboard.ts), so this label always
- * describes the window actually being measured.
+ * ALWAYS "vs last week" now, and the parameter is gone with the wording it used
+ * to vary.
  *
- *   ≤ 7 days ............... "last week"
- *   8–14 days .............. "last 2 weeks"
- *   > 14 and a whole number
- *     of weeks ............. "last N weeks"
- *   anything else .......... "last N days"   (e.g. the default 31-day range)
+ * The label used to be derived from the selected date range on the premise that
+ * the delta compared the range against the same number of days before it. It
+ * never did: the comparison was hardcoded to 7 days against 7 days in
+ * lib/queries/dashboard.ts, so on the default 31-day filter the card read
+ * "vs last 31 days" beside a week-over-week figure. The measurement is the
+ * honest half of that pair, so the label was corrected to match it rather than
+ * the other way round.
  */
-export function comparisonLabel(rangeDays: number): string {
-  const days = Math.max(1, Math.round(rangeDays));
-  if (days <= 7) return "last week";
-  if (days <= 14) return "last 2 weeks";
-  if (days % 7 === 0) return `last ${days / 7} weeks`;
-  return `last ${days} days`;
-}
+const VS_LABEL = "vs last week";
 
 export function KpiStrip({
   kpis,
   summary,
-  rangeDays = 7,
+  summaryByKpi,
 }: {
   kpis: KpiSet;
+  /** The operational summary for the whole filter — the `total` card's. */
   summary: WmsSummary;
-  /** Days in the active date filter — drives the "vs last …" label. */
-  rangeDays?: number;
-  /** Folded away with the cards — the Task Analytics banner is passed in from
-   *  the page so ONE toggle governs the whole summary block. */
+  /** One summary per card, so expanding a card re-reads Overdue / Due Today /
+   *  Avg Age against THAT status subset. Optional so a stale Data Cache entry
+   *  shaped by the previous deploy degrades to the shared summary instead of
+   *  throwing during render (the lesson from `sentBack`, see the cache-key note
+   *  in lib/queries/dashboard.ts). */
+  summaryByKpi?: Partial<Record<KpiBucketKey, WmsSummary>>;
 }) {
-  const vsLabel = React.useMemo(() => `vs ${comparisonLabel(rangeDays)}`, [rangeDays]);
+  const vsLabel = VS_LABEL;
   const [expanded, setExpanded] = React.useState<keyof KpiSet | null>(null);
   // Whole-panel maximize/minimize. Open by default: minimized now hides the
   // cards ENTIRELY (it used to just drop to three compact ones), so defaulting
@@ -100,14 +101,27 @@ export function KpiStrip({
     [sectionQuery],
   );
 
+  // The FilterBar's section search can hide the very card that is expanded.
+  // Clear the page-wide focus when that happens — and on unmount — so the
+  // widgets below are never left filtered by a card the reader can no longer
+  // see (and no way to switch it off).
+  const focusVisible = expanded != null && items.some((i) => i.key === expanded);
+  React.useEffect(() => {
+    if (!focusVisible) setKpiFocus(null);
+  }, [focusVisible]);
+  React.useEffect(() => () => setKpiFocus(null), []);
+
   if (items.length === 0) return null;
 
   // Minimized hides the cards outright, so the whole set is always what WOULD
-  // be shown — and the headline count is summed over it rather than over the
-  // visible cards. Folding the section must not change the number in the
-  // header; that count is the one thing the collapsed bar still reports.
+  // be shown. Folding the section must not change the number in the header;
+  // that count is the one thing the collapsed bar still reports.
   const shown = items;
-  const headline = items.reduce((sum, i) => sum + kpis[i.key].current, 0);
+  // THE TOTAL CARD, not a sum over the cards. This line used to add all six
+  // `current` values together — but Total already IS the sum of the other five,
+  // so "N tasks in the current filter" reported exactly twice the real figure
+  // while the Total card two lines below showed the right one.
+  const headline = kpis.total.current;
 
   // Resolved against SHOWN, not all items: a card hidden by the search must not
   // leave its detail panel stranded below the strip with no card to point at.
@@ -170,11 +184,12 @@ export function KpiStrip({
       <CardGrid min={165} gap="0.875rem">
         {shown.map((item) => {
           const kpi = kpis[item.key];
-          const delta = kpi.current - kpi.previous;
-          const up = delta > 0;
-          const flat = delta === 0;
-          const arrow = up ? "▲" : flat ? "→" : "▼";
+          // 7 days vs the 7 before, as a PERCENTAGE. See formatTrendPct for
+          // what this replaced and why the old figure was meaningless.
+          const trend = formatTrendPct(kpi);
           const isOpen = expanded === item.key;
+          // Type colours, badge scrim and open-ring for THIS card fill.
+          const ink = statusCardInk(item.color);
           // The --kpi-neon-* / --kpi-soft-* tokens no longer drive the card: they
           // existed to tint a white surface (accent rail, border, badge fill),
           // and the surface is now the status colour itself. KpiDetailPanel below
@@ -182,21 +197,25 @@ export function KpiStrip({
 
           return (
             <div key={item.key}>
-              {/* Solid block of status colour, white type on top. The 3px accent
-                  rail that used to run along the top is gone — it was how a white
-                  card carried its status, and a card that IS the status has no
-                  use for it. Open state reads as a white ring rather than a
-                  coloured border, which would vanish against its own fill. */}
+              {/* Solid block of status colour. The 3px accent rail that used to
+                  run along the top is gone — it was how a white card carried its
+                  status, and a card that IS the status has no use for it.
+
+                  INK IS PER CARD. Four of the six fills are now pastels that
+                  need slate-900 type; the other two are mid-slate and still need
+                  white. `text-white` used to be hardcoded on this div, which on
+                  a cream card is white-on-cream. The open-state ring follows the
+                  same split, for the same reason a white ring is invisible on
+                  lavender. */}
               <div
-                className={`group relative h-full overflow-hidden rounded-xl p-4 text-white shadow-xs transition-all duration-200 hover:shadow-sm ${
-                  isOpen ? "ring-2 ring-white/70 ring-inset" : ""
+                className={`group relative h-full overflow-hidden rounded-xl p-4 shadow-xs transition-all duration-200 hover:shadow-sm ${ink.text} ${
+                  isOpen ? `ring-2 ring-inset ${ink.ring}` : ""
                 }`}
-                /* Gradient, not a flat block: a fully saturated card-sized
-                   fill has no shading for the eye to rest against, so it reads
-                   louder than it is. The white hairline comes with it -- these
-                   sit on a near-white page, where a dark edge would read as a
-                   shadow gluing the card to the background. */
-                style={statusCardStyle(STATUS_COLORS[item.color])}
+                /* Gradient, not a flat block: a card-sized fill with no
+                   shading anywhere gives the eye nothing to rest against, so it
+                   reads louder than it is. The hairline comes with it, and now
+                   follows the ink — see statusCardStyle. */
+                style={statusCardStyle(STATUS_COLORS[item.color], STATUS_INK[item.color])}
               >
                 <div>
                  <div className="flex items-start justify-between gap-1.5">
@@ -205,12 +224,12 @@ export function KpiStrip({
                     className="group/link min-w-0 flex-1 outline-none"
                     aria-label={`${item.label} — view tasks`}
                   >
-                    {/* Fixed 2-line height so wrapping labels ("NOT APPROVED")
-                        don't push the number down — every card's number lands on
-                        the same baseline. */}
+                    {/* minHeight survives the class rewrite: it is what keeps a
+                        wrapping label ("NOT APPROVED") from pushing its number
+                        down a line while its neighbours' numbers stay put. */}
                     <span
-                      className="flex items-start gap-1 uppercase font-bold tracking-[0.07em] leading-[1.15] text-white"
-                      style={{ fontSize: 11.5, minHeight: 24 }}
+                      className="flex items-start gap-1 text-[11px] font-semibold uppercase tracking-wider leading-[1.15] opacity-80"
+                      style={{ minHeight: 24 }}
                     >
                       <span className="min-w-0">{item.label}</span>
                       <ArrowUpRight
@@ -219,15 +238,7 @@ export function KpiStrip({
                         className="mt-px shrink-0 opacity-0 -translate-x-0.5 transition-all group-hover/link:opacity-100 group-hover/link:translate-x-0"
                       />
                     </span>
-                    <span
-                      className="block tabular-nums leading-none mt-2 text-white"
-                      style={{
-                        fontFamily: "var(--font-display), system-ui, sans-serif",
-                        fontWeight: 900,
-                        fontSize: 32,
-                        letterSpacing: "-0.02em",
-                      }}
-                    >
+                    <span className="mt-2 block text-3xl font-bold tracking-tight tabular-nums leading-none">
                       {kpi.current.toLocaleString()}
                     </span>
                   </Link>
@@ -238,18 +249,28 @@ export function KpiStrip({
                       the pill's width never jumps as it toggles. */}
                   <button
                     type="button"
-                    onClick={() => setExpanded((cur) => (cur === item.key ? null : item.key))}
+                    // VIEW does two things: opens this card's detail panel, and
+                    // focuses the REST of the dashboard on the same status
+                    // subset (lib/client/kpi-focus). HIDE clears both. The store
+                    // write sits here rather than in an effect so the two can
+                    // never disagree about which card is open.
+                    onClick={() =>
+                      setExpanded((cur) => {
+                        const next = cur === item.key ? null : item.key;
+                        setKpiFocus(next);
+                        return next;
+                      })
+                    }
                     aria-expanded={isOpen}
                     aria-label={isOpen ? `Hide ${item.label} details` : `View ${item.label} details`}
-                    // Translucent white rather than a solid colour: one badge
-                    // recipe that keeps its contrast on all six fills, from
-                    // slate-900 to emerald-600, with no per-status tuning. Open
-                    // state just raises the opacity — a coloured fill would be
-                    // invisible against the card it sits on.
-                    className={`inline-flex shrink-0 items-center justify-center rounded-full px-2.5 py-1 font-medium uppercase tracking-[0.04em] ${
-                      isOpen ? STATUS_CARD_BADGE_ACTIVE : STATUS_CARD_BADGE
+                    // Translucent BLACK now, not white: on a cream or peach
+                    // fill a white scrim is invisible. One recipe per ink family
+                    // (see STATUS_CARD_INK) keeps the contrast across all six
+                    // fills with no per-status tuning. Open state just raises
+                    // the opacity — a coloured fill would fight the card.
+                    className={`inline-flex shrink-0 items-center justify-center rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${
+                      isOpen ? ink.badgeActive : ink.badge
                     }`}
-                    style={{ fontSize: 11 }}
                   >
                     {isOpen ? "Hide" : "View"}
                   </button>
@@ -271,15 +292,13 @@ export function KpiStrip({
                       either vanish into the fill or fight it. Direction now
                       rides entirely on the ▲/▼/→ glyph. */}
                   <span
-                    className="mt-2 flex items-baseline gap-1 whitespace-nowrap tabular-nums font-extrabold text-white/80"
-                    style={{ fontSize: 12.5 }}
+                    className="mt-1 flex items-center gap-1 whitespace-nowrap text-xs font-medium tabular-nums opacity-90"
+                    title={trend.title}
                   >
                     <span>
-                      {arrow} {Math.abs(delta)}
+                      {trend.arrow} {trend.text}
                     </span>
-                    <span className="font-semibold text-white/70" style={{ fontSize: 11 }}>
-                      {vsLabel}
-                    </span>
+                    <span>{vsLabel}</span>
                   </span>
                 </div>
               </div>
@@ -301,7 +320,7 @@ export function KpiStrip({
                 sublabel={active.sublabel}
                 value={kpis[active.key].current}
                 kpi={kpis[active.key]}
-                summary={summary}
+                summary={summaryByKpi?.[active.key] ?? summary}
                 neon={`var(--kpi-neon-${active.neonKey})`}
                 neonDeep={`var(--kpi-neon-${active.neonKey}-deep)`}
                 vsLabel={vsLabel}
