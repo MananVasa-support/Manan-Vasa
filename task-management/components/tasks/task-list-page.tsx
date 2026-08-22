@@ -27,6 +27,7 @@ export type KpiKey =
   | "pending"
   | "critical"
   | "urgent"
+  | "approved"
   | "notRead";
 
 interface KpiSpec {
@@ -42,6 +43,7 @@ interface KpiSpec {
 // existing status/priority filter dimensions.
 const KPI_SPECS: KpiSpec[] = [
   { key: "notApproved", label: "NOT APPROVED", sublabel: "Declined / not approved", tone: "rose"   },
+  { key: "approved",    label: "APPROVED",     sublabel: "Signed off",                    tone: "slate"  },
   { key: "done",        label: "DONE",         sublabel: "Done + Approved",               tone: "green"  },
   { key: "pending",     label: "PENDING",      sublabel: "Open work",                     tone: "amber"  },
   { key: "critical",    label: "CRITICAL",     sublabel: "Important & urgent",            tone: "red"    },
@@ -64,6 +66,14 @@ const CHIP_STYLE: Record<KpiKey, { pill: string; border: string; dot: string }> 
     pill: "bg-red-50 hover:bg-red-100 text-red-950",
     border: "border-red-200",
     dot: "bg-red-600",
+  },
+  // Lavender, and the one pill whose fill is NOT a -50 tint: purple-100 at 70%
+  // sits about where the other five land visually, because purple-50 on this
+  // near-white page is barely a colour at all.
+  approved: {
+    pill: "bg-purple-100/70 hover:bg-purple-100 text-purple-900",
+    border: "border-purple-200",
+    dot: "bg-purple-500",
   },
   done: {
     pill: "bg-emerald-50 hover:bg-emerald-100 text-emerald-950",
@@ -100,6 +110,19 @@ export function computeStatCounts(rows: TaskListRow[]): Record<KpiKey, number> {
     // or anything else (per Sir: this card must mean exactly Not-Approved).
     notApproved: rows.filter(
       (r) => r.status === "not_approved" || r.approvalStatus === "not_approved",
+    ).length,
+    // EITHER COLUMN, matching how notApproved above counts and how
+    // statusFilterCondition in lib/queries/tasks.ts filters — a task approved
+    // via approval_status must not be counted here and then missing from the
+    // list this pill opens.
+    //
+    // NOTE this deliberately OVERLAPS `done`: DONE_STATUSES is {done, approved},
+    // so an approved task is counted by both pills. That is what the Done pill
+    // has always meant (its sublabel says "Done + Approved"), and Approved is a
+    // subset view of it rather than a sibling. The six pills were never a
+    // partition of the roster - Critical and Urgent cut across all of them.
+    approved: rows.filter(
+      (r) => r.status === "approved" || r.approvalStatus === "approved",
     ).length,
     done: rows.filter((r) => DONE_STATUSES.has(r.status)).length,
     pending: rows.filter((r) => PENDING_STATUSES.has(r.status)).length,
@@ -176,6 +199,7 @@ export function TaskListPage({
     Record<KpiKey, { statuses?: TaskStatus[]; priorities?: TaskPriority[]; unread?: boolean }>
   > = {
     notApproved: { statuses: ["not_approved"] },
+    approved: { statuses: ["approved"] },
     done: { statuses: ["done", "approved"] },
     pending: { statuses: [...CANONICAL_PENDING_STATUSES] },
     critical: { priorities: ["imp_urgent"] },
@@ -333,13 +357,16 @@ export function TaskListPage({
             })}
           </div>
         </div>
-        {/* Action pair, side by side: [ ⋯ ] [ Kanban View ]. The ⋯ menu moved
-            up from the FilterBar so the two sit together, which also keeps the
-            filter ribbon to filters + search on its single line. */}
-        {/* Full screen sits with the view actions but OUTSIDE the admin gate —
+        {/* The ⋯ menu moved up from the FilterBar so the view actions sit
+            together, which also keeps the filter ribbon to filters + search on
+            its single line. Full screen stays OUTSIDE the admin gate —
             maximising the table is useful to everyone, not just admins. */}
+        {/* Order is [ ••• ] [ Kanban View ] [ Full screen ]: the two admin
+            controls first, then the one control everybody gets, so Full screen
+            is always the rightmost button whether or not the admin pair is
+            rendered. Putting it first meant a non-admin's single button sat
+            where an admin's overflow menu sits. */}
         <div className="flex items-center gap-2 shrink-0">
-          <FullscreenToggleButton />
           {me.isAdmin && (
             <>
               <TaskToolsMenu />
@@ -356,6 +383,7 @@ export function TaskListPage({
               </Link>
             </>
           )}
+          <FullscreenToggleButton />
         </div>
       </header>
 
