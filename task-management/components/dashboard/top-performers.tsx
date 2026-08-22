@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ChevronRight, Inbox, Trophy } from "lucide-react";
+import { ChevronRight, Crown, Inbox, Trophy } from "lucide-react";
 import type { TopPerformer } from "@/lib/types";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { useCountUp } from "@/lib/use-count-up";
@@ -10,21 +10,22 @@ import { CollapseToggle, CollapsibleBody, DASHBOARD_CARD_PADDED } from "./sectio
 import { PerformerTaskDrawer } from "./performer-task-drawer";
 
 /**
- * Top Performers — a full-width leaderboard: one uniform row per person, ranks
- * 1 through N sharing the same structure, width, and metrics.
+ * Top Performers — a two-column leaderboard: the podium (ranks 1-3) stacked
+ * down the left, the runners-up (4+) as a list down the right.
  *
  * MEDAL STYLING KEYS OFF THE TRUE GLOBAL RANK, never the row's position in this
  * (possibly search-filtered) list. Filter to one person sitting 7th and they
- * keep a neutral rank chip — a gold badge claiming #1 would be a lie the filter
- * told.
+ * keep a neutral chip — a gold badge claiming #1 would be a lie the filter
+ * told. This is also why the split is `slice(0, 3)` on the FILTERED list but
+ * every badge reads `performer.rank`: the columns describe position in what is
+ * shown, the badges describe position in the standings.
  *
- * Clicking anything opens the completed-task drawer for that person.
+ * Clicking any card or row opens that person's completed-task drawer.
  */
 
 /**
- * Podium treatment per TRUE rank — an inline pill badge and a matching avatar
- * ring, nothing more. Rank 4+ falls through to no badge at all, so the row
- * itself is identical either way.
+ * Podium treatment per TRUE rank — the medal pill, and the ring around the
+ * avatar. Rank 4+ falls through to no badge at all.
  */
 const PODIUM = {
   1: {
@@ -50,6 +51,19 @@ const PODIUM = {
 type PodiumRank = keyof typeof PODIUM;
 const podiumFor = (rank: number) =>
   (PODIUM as Record<number, (typeof PODIUM)[PodiumRank] | undefined>)[rank];
+
+/**
+ * ONE HOVER RECIPE, shared by the podium cards and the list rows so the two
+ * columns respond identically to the pointer.
+ *
+ * No `dark:` variant: this app has no dark theme and none is configured in
+ * globals.css, so `dark:hover:bg-slate-800/50` would darken the hover state
+ * for anyone whose OS is in dark mode while the card under it stayed white and
+ * its type stayed dark ink. Same reasoning as the note on DASHBOARD_CARD in
+ * section-chrome.tsx.
+ */
+const ROW_HOVER =
+  "cursor-pointer rounded-xl transition-colors hover:bg-slate-50 hover:border-slate-300";
 
 /**
  * Metric formatters that survive a STALE PAYLOAD.
@@ -109,6 +123,8 @@ export function TopPerformersSection({
     [performers, sectionQuery],
   );
 
+  const podium = visible.slice(0, 3);
+  const rest = visible.slice(3);
   // Bars are relative to the leaderboard's own leader, so the top row is always
   // a full bar and the rest read as a share of it.
   const maxDone = Math.max(...visible.map((p) => p.doneCount), 1);
@@ -120,9 +136,6 @@ export function TopPerformersSection({
          one long scroll, but it now mounts when its tab is clicked. */
       style={{ opacity: 0, animation: "fadeUp 400ms ease-out 100ms forwards" }}
     >
-      {/* Header left (icon · title · subtitle), collapse toggle right, mb-6 —
-          the shared DashboardSectionHeader default. The mb-3 override this
-          carried made its gap to the card narrower than every other section's. */}
       <DashboardSectionHeader
         icon={
           <span
@@ -145,24 +158,53 @@ export function TopPerformersSection({
 
       <CollapsibleBody expanded={open}>
         <div className={`w-full max-w-none ${DASHBOARD_CARD_PADDED}`}>
-          {/* One list, one row shape. Ranks 1-3 used to sit in oversized podium
-              cards above this list; they now share the same full-width row as
-              everyone else and are marked by a medal pill instead. */}
           {visible.length === 0 ? (
             <EmptyState />
           ) : (
-            <ol className="w-full">
-              {visible.map((p, i) => (
-                <LeaderRow
-                  key={p.employeeId}
-                  performer={p}
-                  stagger={i}
-                  maxDone={maxDone}
-                  avatarUrl={avatarById[p.employeeId] ?? null}
-                  onOpen={() => setDrill(p)}
-                />
-              ))}
-            </ol>
+            /* 5 / 7 in twelfths — the same grid vocabulary as Delivered on
+               Time, so the two sections' gutters line up down the page. The
+               podium takes the narrower half: three cards carry less content
+               per row than a list of six does. One column below `lg`, where
+               a side-by-side split would leave neither half legible. */
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+              {/* ── LEFT — the podium, stacked ──────────────────────────── */}
+              <div className="flex flex-col gap-3 lg:col-span-5">
+                {podium.map((p, i) => (
+                  <PodiumCard
+                    key={p.employeeId}
+                    performer={p}
+                    stagger={i}
+                    avatarUrl={avatarById[p.employeeId] ?? null}
+                    onOpen={() => setDrill(p)}
+                  />
+                ))}
+              </div>
+
+              {/* ── RIGHT — everyone else, as a list ────────────────────── */}
+              <div className="flex min-w-0 flex-col lg:col-span-7">
+                {rest.length === 0 ? (
+                  /* Reachable two ways: a roster of three or fewer, or a
+                     search that matched only podium names. Saying so beats an
+                     empty half-grid that reads as a failed render. */
+                  <p className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-200 p-6 text-center text-[12.5px] font-semibold text-slate-500">
+                    No one outside the top three
+                    {sectionQuery ? " matches this search." : " yet."}
+                  </p>
+                ) : (
+                  <ol className="w-full">
+                    {rest.map((p) => (
+                      <LeaderRow
+                        key={p.employeeId}
+                        performer={p}
+                        maxDone={maxDone}
+                        avatarUrl={avatarById[p.employeeId] ?? null}
+                        onOpen={() => setDrill(p)}
+                      />
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </CollapsibleBody>
@@ -177,26 +219,112 @@ export function TopPerformersSection({
   );
 }
 
-/* ── Leaderboard row — identical for every rank ─────────────────────────── */
+/* ── Podium card (ranks 1-3) ────────────────────────────────────────────── */
 
-function LeaderRow({
+function PodiumCard({
   performer,
   stagger,
-  maxDone,
   avatarUrl,
   onOpen,
 }: {
   performer: TopPerformer;
-  /** Position in the rendered list — only used to stagger the count-up. */
+  /** Position in the rendered column — only used to stagger the count-up. */
   stagger: number;
-  maxDone: number;
   avatarUrl?: string | null;
   onOpen: () => void;
 }) {
   const medal = podiumFor(performer.rank);
   const animated = useCountUp(performer.doneCount, 900 + stagger * 120);
   const onTime = onTimeParts(performer);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`View ${performer.employeeName}'s completed tasks — rank ${performer.rank}, ${performer.doneCount} completed`}
+      className={`group relative block w-full border border-slate-200 bg-white p-4 text-left ${ROW_HOVER}`}
+    >
+      {/* Crown marks the TRUE #1 only — not whoever happens to sit at the top
+          of a filtered column. */}
+      {performer.rank === 1 && (
+        <span aria-hidden className="absolute right-4 top-4 text-amber-400">
+          <Crown size={20} strokeWidth={2.4} fill="currentColor" />
+        </span>
+      )}
+
+      <span className="flex items-center gap-3">
+        <Avatar
+          name={performer.employeeName}
+          avatarUrl={avatarUrl}
+          size={44}
+          className={medal ? `ring-2 ring-offset-2 ${medal.ring}` : undefined}
+        />
+        <span className="min-w-0">
+          <span
+            className="block truncate text-[14px] font-bold text-slate-900"
+            title={performer.employeeName}
+          >
+            {performer.employeeName}
+          </span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            {medal && (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${medal.chip}`}
+              >
+                <span aria-hidden>{medal.medal}</span>
+                {medal.label}
+              </span>
+            )}
+            {performer.department && (
+              <span className="inline-block max-w-[16ch] truncate rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                {performer.department}
+              </span>
+            )}
+          </span>
+        </span>
+      </span>
+
+      {/* The card's numbers. Same three figures the list rows carry, so a
+          podium card and a row below it can be read against each other. */}
+      <span className="mt-3 flex items-baseline gap-2 border-t border-slate-100 pt-3">
+        <span className="text-2xl font-bold tracking-tight tabular-nums text-slate-900">
+          {animated.toLocaleString("en-IN")}
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          completed
+        </span>
+      </span>
+      <span className="mt-1 flex flex-wrap items-center gap-x-2 text-[12px] font-bold">
+        <span className="text-emerald-600">
+          {onTime.text} on time
+          {onTime.detail && (
+            <span className="ml-1 font-semibold text-slate-400">({onTime.detail})</span>
+          )}
+        </span>
+        <span aria-hidden className="text-slate-300">
+          ·
+        </span>
+        <span className="text-slate-500">{fmtDays(performer.avgTurnaroundDays)} avg</span>
+      </span>
+    </button>
+  );
+}
+
+/* ── Runner-up row (rank 4+) ────────────────────────────────────────────── */
+
+function LeaderRow({
+  performer,
+  maxDone,
+  avatarUrl,
+  onOpen,
+}: {
+  performer: TopPerformer;
+  maxDone: number;
+  avatarUrl?: string | null;
+  onOpen: () => void;
+}) {
   const pct = Math.round((performer.doneCount / maxDone) * 100);
+  const onTime = onTimeParts(performer);
 
   return (
     <li className="mb-3 last:mb-0">
@@ -204,19 +332,14 @@ function LeaderRow({
         type="button"
         onClick={onOpen}
         aria-label={`View ${performer.employeeName}'s completed tasks — rank ${performer.rank}, ${performer.doneCount} completed`}
-        className="group flex w-full cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm"
+        className={`group flex w-full items-center justify-between gap-4 border border-slate-200 bg-white p-4 text-left ${ROW_HOVER}`}
       >
-        {/* Left — rank · avatar · name · medal / department pills */}
+        {/* Left — rank · avatar · name · department */}
         <span className="flex min-w-0 items-center gap-3">
           <span className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold tabular-nums text-slate-700">
             {performer.rank}
           </span>
-          <Avatar
-            name={performer.employeeName}
-            avatarUrl={avatarUrl}
-            size={36}
-            className={medal ? `ring-2 ring-offset-2 ${medal.ring}` : undefined}
-          />
+          <Avatar name={performer.employeeName} avatarUrl={avatarUrl} size={32} />
           <span className="min-w-0">
             <span
               className="block truncate text-[13.5px] font-bold text-slate-900"
@@ -224,57 +347,32 @@ function LeaderRow({
             >
               {performer.employeeName}
             </span>
-            <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-              {medal && (
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${medal.chip}`}
-                >
-                  <span aria-hidden>{medal.medal}</span>
-                  {medal.label}
-                </span>
-              )}
-              {performer.department && (
-                <span className="inline-block max-w-[18ch] truncate rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                  {performer.department}
-                </span>
-              )}
-            </span>
+            {performer.department && (
+              <span className="mt-0.5 inline-block max-w-[16ch] truncate rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                {performer.department}
+              </span>
+            )}
           </span>
         </span>
 
-        {/* Centre — the same metric line and bar on every row. The bar drops on
-            small screens; the counts stay, since they are the row's point. */}
-        <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <span className="flex flex-wrap items-center gap-x-2 text-[12px] font-bold">
-            <span className="tabular-nums text-slate-700">
-              {animated.toLocaleString("en-IN")} Completed
-            </span>
-            <span aria-hidden className="text-slate-300">
-              ·
-            </span>
-            <span className="text-emerald-600">
-              {onTime.text} On Time
-              {onTime.detail && (
-                <span className="ml-1 font-semibold text-slate-400">({onTime.detail})</span>
-              )}
-            </span>
-            <span aria-hidden className="text-slate-300">
-              ·
-            </span>
-            <span className="text-slate-500">{fmtDays(performer.avgTurnaroundDays)} avg</span>
-          </span>
-          <span className="hidden h-1.5 w-full overflow-hidden rounded-full bg-slate-100 md:block">
+        {/* Centre — completion bar + on-time rate. Hidden on small screens,
+            where the name and the count are what matter. */}
+        <span className="hidden min-w-0 flex-1 items-center gap-3 md:flex">
+          <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
             <span
               className="block h-full rounded-full bg-slate-300 transition-all"
               style={{ width: `${pct}%` }}
             />
           </span>
+          <span className="w-24 shrink-0 text-right text-[12px] font-bold tabular-nums text-emerald-600">
+            {onTime.text === "N/A" ? "N/A" : `${onTime.text} on time`}
+          </span>
         </span>
 
-        {/* Right — SLA (on-time) percentage + chevron */}
+        {/* Right — completed count + the drill-down chevron */}
         <span className="flex shrink-0 items-center gap-2">
           <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-bold tabular-nums text-emerald-700">
-            {onTime.text}
+            {performer.doneCount.toLocaleString("en-IN")}
           </span>
           <ChevronRight
             size={16}
