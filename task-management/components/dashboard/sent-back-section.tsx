@@ -35,7 +35,7 @@ export function SentBackSection({
   undated,
   isAdmin,
   meId,
-  resolveAvatar,
+  avatarById,
 }: {
   total: number;
   byPerson: NotApprovedPersonRow[];
@@ -43,7 +43,25 @@ export function SentBackSection({
   undated: number;
   isAdmin: boolean;
   meId: string | null;
-  resolveAvatar: (id: string) => string | null;
+  /**
+   * A PLAIN OBJECT, not a lookup function.
+   *
+   * This prop used to be `resolveAvatar: (id) => string | null`, handed down
+   * from the dashboard page — an async SERVER component — to this one, which
+   * is `"use client"`. Functions cannot cross that boundary: React has to
+   * serialise every prop into the RSC payload and throws
+   * "Functions cannot be passed directly to Client Components" when it meets
+   * one. The throw happened while RENDERING, so the page's try/catch (which
+   * only wraps the data FETCH) never saw it and <WidgetBoundary> caught it
+   * instead — which is why this card, and only this card, showed
+   * "Unable to load sent-back work" while the query underneath was fine.
+   *
+   * Every sibling widget on the page — AgingHeatmap, StatusTable,
+   * TopPerformersSection — already takes the map itself. This one now matches
+   * them, which is also what stops the mistake being made again: there is no
+   * function left to pass.
+   */
+  avatarById: Record<string, string | null>;
 }) {
   const [open, setOpen] = React.useState(true);
 
@@ -63,7 +81,7 @@ export function SentBackSection({
           </span>
         }
         title="Sent-back work, by person and by how overdue"
-        subtitle="Tasks an Admin declined and returned. Left: who is carrying them · Right: aged against each task's effective due date."
+        subtitle="Tasks an Admin declined and returned. Left: who is carrying them · Right: aged against each task's effective due date (red = overdue)."
         actions={
           <CollapseToggle
             expanded={open}
@@ -81,7 +99,7 @@ export function SentBackSection({
             undated={undated}
             isAdmin={isAdmin}
             meId={meId}
-            resolveAvatar={resolveAvatar}
+            avatarById={avatarById}
           />
         </div>
       </CollapsibleBody>
@@ -141,7 +159,7 @@ function NotApprovedPanel({
   undated,
   isAdmin,
   meId,
-  resolveAvatar,
+  avatarById,
 }: {
   total: number;
   byPerson: NotApprovedPersonRow[];
@@ -149,10 +167,15 @@ function NotApprovedPanel({
   undated: number;
   isAdmin: boolean;
   meId: string | null;
-  resolveAvatar: (id: string) => string | null;
+  avatarById: Record<string, string | null>;
 }) {
+  // Defaulted at the point of USE, not just at the call site. `byPerson` and
+  // `buckets` arrive from a 60s-memoised payload that a previous deploy may
+  // have shaped differently, and `.filter` on an absent array throws during
+  // render — the failure mode this whole section just spent a bug on.
+  const rows = byPerson ?? [];
   // Privacy: admins see everyone; a non-admin sees only their own row.
-  const people = isAdmin ? byPerson : byPerson.filter((p) => p.employeeId === meId);
+  const people = isAdmin ? rows : rows.filter((p) => p.employeeId === meId);
 
   if (total === 0) {
     return (
@@ -166,7 +189,9 @@ function NotApprovedPanel({
     );
   }
 
-  const maxCount = Math.max(...people.map((p) => p.count), 1);
+  // Seeded with 1 so an all-zero list cannot divide by zero, and spread LAST
+  // so a long roster cannot blow the argument limit ahead of the seed.
+  const maxCount = Math.max(1, ...people.map((p) => p.count ?? 0));
 
   return (
     <div className="grid grid-cols-2 gap-6 max-lg:grid-cols-1">
@@ -201,7 +226,7 @@ function NotApprovedPanel({
                     title={`Open ${p.employeeName}'s overdue sent-back tasks`}
                     className="flex items-center gap-3 rounded-lg px-1 py-1 -mx-1 transition-colors hover:bg-slate-50"
                   >
-                  <Avatar name={p.employeeName} avatarUrl={resolveAvatar(p.employeeId)} size={32} />
+                  <Avatar name={p.employeeName} avatarUrl={avatarById[p.employeeId] ?? null} size={32} />
                   <span
                     className="w-[30%] shrink-0 truncate text-[13.5px] font-bold text-ink-strong"
                     title={p.employeeName}
@@ -241,7 +266,7 @@ function NotApprovedPanel({
         </p>
         <div className="mt-4 flex flex-1 flex-col">
           <FineBucketBars
-            buckets={buckets}
+            buckets={buckets ?? []}
             earlyLabel="not yet due"
             lateLabel="overdue"
             // Every task in THIS chart is sent-back work by construction — it is

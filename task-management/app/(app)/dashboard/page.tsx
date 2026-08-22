@@ -179,7 +179,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               </div>
             )}
             <div className={mobileToday ? "max-md:hidden" : undefined}>
-              <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
+              {/* `wmsSummaryByKpi` is optional-chained inside KpiStrip for the
+                  same reason `sentBack` is below: the Data Cache can serve a
+                  payload shaped by the PREVIOUS deploy for the length of its
+                  TTL. */}
+              <KpiStrip
+                kpis={data.kpis}
+                summary={data.wmsSummary}
+                summaryByKpi={data.wmsSummaryByKpi}
+              />
 
               {/* Section nav, directly beneath the KPI cards. Inside PageShell
                   so it lines up with the sections it points at. */}
@@ -250,7 +258,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     undated={data.sentBack?.undated ?? 0}
                     isAdmin={Boolean(me?.isAdmin)}
                     meId={me?.id ?? null}
-                    resolveAvatar={(id) => avatarById[id] ?? null}
+                    /* THE MAP, not a lookup function. A function cannot be
+                       serialised into the RSC payload, so passing one from this
+                       server component threw during render and the widget
+                       boundary showed "Unable to load sent-back work" — see the
+                       prop's own note in sent-back-section.tsx. Every other
+                       widget on this page already passes `avatarById` itself. */
+                    avatarById={avatarById}
                   />
                     </WidgetBoundary>
                   </div>
@@ -279,7 +293,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   {/* 3b — The 12-bucket delivery spread, immediately after the
                       on-time overview it elaborates. Moved here from the Task
                       Analytics report; the card itself is unchanged. */}
-                  <div id="delivery-vs-due" className="scroll-mt-20">
+                  {/* `delivery-vs-due-date`, matching the pill in
+                      section-nav.tsx. The id was `delivery-vs-due` and the two
+                      were kept in sync by hand; they now read the same string,
+                      which is the only thing stopping a silent dead pill. */}
+                  <div id="delivery-vs-due-date" className="scroll-mt-20">
                     <WidgetBoundary label="the delivery spread">
                     {/* Same reasoning as sentBack above — render nothing
                         rather than throw if a pre-deploy payload lacks it. */}
@@ -315,10 +333,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     </WidgetBoundary>
                   </div>
 
-                  <TopPerformersSection
-                    performers={data.topPerformers}
-                    avatarById={avatarById}
-                  />
+                  {/* 5 — Top Performers. The only section with no anchor of
+                      its own, so its nav pill had nowhere to point and the bar
+                      dropped it at mount (see DASHBOARD_SECTIONS). */}
+                  <div id="top-performers" className="scroll-mt-20">
+                    <TopPerformersSection
+                      performers={data.topPerformers}
+                      avatarById={avatarById}
+                    />
+                  </div>
                 </div>
               </ExecDashboard>
             </div>
