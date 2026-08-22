@@ -3,7 +3,7 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { Users } from "lucide-react";
+import { Users, ArrowLeftRight } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useReducedMotion } from "@/lib/motion-utils";
 import {
@@ -64,6 +64,89 @@ const SPREAD_COLS: {
   { key: "d2_3", label: "2–3" },
 ];
 
+/**
+ * THE COLUMN SCHEMA — label, alignment, and the value each column sorts on,
+ * in one list.
+ *
+ * SPREAD_COLS above is spread INTO this rather than duplicated: the header, the
+ * desktop cells and the sort comparator all have to agree about which bracket
+ * is which, and the comment on SPREAD_COLS already records what happened last
+ * time two of those were maintained separately (numbers under the wrong
+ * heading). A second hand-written list of the same four keys would be the same
+ * bug waiting to happen, one file older.
+ */
+type SortKey = "person" | "rate" | keyof PunctualityPerson["lateSpread"] | "late";
+type SortDir = "desc" | "asc";
+type SortState = { key: SortKey; dir: SortDir } | null;
+
+const SORT_COLS: {
+  key: SortKey;
+  label: string;
+  center: boolean;
+  /** What this column orders by. Strings compare by locale, numbers by value. */
+  value: (p: PunctualityPerson) => number | string;
+}[] = [
+  { key: "person", label: "Person", center: false, value: (p) => p.employeeName.toLowerCase() },
+  { key: "rate", label: "On-time rate", center: false, value: (p) => p.rate },
+  ...SPREAD_COLS.map((c) => ({
+    key: c.key as SortKey,
+    label: c.label,
+    center: true,
+    value: (p: PunctualityPerson) => p.lateSpread[c.key],
+  })),
+  { key: "late", label: "Late", center: true, value: (p: PunctualityPerson) => p.late },
+];
+
+/**
+ * One header cell: label, sort arrow, and the three-step cycle.
+ *
+ * DESC FIRST on every column, including Person. On a count column that is
+ * plainly right — the reader is asking "who has the most" — and making the name
+ * column cycle A-Z first purely because it is text would mean two columns
+ * behaving differently under the same click. The arrow says which way it went.
+ *
+ * The arrow only occupies space when the column is active or hovered, so a row
+ * of seven headings is not a row of seven arrows competing with the labels.
+ */
+function SortHeader({
+  col,
+  sort,
+  onSort,
+}: {
+  col: (typeof SORT_COLS)[number];
+  sort: SortState;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sort?.key === col.key;
+  const dir = active ? sort!.dir : null;
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(col.key)}
+      aria-label={
+        active
+          ? `${col.label}, sorted ${dir === "asc" ? "ascending" : "descending"}. Activate to ${
+              dir === "asc" ? "clear the sort" : "sort ascending"
+            }.`
+          : `Sort by ${col.label}, descending`
+      }
+      className={`group inline-flex cursor-pointer items-center gap-1 transition-colors ${
+        col.center ? "w-full justify-center" : ""
+      } ${active ? "font-bold text-slate-900" : "hover:text-slate-700"}`}
+    >
+      {col.label}
+      <span
+        aria-hidden
+        className={`text-[8px] leading-none transition-opacity ${
+          active ? "opacity-100" : "opacity-0 group-hover:opacity-40"
+        }`}
+      >
+        {dir === "asc" ? "▲" : "▼"}
+      </span>
+    </button>
+  );
+}
+
 export interface PerformanceByPersonTableProps {
   people: PunctualityPerson[];
   isAdmin: boolean;
@@ -78,6 +161,18 @@ export function PerformanceByPersonTable({
   resolveAvatar,
 }: PerformanceByPersonTableProps) {
   const reduce = useReducedMotion() ?? false;
+  // null = the default burden rank. Third click on a column returns here.
+  const [sort, setSort] = React.useState<SortState>(null);
+  // Orientation. A rendering choice over rows already in hand — never refetches.
+  const [isTransposed, setIsTransposed] = React.useState(false);
+
+  const cycleSort = React.useCallback((key: SortKey) => {
+    setSort((cur) => {
+      if (!cur || cur.key !== key) return { key, dir: "desc" };
+      if (cur.dir === "desc") return { key, dir: "asc" };
+      return null;
+    });
+  }, []);
 
   // Privacy: admins all rows; non-admin only their own (null → none).
   const scoped = isAdmin ? people : people.filter((p) => p.employeeId === meId);
@@ -85,13 +180,27 @@ export function PerformanceByPersonTable({
   // so the count of late deliveries leads, not raw throughput. Ties break on the
   // worse on-time rate, then on volume, so of two people with 4 late each the
   // one who is late a larger share of the time surfaces first.
-  const rows = React.useMemo(
-    () =>
-      [...scoped].sort(
-        (a, b) => b.late - a.late || a.rate - b.rate || b.done - a.done,
-      ),
-    [scoped],
-  );
+  const rows = React.useMemo(() => {
+    const base = [...scoped].sort(
+      (a, b) => b.late - a.late || a.rate - b.rate || b.done - a.done,
+    );
+    if (!sort) return base;
+    const col = SORT_COLS.find((c) => c.key === sort.key);
+    if (!col) return base;
+    const dir = sort.dir === "desc" ? -1 : 1;
+    // Sorting the ALREADY burden-ranked array, and Array.prototype.sort is
+    // stable — so ties inside a chosen column keep the default ordering
+    // underneath instead of landing in whatever order the input happened to be.
+    return base.sort((a, b) => {
+      const av = col.value(a);
+      const bv = col.value(b);
+      const cmp =
+        typeof av === "string" && typeof bv === "string"
+          ? av.localeCompare(bv)
+          : (av as number) - (bv as number);
+      return cmp * dir;
+    });
+  }, [scoped, sort]);
 
   // PAGED, 8 to a page, with the pager in the section header.
   //
@@ -102,6 +211,14 @@ export function PerformanceByPersonTable({
   // beside the fold button, and the card is exactly as tall as one page.
   const paged = usePagedRows(rows, PAGE);
   const visible = paged.visible;
+
+  // Re-sorting reshuffles who is on which page, so staying on page 3 would show
+  // an arbitrary slice of the new order. usePagedRows only CLAMPS (for a list
+  // that shrank); it has no reason to reset, so the reset belongs here.
+  const setPage = paged.setPage;
+  React.useEffect(() => {
+    setPage(1);
+  }, [sort, setPage]);
 
   // Header ABOVE the card — see components/dashboard/section-header.tsx. The
   // pager rides along in the actions slot because its page state lives here,
@@ -142,6 +259,20 @@ export function PerformanceByPersonTable({
             pageSize={PAGE}
             label="Overdue tasks by person"
           />
+          {rows.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsTransposed((v) => !v)}
+              aria-pressed={isTransposed}
+              title={isTransposed ? "Back to people as rows" : "Transpose: metrics as rows"}
+              className={`inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold shadow-2xs transition-colors hover:bg-slate-50 ${
+                isTransposed ? "text-altus-red" : "text-slate-700"
+              }`}
+            >
+              <ArrowLeftRight className="size-3.5" strokeWidth={2.6} aria-hidden />
+              Transpose
+            </button>
+          )}
         </>
       }
     >
@@ -163,20 +294,23 @@ export function PerformanceByPersonTable({
           </p>
         ) : (
           <>
+            {/* ── Transposed: metrics down, people across ── */}
+            {isTransposed && (
+              <TransposedPerformance
+                people={visible}
+                resolveAvatar={resolveAvatar}
+              />
+            )}
+
             {/* ── Desktop table ── */}
-            <div className="max-md:hidden">
+            <div className={isTransposed ? "hidden" : "max-md:hidden"}>
               <div
                 className="grid items-center gap-3 px-3 pb-2.5 text-[12px] font-black uppercase tracking-[0.08em] text-ink-subtle"
                 style={{ gridTemplateColumns: COLS }}
               >
-                <span>Person</span>
-                <span>On-time rate</span>
-                {SPREAD_COLS.map((c) => (
-                  <span key={c.key} className="text-center">
-                    {c.label}
-                  </span>
+                {SORT_COLS.map((c) => (
+                  <SortHeader key={c.key} col={c} sort={sort} onSort={cycleSort} />
                 ))}
-                <span className="text-center">Late</span>
               </div>
               {/* 520px, not unbounded: the whole roster is reachable by
                   scrolling without the card growing down the page. */}
@@ -200,7 +334,7 @@ export function PerformanceByPersonTable({
             </div>
 
             {/* ── Mobile cards ── */}
-            <ul className="flex flex-col gap-4 md:hidden">
+            <ul className={`flex flex-col gap-4 ${isTransposed ? "hidden" : "md:hidden"}`}>
               <AnimatePresence initial={false}>
                 {visible.map((p, i) => (
                   <PersonCard
@@ -219,6 +353,113 @@ export function PerformanceByPersonTable({
       </div>
     </section>
     </CollapsibleSection>
+  );
+}
+
+/**
+ * TRANSPOSED — metrics down the side, people across the top.
+ *
+ * Reads the SAME people the standard view is showing (the current page), so
+ * the pager still governs how many columns appear and the two orientations can
+ * never disagree about a number.
+ *
+ * The metric column is frozen with `sticky left-0`: with a column per person
+ * the grid scrolls sideways, and a row label that scrolls out of view leaves a
+ * line of bare numbers meaning nothing. `kanban-scroll` is the project's
+ * existing thin-scrollbar class (globals.css) — reused rather than inventing a
+ * second one. The scroll box sits INSIDE the card's padding with its own
+ * radius, so a sideways scroll never runs under the card's border.
+ */
+function TransposedPerformance({
+  people,
+  resolveAvatar,
+}: {
+  people: PunctualityPerson[];
+  resolveAvatar: (employeeId: string) => string | null;
+}) {
+  const metrics: {
+    key: string;
+    label: string;
+    render: (p: PunctualityPerson) => React.ReactNode;
+  }[] = [
+    {
+      key: "rate",
+      label: "On-Time Rate",
+      render: (p) => (
+        <span
+          className="text-[15px] font-black tabular-nums"
+          style={{ color: rateColor(p.rate) }}
+        >
+          {p.rate}%
+        </span>
+      ),
+    },
+    ...SPREAD_COLS.map((c) => ({
+      key: c.key,
+      label: `${c.label} Days`,
+      render: (p: PunctualityPerson) => <SpreadCell value={p.lateSpread[c.key]} />,
+    })),
+    {
+      key: "late",
+      label: "Total Late",
+      render: (p: PunctualityPerson) => (
+        <span
+          className="text-[15px] font-black tabular-nums"
+          style={{ color: p.late > 0 ? RED : "var(--color-ink-subtle)" }}
+        >
+          {p.late}
+        </span>
+      ),
+    },
+  ];
+
+  const stickyCell =
+    "sticky left-0 z-10 bg-white px-3 py-2.5 text-left text-[12.5px] font-bold text-ink-strong";
+
+  return (
+    <div className="kanban-scroll overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-full border-collapse">
+        <thead>
+          <tr className="border-b border-hairline">
+            <th
+              className={`${stickyCell} z-20 text-[11px] uppercase tracking-[0.08em] text-ink-subtle`}
+              style={{ background: "#f9fafb" }}
+            >
+              Metric
+            </th>
+            {people.map((p) => (
+              <th key={p.employeeId} className="px-3 py-2.5" style={{ background: "#f9fafb" }}>
+                <span className="inline-flex flex-col items-center gap-1">
+                  <Avatar
+                    name={p.employeeName}
+                    avatarUrl={resolveAvatar(p.employeeId)}
+                    size={26}
+                  />
+                  <span
+                    className="max-w-[14ch] truncate text-[11.5px] font-bold text-ink-strong"
+                    title={p.employeeName}
+                  >
+                    {p.employeeName}
+                  </span>
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.map((m) => (
+            <tr key={m.key} className="border-b border-hairline last:border-b-0">
+              <td className={stickyCell}>{m.label}</td>
+              {people.map((p) => (
+                <td key={p.employeeId} className="px-3 py-2.5 text-center">
+                  {m.render(p)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
