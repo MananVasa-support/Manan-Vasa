@@ -4,34 +4,29 @@ import { USER_TASK_STATUSES, type TaskStatus } from "@/db/enums";
 export const ARCHIVE_COL = "__archived__" as const;
 
 /**
- * TWO-STAGE APPROVAL (mig 0185). Sir wanted "Manager Approved" and "Admin
- * Approved" as separate Kanban categories. They are SYNTHETIC columns derived
- * from `tasks.approval_level` — the same trick ARCHIVE_COL already uses to render
- * a column backed by a boolean rather than a status.
+ * THE TWO SYNTHETIC APPROVED COLUMNS ARE GONE (they were `manager_approved` /
+ * `admin_approved`, derived from `tasks.approval_level`, mig 0185).
  *
- * Doing it this way (instead of adding two task_status values) is what keeps the
- * ~40 existing consumers of `status = 'approved'` working untouched.
+ * They never worked on the board. The renderer buckets cards with
+ * `t.status === col`, and no task ever has a status of "manager_approved" or
+ * "admin_approved" — the status is plain `approved`, with the stage held in a
+ * separate column. So the board rendered two permanently-empty containers with
+ * blank headers (there is no `labels[]` entry for a non-status id either), and
+ * every approved task fell through the cracks and appeared in NO column at all.
+ *
+ * The board is back to the one real `approved` status column. The two-stage
+ * approval data (`approval_level`, `lib/tasks/approval-permissions.ts`) is
+ * untouched — it just isn't a column split any more.
  */
-export const MANAGER_APPROVED_COL = "manager_approved" as const;
-export const ADMIN_APPROVED_COL = "admin_approved" as const;
 
-export type ColId =
-  | TaskStatus
-  | typeof ARCHIVE_COL
-  | typeof MANAGER_APPROVED_COL
-  | typeof ADMIN_APPROVED_COL;
+export type ColId = TaskStatus | typeof ARCHIVE_COL;
 
-/** Which column a task belongs in — approval level wins over the bare status. */
+/** Which column a task belongs in — Archived wins over the bare status. */
 export function boardColumnFor(t: {
   status: TaskStatus;
   archived?: boolean;
-  approvalLevel?: "none" | "manager" | "admin" | null;
 }): ColId {
-  if (t.archived) return ARCHIVE_COL;
-  if (t.status === "approved") {
-    return t.approvalLevel === "admin" ? ADMIN_APPROVED_COL : MANAGER_APPROVED_COL;
-  }
-  return t.status;
+  return t.archived ? ARCHIVE_COL : t.status;
 }
 
 // Default admin board order (sir's changes #7): the working lane, then the
@@ -46,10 +41,9 @@ export const DEFAULT_ADMIN_COLUMN_ORDER: ColId[] = [
   "need_info",
   "done",
   "not_approved",
-  // The single "approved" column is replaced by the two stages, in the order
-  // work actually flows: a manager accepts it, then Manan gives final sign-off.
-  MANAGER_APPROVED_COL,
-  ADMIN_APPROVED_COL,
+  // Approved sits with the other terminal verdict, straight after Done /
+  // Not Approved and before Archived.
+  "approved",
   ARCHIVE_COL,
   "on_hold",
 ];
@@ -59,14 +53,13 @@ export const DEFAULT_ADMIN_COLUMN_ORDER: ColId[] = [
 //
 // NOT APPROVED was missing here. `USER_TASK_STATUSES` is the DOER's operational
 // lifecycle and deliberately stops at `done`, so a non-admin board showed the
-// two approved stages but no Not Approved column — sent-back work simply
-// vanished from the board for the person who has to redo it. It is appended
-// explicitly, in the same place the admin order puts it: straight after Done.
+// approved column but no Not Approved column — sent-back work simply vanished
+// from the board for the person who has to redo it. It is appended explicitly,
+// in the same place the admin order puts it: straight after Done.
 export const USER_COLUMN_ORDER: ColId[] = [
   ...USER_TASK_STATUSES,
   "not_approved",
-  MANAGER_APPROVED_COL,
-  ADMIN_APPROVED_COL,
+  "approved",
   ARCHIVE_COL,
 ];
 
@@ -79,9 +72,15 @@ export function isValidColumnId(id: string): id is ColId {
 
 /**
  * Resolve the effective admin column order from a stored order that may be
- * null, stale, or partial. Drops unknown/deprecated ids, de-dupes, and
- * appends any live columns the stored order didn't mention — so a status
- * added after the order was saved never silently disappears.
+ * null, stale, or partial. Drops unknown/deprecated ids, de-dupes, and splices
+ * in any live column the stored order didn't mention — so a status added (or
+ * restored) after the order was saved never silently disappears.
+ *
+ * MISSING COLUMNS ARE SPLICED AT THEIR DEFAULT POSITION, NOT APPENDED. Every
+ * board that was saved while the two synthetic approved columns existed has a
+ * stored order that names them and NOT `approved`; appending would have parked
+ * Approved past On Hold, at the far right of the board, instead of after Not
+ * Approved where the workflow puts it.
  */
 export function resolveAdminColumnOrder(
   stored: string[] | null | undefined,
@@ -95,8 +94,21 @@ export function resolveAdminColumnOrder(
       seen.add(id);
     }
   }
-  for (const id of DEFAULT_ADMIN_COLUMN_ORDER) {
-    if (!seen.has(id)) ordered.push(id);
-  }
+  // Walk the default order and drop each unmentioned column in after the last
+  // default-neighbour that IS present (front of the board if it has none yet).
+  DEFAULT_ADMIN_COLUMN_ORDER.forEach((id, i) => {
+    if (seen.has(id)) return;
+    let at = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      const before = DEFAULT_ADMIN_COLUMN_ORDER[j];
+      const idx = before === undefined ? -1 : ordered.indexOf(before);
+      if (idx !== -1) {
+        at = idx + 1;
+        break;
+      }
+    }
+    ordered.splice(at, 0, id);
+    seen.add(id);
+  });
   return ordered;
 }

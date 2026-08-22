@@ -126,8 +126,8 @@ export function canAdminSendBack(actor: ApprovalActor, task: ApprovalTask): bool
   );
 }
 
-/** The Kanban column a task belongs in, given its level. */
-export function approvalColumnOf(task: { status: string; approvalLevel: ApprovalLevel }): string | null {
-  if (task.status !== "approved") return null;
-  return task.approvalLevel === "admin" ? "admin_approved" : "manager_approved";
-}
+/* `approvalColumnOf()` used to live here, mapping an approval level onto the
+   synthetic `manager_approved` / `admin_approved` Kanban columns. Nothing ever
+   called it, and those columns are gone — the board has one `approved` column
+   again (see lib/kanban-columns.ts). The approval LEVEL itself is unaffected;
+   it is still what the functions above rule on. */

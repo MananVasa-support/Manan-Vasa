@@ -49,12 +49,7 @@ import {
   type TaskPriority,
   type StatusColorToken,
 } from "@/db/enums";
-import {
-  ARCHIVE_COL,
-  MANAGER_APPROVED_COL,
-  ADMIN_APPROVED_COL,
-  type ColId,
-} from "@/lib/kanban-columns";
+import { ARCHIVE_COL, type ColId } from "@/lib/kanban-columns";
 import { NoResults } from "./task-table";
 import {
   useSectionSearch,
@@ -93,15 +88,9 @@ interface Props {
   columnOrder: ColId[];
 }
 
-/** Columns whose entry is an approval decision rather than a status change.
- *  Both approved stages are synthetic column ids, so this checks strings. */
+/** Columns whose entry is an approval decision rather than a status change. */
 function isApprovalTarget(col: string): boolean {
-  return (
-    col === "not_approved" ||
-    col === "approved" ||
-    col === MANAGER_APPROVED_COL ||
-    col === ADMIN_APPROVED_COL
-  );
+  return col === "not_approved" || col === "approved";
 }
 
 // Cards rendered per column before "Show more"; each tap reveals 10 more.
@@ -803,7 +792,10 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
         <div>
           <div
             ref={boardRef}
-            className="kanban-scroll flex items-stretch gap-4 overflow-x-auto overflow-y-hidden pb-3 max-sm:snap-x max-sm:snap-mandatory"
+            /* One horizontal scroller for all ten columns. Fixed-width columns
+               (below) rather than flex-grown ones is what keeps the last column
+               a real card instead of a stretched remainder. */
+            className="kanban-scroll flex flex-row items-stretch gap-4 overflow-x-auto overflow-y-hidden p-4 max-sm:snap-x max-sm:snap-mandatory"
             style={{ height: "calc(100dvh - 208px)", minHeight: 460, scrollBehavior: "auto" }}
           >
             <SortableContext items={columns} strategy={horizontalListSortingStrategy}>
@@ -981,7 +973,10 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className="relative flex flex-col overflow-hidden flex-[1_0_320px] max-w-[460px] max-sm:flex-[0_0_85vw] max-sm:max-w-none max-sm:snap-center rounded-section p-3.5 transition-colors"
+      /* Every column is the SAME width at every breakpoint: no flex-grow, so a
+         board with few columns can't stretch them across the viewport and one
+         with ten can't squeeze them unevenly. */
+      className="relative flex flex-col overflow-hidden w-[320px] min-w-[300px] max-w-[340px] shrink-0 max-sm:snap-center rounded-section p-3.5 transition-colors"
       style={{
         transform: CSS.Translate.toString(transform),
         transition,
