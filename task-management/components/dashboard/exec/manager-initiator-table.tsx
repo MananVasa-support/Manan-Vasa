@@ -6,6 +6,7 @@ import { ChevronDown, ArrowUpRight } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { InitiatorScorecard } from "@/lib/types";
 import type { DelegationChannel } from "@/lib/transforms/initiator-scorecard";
+import { DASHBOARD_CARD_PADDED } from "@/components/dashboard/section-chrome";
 
 /* ────────────────────────────────────────────────────────────────────────
    ManagerInitiatorTable — the same initiation scorecards as
@@ -152,7 +153,7 @@ export function ManagerInitiatorTable({
        incapable of exceeding its container and a scroll axis would only ever
        park an inert scrollbar under the rows. Clipping is the backstop, not the
        layout — nothing should reach it. */
-    <div className="wms-card w-full overflow-hidden bg-white border border-slate-200/80 rounded-2xl shadow-xs p-6 md:p-8 hover:shadow-sm">
+    <div className={`w-full overflow-hidden ${DASHBOARD_CARD_PADDED}`}>
       <table className="w-full table-fixed border-collapse">
         {/* `table-fixed` + colgroup: without fixed layout the browser sizes
             columns from content, which is what let a long manager name push

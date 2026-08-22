@@ -22,7 +22,12 @@ import {
   DEFAULT_ACTIVITY_PERIOD,
 } from "@/lib/dashboard/manager-activity-contract";
 import { ActivityCellPopover, activityHref } from "./activity-cell-popover";
-import { CollapseToggle, CollapsibleBody, DASHBOARD_CARD } from "../section-chrome";
+import {
+  CollapseToggle,
+  CollapsibleBody,
+  DASHBOARD_CARD_PADDED,
+} from "../section-chrome";
+import { DashboardSectionHeader } from "../section-header";
 
 /* ────────────────────────────────────────────────────────────────────────
    ManagerActivityTable — one row per manager across the three activity
@@ -686,29 +691,23 @@ export function ManagerActivityTable({
     </>
   );
 
+  /* THE SHARED HEADER. This was the last dashboard section still hand-rolling
+     its masthead: a 20px display <h3> on `mb-3`, against the 2xl title and
+     `mb-6` every other section gets from DashboardSectionHeader. Side by side
+     with the scorecard directly above it, two headings that should have read
+     as peers were visibly different sizes. `controls` (period select, custom
+     range, Expand all, and the fold toggle) drops straight into the actions
+     slot, which is right-aligned and keeps the minimize button last. */
   const header = (
-    <div className="mb-3 flex items-start justify-between gap-3 max-md:flex-col">
-      <div className="min-w-0">
-        {/* No category overline. Removed across every dashboard section — see
-            the note in section-header.tsx. `mt-0.5` goes with it, or the title
-            keeps the offset that existed to clear the tag. */}
-        <h3
-          className="text-[20px] font-black leading-tight"
-          style={{
-            color: "var(--color-ink-strong)",
-            fontFamily: "var(--font-display), system-ui, sans-serif",
-          }}
-        >
-          Who is delegating, and how much
-        </h3>
-        <p className="mt-0.5 text-[12.5px] font-semibold text-ink-subtle">
-          {targets
-            ? `Targets for this window: ${targets.goals} goals · ${targets.tasks} tasks · ${targets.commitments} commitments (${targets.workingDays} working of ${targets.calendarDays} days)`
-            : "Targets scale with the selected period"}
-        </p>
-      </div>
-      {controls}
-    </div>
+    <DashboardSectionHeader
+      title="Who is delegating, and how much"
+      subtitle={
+        targets
+          ? `Targets for this window: ${targets.goals} goals · ${targets.tasks} tasks · ${targets.commitments} commitments (${targets.workingDays} working of ${targets.calendarDays} days)`
+          : "Targets scale with the selected period"
+      }
+      actions={controls}
+    />
   );
 
   /* The HEADER stays put and the card's BODY folds — the same shape every other
@@ -720,9 +719,7 @@ export function ManagerActivityTable({
   return (
     <section className="relative min-w-0" aria-label="Manager activity board">
       {header}
-      <div
-        className={`wms-card w-full max-w-none overflow-hidden ${DASHBOARD_CARD} p-6 md:p-8`}
-      >
+      <div className={`w-full max-w-none overflow-hidden ${DASHBOARD_CARD_PADDED}`}>
         {/* CARD OUTSIDE, body inside — the nesting matters. Collapsed, this
             leaves the card shell as a thin empty bar under the header rather
             than removing it outright, which is how Status Distribution folds

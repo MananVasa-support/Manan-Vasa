@@ -6,7 +6,7 @@ import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { useCountUp } from "@/lib/use-count-up";
 import { Avatar } from "@/components/ui/avatar";
 import { DashboardSectionHeader } from "./section-header";
-import { CollapseToggle, CollapsibleBody } from "./section-chrome";
+import { CollapseToggle, CollapsibleBody, DASHBOARD_CARD_PADDED } from "./section-chrome";
 import { PerformerTaskDrawer } from "./performer-task-drawer";
 
 /**
@@ -120,8 +120,10 @@ export function TopPerformersSection({
          one long scroll, but it now mounts when its tab is clicked. */
       style={{ opacity: 0, animation: "fadeUp 400ms ease-out 100ms forwards" }}
     >
+      {/* Header left (icon · title · subtitle), collapse toggle right, mb-6 —
+          the shared DashboardSectionHeader default. The mb-3 override this
+          carried made its gap to the card narrower than every other section's. */}
       <DashboardSectionHeader
-        className="mb-3"
         icon={
           <span
             aria-hidden
@@ -142,7 +144,7 @@ export function TopPerformersSection({
       />
 
       <CollapsibleBody expanded={open}>
-        <div className="wms-card w-full max-w-none rounded-2xl bg-white p-6 shadow-xs hover:shadow-sm max-md:p-4">
+        <div className={`w-full max-w-none ${DASHBOARD_CARD_PADDED}`}>
           {/* One list, one row shape. Ranks 1-3 used to sit in oversized podium
               cards above this list; they now share the same full-width row as
               everyone else and are marked by a medal pill instead. */}

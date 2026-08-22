@@ -10,8 +10,12 @@ import {
   SectionPagination,
   usePagedRows,
   CollapsibleSection,
+  DASHBOARD_CARD_PADDED,
 } from "@/components/dashboard/section-chrome";
 import type { PunctualityPerson } from "@/lib/types";
+
+/** People per page. 8 keeps the card about as tall as the heatmap beside it. */
+const PAGE = 8;
 
 /* ────────────────────────────────────────────────────────────────────────
    PerformanceByPersonTable — V2 executive per-person delivery table.
@@ -89,11 +93,15 @@ export function PerformanceByPersonTable({
     [scoped],
   );
 
-  // EVERY person renders. This paged 8 at a time, so on a big roster most of
-  // the team was simply not on the card — and the reason the pager existed
-  // (a "Show all" expander grew the card without bound) is solved better by a
-  // capped-height scroller: all rows present, card height fixed.
-  const visible = rows;
+  // PAGED, 8 to a page, with the pager in the section header.
+  //
+  // This had been switched to "render every row inside a 520px scroller", which
+  // left `SectionPagination` and `usePagedRows` imported and unused — and put
+  // the roster behind an inner scrollbar nested inside the page's own. The
+  // pager is the control the header slot was built for: it reads "1–8 of 14"
+  // beside the fold button, and the card is exactly as tall as one page.
+  const paged = usePagedRows(rows, PAGE);
+  const visible = paged.visible;
 
   // Header ABOVE the card — see components/dashboard/section-header.tsx. The
   // pager rides along in the actions slot because its page state lives here,
@@ -114,31 +122,40 @@ export function PerformanceByPersonTable({
       }
       title="Overdue Tasks by Person"
       subtitle="On-time rate & late spread · heaviest overdue burden first"
+      /* Pager LEFT of the fold control — CollapsibleSection always appends the
+         collapse toggle after whatever a section passes here, so the minimize
+         button stays the rightmost thing on every section of the dashboard.
+         The people-count readout stays for the single-page case, where
+         SectionPagination renders nothing at all. */
       actions={
-        <span className="text-[12px] font-semibold text-ink-subtle">
-          {rows.length} {rows.length === 1 ? "person" : "people"}
-        </span>
+        <>
+          {paged.pageCount <= 1 && (
+            <span className="text-[12px] font-semibold text-ink-subtle">
+              {rows.length} {rows.length === 1 ? "person" : "people"}
+            </span>
+          )}
+          <SectionPagination
+            page={paged.page}
+            pageCount={paged.pageCount}
+            onPage={paged.setPage}
+            total={paged.total}
+            pageSize={PAGE}
+            label="Overdue tasks by person"
+          />
+        </>
       }
     >
+    {/* THE SHARED CARD. This was the dashboard's one remaining bespoke shell:
+        a 155deg gradient ground, a red-tinted 54px drop shadow, an 8px backdrop
+        blur and two aurora spans, on `rounded-section p-7`. Stacked between the
+        flat white cards above and below it, it read as a different surface
+        rather than a peer — which is the whole reason the section stack looked
+        uneven. The aurora spans and the two --kpi-tone vars that fed them go
+        with it; nothing else referenced them. */}
     <section
-      className="wg-rise relative overflow-hidden rounded-section p-7 max-md:p-5"
+      className={`wg-rise relative overflow-hidden ${DASHBOARD_CARD_PADDED}`}
       aria-label="Overdue tasks by person"
-      style={{
-        background:
-          "linear-gradient(155deg, color-mix(in srgb, #ffffff 86%, transparent) 0%, color-mix(in srgb, var(--color-surface-card) 92%, transparent) 100%)",
-        border: "1px solid var(--color-hairline-strong)",
-        boxShadow:
-          "0 1px 2px rgba(15,23,42,0.05), 0 22px 54px -30px rgba(225,6,0,0.18), inset 0 1px 0 rgba(255,255,255,0.6)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        ["--kpi-tone" as string]: "color-mix(in srgb, var(--color-green) 60%, transparent)",
-        ["--kpi-tone-deep" as string]:
-          "color-mix(in srgb, var(--color-altus-red) 45%, transparent)",
-      }}
     >
-      <span aria-hidden className="kpi-aurora-primary" />
-      <span aria-hidden className="kpi-aurora-secondary" />
-
       <div className="relative">
         {rows.length === 0 ? (
           <p className="text-[13.5px] font-semibold text-ink-subtle">
@@ -163,7 +180,11 @@ export function PerformanceByPersonTable({
               </div>
               {/* 520px, not unbounded: the whole roster is reachable by
                   scrolling without the card growing down the page. */}
-              <ul className="flex max-h-[520px] flex-col gap-1.5 overflow-y-auto">
+              {/* space-y-4 rhythm, matching the other card interiors. No
+                  max-height and no inner scroller: the page size bounds the
+                  card now, so the rows scroll with the page like everything
+                  else instead of trapping a second scrollbar inside a card. */}
+              <ul className="flex flex-col gap-4">
                 <AnimatePresence initial={false}>
                   {visible.map((p, i) => (
                     <PersonTableRow
@@ -179,7 +200,7 @@ export function PerformanceByPersonTable({
             </div>
 
             {/* ── Mobile cards ── */}
-            <ul className="flex max-h-[520px] flex-col gap-2.5 overflow-y-auto md:hidden">
+            <ul className="flex flex-col gap-4 md:hidden">
               <AnimatePresence initial={false}>
                 {visible.map((p, i) => (
                   <PersonCard

@@ -5,7 +5,11 @@ import { CalendarCheck } from "lucide-react";
 import type { DoneOnTime } from "@/lib/types";
 import { Gauge } from "./viz/gauge";
 import { DashboardSectionHeader } from "@/components/dashboard/section-header";
-import { CollapseToggle, CollapsibleBody } from "@/components/dashboard/section-chrome";
+import {
+  CollapseToggle,
+  CollapsibleBody,
+  DASHBOARD_CARD_PADDED,
+} from "@/components/dashboard/section-chrome";
 import { PunctualityTaskList } from "./punctuality-task-list";
 import type { PunctualityBucket } from "@/lib/queries/punctuality-drilldown";
 
@@ -59,7 +63,6 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
     <div className="flex min-w-0 flex-col">
       {/* Header ABOVE this card — see components/dashboard/section-header.tsx. */}
       <DashboardSectionHeader
-        className="mb-3"
         icon={
           <span
             className="inline-flex size-9 items-center justify-center rounded-full"
@@ -85,7 +88,7 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
       />
       <CollapsibleBody expanded={sectionOpen}>
         <section
-          className="wg-rise wms-card relative flex-1 rounded-2xl bg-white p-5 shadow-xs hover:shadow-sm max-md:p-4"
+          className={`wg-rise relative flex-1 ${DASHBOARD_CARD_PADDED}`}
           aria-label="On-time delivery rate"
         >
           {!hasData ? (
@@ -93,13 +96,17 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
               <EmptyState />
             </div>
           ) : (
-            /* 35 / 65. Stacks to one column below `lg` — at half a laptop width
-               the gauge and a 3-column table cannot both be legible side by
-               side. `items-stretch` is what lets the right panel match the left
+            /* A 12-COLUMN split (4 / 8), not a bespoke `35fr_65fr` track: the
+               dashboard's other two-up sections are all twelfths, and one grid
+               vocabulary is what keeps their gutters lining up down the page.
+               4/8 is 33/67 — within a point of the 35/65 it replaces.
+               Stacks to one column below `lg`: at half a laptop width the gauge
+               and a 3-column table cannot both be legible side by side.
+               `items-stretch` is what lets the right panel match the left
                column's height instead of collapsing to its content. */
-            <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[35fr_65fr]">
+            <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
               {/* ── LEFT — gauge + interactive KPI cards ───────────────── */}
-              <div className="flex min-w-0 flex-col gap-3">
+              <div className="flex min-w-0 flex-col gap-3 lg:col-span-4">
                 <div className="flex items-center justify-center">
                   <Gauge
                     pct={active.onTimeRate}
@@ -139,7 +146,7 @@ export function OnTimeGauge({ data }: { data: DoneOnTime }) {
               </div>
 
               {/* ── RIGHT — the breakdown for the selected card ────────── */}
-              <div className="flex min-h-[420px] min-w-0 flex-col">
+              <div className="flex min-h-[420px] min-w-0 flex-col lg:col-span-8">
                 <PunctualityTaskList basis={BASIS} bucket={bucket} />
               </div>
             </div>

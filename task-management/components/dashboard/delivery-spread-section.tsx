@@ -5,7 +5,11 @@ import { CalendarCheck2 } from "lucide-react";
 import { FineBucketBars } from "@/components/dashboard/task-report/fine-bucket-bars";
 import type { DoneFineDistribution } from "@/lib/queries/task-report";
 import { DashboardSectionHeader } from "@/components/dashboard/section-header";
-import { CollapseToggle, CollapsibleBody, DASHBOARD_CARD } from "@/components/dashboard/section-chrome";
+import {
+  CollapseToggle,
+  CollapsibleBody,
+  DASHBOARD_CARD_PADDED,
+} from "@/components/dashboard/section-chrome";
 import { PageShell } from "@/components/layout/page-shell";
 
 /**
@@ -32,6 +36,11 @@ const RED = "var(--color-altus-red, #E10600)";
 
 export function DeliverySpreadSection({ dist }: { dist: DoneFineDistribution }) {
   const [open, setOpen] = React.useState(true);
+  // The headline figures move UP into the header's right-hand slot, beside the
+  // fold control. They used to be a 46px display number and a two-line legend
+  // stacked at the top of the card, which put a second, larger masthead
+  // directly under the section's actual one.
+  const rate = dist.dated > 0 ? Math.round((dist.onTime / dist.dated) * 100) : 0;
 
   return (
     <PageShell as="section" width="full" py={false} aria-label="Delivery vs due date">
@@ -48,11 +57,28 @@ export function DeliverySpreadSection({ dist }: { dist: DoneFineDistribution }) 
         title="Delivery vs due date — the 12-bucket spread"
         subtitle="Completed tasks categorized by delivery timing relative to their committed due dates."
         actions={
-          <CollapseToggle
-            expanded={open}
-            onToggle={() => setOpen((v) => !v)}
-            label="the delivery spread"
-          />
+          <>
+            <span className="flex items-center gap-3 text-[12.5px] font-bold max-md:hidden">
+              <span className="tabular-nums" style={{ color: GREEN }}>
+                {rate}% <span className="text-ink-soft">on time</span>
+              </span>
+              <span aria-hidden className="text-hairline-strong">
+                ·
+              </span>
+              <span style={{ color: GREEN }}>
+                <span className="tabular-nums text-ink-strong">{dist.onTime}</span> On /
+                Before
+              </span>
+              <span style={{ color: RED }}>
+                <span className="tabular-nums text-ink-strong">{dist.late}</span> Late
+              </span>
+            </span>
+            <CollapseToggle
+              expanded={open}
+              onToggle={() => setOpen((v) => !v)}
+              label="the delivery spread"
+            />
+          </>
         }
       />
       <CollapsibleBody expanded={open}>
@@ -64,9 +90,7 @@ export function DeliverySpreadSection({ dist }: { dist: DoneFineDistribution }) 
 
 function GlassCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div
-      className={`relative overflow-hidden ${DASHBOARD_CARD} p-6 md:p-8 ${className ?? ""}`}
-    >
+    <div className={`relative overflow-hidden ${DASHBOARD_CARD_PADDED} ${className ?? ""}`}>
       {children}
     </div>
   );
@@ -75,42 +99,18 @@ function GlassCard({ children, className }: { children: React.ReactNode; classNa
 /* ──────────────────────── ① + ② DONE distribution card ─────────────────── */
 
 function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }) {
-  const rate = dist.dated > 0 ? Math.round((dist.onTime / dist.dated) * 100) : 0;
   // One denominator across BOTH halves, taken from the full distribution, so a
   // bar's length means the same thing on either side of the split.
   const barScale = Math.max(...dist.buckets.map((b) => b.count), 1);
   return (
     <GlassCard>
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">
-            {label}
-          </p>
-          <div className="mt-1 flex items-end gap-2.5">
-            <span
-              className="tabular-nums leading-none"
-              style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontWeight: 900,
-                fontSize: 46,
-                letterSpacing: "-0.02em",
-                color: GREEN,
-              }}
-            >
-              {rate}%
-            </span>
-            <span className="mb-1.5 text-[12.5px] font-bold text-ink-soft">on time</span>
-          </div>
-        </div>
-        <div className="text-right text-[12.5px] font-bold">
-          <p style={{ color: GREEN }}>
-            <span className="tabular-nums text-ink-strong">{dist.onTime}</span> On / Before
-          </p>
-          <p style={{ color: RED }}>
-            <span className="tabular-nums text-ink-strong">{dist.late}</span> Late
-          </p>
-        </div>
-      </div>
+      {/* The rate / On-Before / Late summary that used to open this card now
+          lives in the section header (see DeliverySpreadSection). Only the
+          basis caption stays, because it says which due date the bars below
+          are measured against — which the header does not. */}
+      <p className="text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">
+        {label}
+      </p>
 
       {/* Side-by-side split. The buckets are already ordered most-overdue first
           through earliest-delivery last, so `fineBucketIsLate` cuts the list
@@ -118,7 +118,7 @@ function DoneCard({ dist, label }: { dist: DoneFineDistribution; label: string }
           second source of truth for which band is which.
           On Due Date sits on the RIGHT: delivering exactly on the committed day
           is hitting the deadline, not missing it. */}
-      <div className="mt-5 grid grid-cols-2 gap-6 max-lg:grid-cols-1">
+      <div className="mt-4 grid grid-cols-2 gap-6 max-lg:grid-cols-1">
         <FineBucketBars
           buckets={dist.buckets.filter((b) => b.late)}
           heading="Overdue"

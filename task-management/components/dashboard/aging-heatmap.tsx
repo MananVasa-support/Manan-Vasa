@@ -21,7 +21,11 @@ import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { Avatar } from "@/components/ui/avatar";
 import { PageShell } from "@/components/layout/page-shell";
 import { DashboardSectionHeader } from "@/components/dashboard/section-header";
-import { CollapseToggle, CollapsibleBody } from "@/components/dashboard/section-chrome";
+import {
+  CollapseToggle,
+  CollapsibleBody,
+  DASHBOARD_CARD_PADDED,
+} from "@/components/dashboard/section-chrome";
 import { AgingTaskDrawer } from "@/components/dashboard/aging-task-drawer";
 
 // RISK-BANDED palette — four bands rather than a continuous hue ramp, so a lane
@@ -458,9 +462,13 @@ export function AgingHeatmap({
       <CollapsibleBody expanded={open}>
 
       <div
-        /* Vertical padding trimmed below the horizontal: the gutter still needs
-           to clear the card edge, but the stack inside is what was tall. */
-        className="wms-card aging-shell relative overflow-hidden bg-white border border-slate-200/80 rounded-2xl shadow-xs p-6 md:p-8 hover:shadow-sm"
+        /* The shared dashboard card, not a hand-rolled copy of it. The classes
+           spelled out here were already identical to DASHBOARD_CARD_PADDED —
+           which is exactly how they drift apart the next time one is edited.
+           `wms-card` came off with them: that utility OWNS the border, and the
+           card constant sets `border-slate-200/80` alongside it, so the two
+           were fighting over the same property. */
+        className={`aging-shell relative overflow-hidden ${DASHBOARD_CARD_PADDED}`}
       >
         {/* The red/green "heat wash" backdrop was removed — it was the other
             half of the peach tint. The heat colours still live where they carry
