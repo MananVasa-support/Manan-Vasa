@@ -69,6 +69,33 @@ function toDateOrNull(value: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * COERCE `dueAt` IN PLACE, ONCE, AT THE SOURCE.
+ *
+ * `taskCols()` projects `dueAt` as `effectiveDueAtSql()` — a raw
+ * `sql<Date>\`COALESCE(revised_target_date, due_at)\`` fragment. That type
+ * parameter is an ASSERTION, not a conversion: drizzle runs its driver decoder
+ * over real COLUMNS, not over raw fragments, so the value arrives as an ISO
+ * STRING while the type system swears it is a Date.
+ *
+ * Every consumer then inherits a landmine. `summarize()` called `.getTime()` on
+ * it and threw `t.dueAt.getTime is not a function`, which the page turned into
+ * "Dashboard is taking longer than usual" — a crash wearing a timeout's
+ * clothes. The quieter half is worse: anything doing date ARITHMETIC on the
+ * string got NaN and silently produced garbage counts instead of an error,
+ * which is exactly what the comment on toDateOrNull warned about.
+ *
+ * Fixed here rather than at each call site so no future transform has to know.
+ * Mutates in place: these arrays are freshly built by the query above and owned
+ * by this function, and re-spreading every row of three full scans would cost
+ * real memory on a big period.
+ */
+function coerceDueAt(rows: { dueAt: unknown }[]): void {
+  for (const r of rows) {
+    if (!(r.dueAt instanceof Date)) r.dueAt = toDateOrNull(r.dueAt);
+  }
+}
+
 // All task columns EXCEPT the large free-text fields. The dashboard transforms
 // never read them, and shipping them on every row of three full scans bloats the
 // payload over the remote connection — which is what makes a scan's RESULT SEND
@@ -144,7 +171,10 @@ export async function loadDashboardData(
   return { ...data, generatedAt: new Date() };
 }
 
-async function loadDashboardDataUncached(
+/** Exported for diagnostics: scripts/diag-dashboard.ts calls this directly
+ *  because unstable_cache needs a Next request context that a tsx script has
+ *  no way to provide. Application code should call loadDashboardData(). */
+export async function loadDashboardDataUncached(
   filters: DashboardFilters,
 ): Promise<DashboardData> {
   const start =
@@ -233,6 +263,13 @@ async function loadDashboardDataUncached(
   // `dueAt` as the EFFECTIVE date and selects the raw column alongside it, but
   // the plain `Task` cast hid that second field from the type system while it
   // was present at runtime. The heatmap's drill-down reads it.
+  // Before any cast: all three scans project `dueAt` through the raw COALESCE
+  // fragment, so all three need the same coercion. `rankingTasksRaw` is skipped
+  // when it is null (it then aliases periodTasksRaw, already coerced).
+  coerceDueAt(periodTasksRaw);
+  coerceDueAt(wideTasksRaw);
+  if (rankingTasksRaw) coerceDueAt(rankingTasksRaw);
+
   const periodTasks = periodTasksRaw as unknown as (Task & { originalDueAt: Date | null })[];
   const wideTasks = wideTasksRaw as unknown as Task[];
   const rankingTasks = (rankingTasksRaw ?? periodTasksRaw) as unknown as Task[];
